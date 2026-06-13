@@ -11,6 +11,8 @@
     "compile": "yarn workspace @tracefund/hardhat compile",
     "test": "yarn workspace @tracefund/hardhat test",
     "deploy": "yarn workspace @tracefund/hardhat deploy",
+    "deploy:baseSepolia": "yarn workspace @tracefund/hardhat deploy:baseSepolia",
+    "deploy:base": "yarn workspace @tracefund/hardhat deploy:base",
     "seed": "yarn workspace @tracefund/hardhat seed",
     "start": "yarn workspace @tracefund/nextjs dev",
     "frontend": "yarn workspace @tracefund/nextjs dev"
