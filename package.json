@@ -1,0 +1,19 @@
+{
+  "name": "tracefund",
+  "version": "0.1.0",
+  "private": true,
+  "description": "TraceFund — milestone-based crowdfunding with enforced accountability on Ethereum (Base).",
+  "workspaces": [
+    "packages/*"
+  ],
+  "scripts": {
+    "chain": "yarn workspace @tracefund/hardhat chain",
+    "compile": "yarn workspace @tracefund/hardhat compile",
+    "test": "yarn workspace @tracefund/hardhat test",
+    "deploy": "yarn workspace @tracefund/hardhat deploy",
+    "seed": "yarn workspace @tracefund/hardhat seed",
+    "start": "yarn workspace @tracefund/nextjs dev",
+    "frontend": "yarn workspace @tracefund/nextjs dev"
+  },
+  "packageManager": "yarn@1.22.22"
+}
