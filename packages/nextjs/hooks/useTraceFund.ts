@@ -4,6 +4,7 @@ import { useCallback } from "react";
 import {
   useChainId,
   useReadContract,
+  useSwitchChain,
   useWaitForTransactionReceipt,
   useWriteContract,
 } from "wagmi";
@@ -163,6 +164,8 @@ export type TraceFundFn =
  */
 export function useTraceFundWrite() {
   const { address, abi, chainId } = useReadChain();
+  const connectedChainId = useChainId();
+  const { switchChainAsync } = useSwitchChain();
   const queryClient = useQueryClient();
   const { writeContractAsync, data: hash, isPending, error, reset } = useWriteContract();
   const {
@@ -174,6 +177,13 @@ export function useTraceFundWrite() {
   const execute = useCallback(
     async (functionName: TraceFundFn, args: unknown[], value?: bigint) => {
       if (!address) throw new Error("TraceFund is not deployed on this network.");
+      // wagmi rejects a write whose explicit chainId differs from the wallet's
+      // current chain. Prompt the wallet to switch first so a second device on
+      // the wrong network (e.g. Ethereum) lands on the deployment chain (Base)
+      // instead of hitting a ChainMismatchError.
+      if (connectedChainId !== chainId) {
+        await switchChainAsync({ chainId });
+      }
       const txHash = await writeContractAsync({
         address,
         abi,
@@ -184,7 +194,7 @@ export function useTraceFundWrite() {
       } as any);
       return txHash;
     },
-    [address, abi, chainId, writeContractAsync],
+    [address, abi, chainId, connectedChainId, switchChainAsync, writeContractAsync],
   );
 
   const refresh = useCallback(() => {
