@@ -7,7 +7,6 @@ const ICON: Record<ActivityType, { glyph: string; ring: string }> = {
   CampaignCreated: { glyph: "✦", ring: "bg-white/5 text-gray-300" },
   DonationReceived: { glyph: "↓", ring: "bg-brand-500/15 text-brand-300" },
   EvidenceSubmitted: { glyph: "▣", ring: "bg-sky-500/15 text-sky-300" },
-  MilestoneApproved: { glyph: "✓", ring: "bg-violet-500/15 text-violet-300" },
   MilestoneReleased: { glyph: "↑", ring: "bg-emerald-500/15 text-emerald-300" },
   CampaignCompleted: { glyph: "★", ring: "bg-brand-500/20 text-brand-200" },
 };
@@ -31,23 +30,16 @@ function describe(item: ActivityItem): React.ReactNode {
         </>
       );
     case "EvidenceSubmitted":
-      return <>Creator submitted evidence for {ms}</>;
-    case "MilestoneApproved":
-      return (
-        <>
-          <span className="font-mono">{shortenAddress(a.donor)}</span> approved {ms}{" "}
-          <span className="text-gray-500">(+{formatEth(a.weight)} ETH weight)</span>
-        </>
-      );
+      return <>Creator posted proof for {ms}</>;
     case "MilestoneReleased":
       return (
         <>
-          Released <span className="font-mono text-emerald-300">{formatEth(a.amount)} ETH</span> for{" "}
-          {ms} to the creator
+          Creator withdrew{" "}
+          <span className="font-mono text-emerald-300">{formatEth(a.amount)} ETH</span> for {ms}
         </>
       );
     case "CampaignCompleted":
-      return <>Campaign completed — all milestones released 🎉</>;
+      return <>Campaign completed — all milestones withdrawn 🎉</>;
     default:
       return item.type;
   }

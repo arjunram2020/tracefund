@@ -12,10 +12,6 @@ import { useQueryClient } from "@tanstack/react-query";
 import { getTraceFund, resolveReadChainId, traceFundAbi } from "../lib/contract";
 import type { Campaign, CreatorStats, Milestone } from "../lib/types";
 
-/**
- * Resolve which chain + address the UI should read from. Falls back to the
- * default deployment chain so public viewers can browse without a wallet.
- */
 export function useReadChain() {
   const connectedChainId = useChainId();
   const chainId = resolveReadChainId(connectedChainId);
@@ -79,25 +75,6 @@ export function useMilestones(id?: bigint) {
   return { ...q, milestones: (q.data as Milestone[] | undefined) ?? [] };
 }
 
-export function useApprovalProgress(id?: bigint) {
-  const { address, abi, chainId } = useReadChain();
-  const q = useReadContract({
-    address,
-    abi,
-    functionName: "getApprovalProgress",
-    args: id !== undefined ? [id] : undefined,
-    chainId,
-    query: { enabled: !!address && id !== undefined },
-  });
-  const tuple = q.data as readonly [bigint, bigint, boolean] | undefined;
-  return {
-    ...q,
-    approvalWeight: tuple?.[0] ?? 0n,
-    totalRaised: tuple?.[1] ?? 0n,
-    thresholdReached: tuple?.[2] ?? false,
-  };
-}
-
 export function useTrustScore(creator?: `0x${string}`) {
   const { address, abi, chainId } = useReadChain();
   const q = useReadContract({
@@ -137,31 +114,12 @@ export function useMyDonation(id?: bigint, donor?: `0x${string}`) {
   return { ...q, donation: (q.data as bigint | undefined) ?? 0n };
 }
 
-export function useHasApproved(id?: bigint, milestoneIndex?: bigint, donor?: `0x${string}`) {
-  const { address, abi, chainId } = useReadChain();
-  const enabled = !!address && id !== undefined && milestoneIndex !== undefined && !!donor;
-  const q = useReadContract({
-    address,
-    abi,
-    functionName: "hasApproved",
-    args: enabled ? [id, milestoneIndex, donor] : undefined,
-    chainId,
-    query: { enabled },
-  });
-  return { ...q, approved: (q.data as boolean | undefined) ?? false };
-}
-
 export type TraceFundFn =
   | "createCampaign"
   | "donate"
   | "submitEvidence"
-  | "approveMilestone"
   | "releaseMilestoneFunds";
 
-/**
- * A small write helper that bundles tx submission + confirmation state and
- * refreshes on-chain reads once the transaction is mined.
- */
 export function useTraceFundWrite() {
   const { address, abi, chainId } = useReadChain();
   const connectedChainId = useChainId();
@@ -177,10 +135,6 @@ export function useTraceFundWrite() {
   const execute = useCallback(
     async (functionName: TraceFundFn, args: unknown[], value?: bigint) => {
       if (!address) throw new Error("TraceFund is not deployed on this network.");
-      // wagmi rejects a write whose explicit chainId differs from the wallet's
-      // current chain. Prompt the wallet to switch first so a second device on
-      // the wrong network (e.g. Ethereum) lands on the deployment chain (Base)
-      // instead of hitting a ChainMismatchError.
       if (connectedChainId !== chainId) {
         await switchChainAsync({ chainId });
       }
@@ -198,7 +152,6 @@ export function useTraceFundWrite() {
   );
 
   const refresh = useCallback(() => {
-    // Refresh every contract read so all panels + the activity feed update.
     queryClient.invalidateQueries();
   }, [queryClient]);
 
@@ -206,8 +159,8 @@ export function useTraceFundWrite() {
     execute,
     refresh,
     hash,
-    isPending, // waiting for wallet signature / broadcast
-    isConfirming, // mined-pending
+    isPending,
+    isConfirming,
     isConfirmed,
     error: error ?? receiptError,
     reset,

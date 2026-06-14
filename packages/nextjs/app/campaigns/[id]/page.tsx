@@ -4,9 +4,7 @@ import Link from "next/link";
 import { useParams } from "next/navigation";
 import { useAccount } from "wagmi";
 import {
-  useApprovalProgress,
   useCampaign,
-  useHasApproved,
   useMilestones,
   useMyDonation,
   useTrustScore,
@@ -19,7 +17,7 @@ import { ProgressBar } from "../../../components/ProgressBar";
 import { MilestoneTimeline } from "../../../components/MilestoneTimeline";
 import { DonationPanel } from "../../../components/DonationPanel";
 import { EvidencePanel } from "../../../components/EvidencePanel";
-import { DonorApprovalPanel } from "../../../components/DonorApprovalPanel";
+import { CreatorReleasePanel } from "../../../components/CreatorReleasePanel";
 import { ActivityFeed } from "../../../components/ActivityFeed";
 
 export default function CampaignDetailPage() {
@@ -35,9 +33,7 @@ export default function CampaignDetailPage() {
   const { address } = useAccount();
   const { campaign, isLoading, isError } = useCampaign(id);
   const { milestones } = useMilestones(id);
-  const progress = useApprovalProgress(id);
   const { donation } = useMyDonation(id, address);
-  const { approved } = useHasApproved(id, campaign?.currentMilestone, address);
   const { score } = useTrustScore(campaign?.creator);
 
   if (id === undefined) {
@@ -67,6 +63,16 @@ export default function CampaignDetailPage() {
   const currentLabel = campaign.completed
     ? `${campaign.milestoneCount}/${campaign.milestoneCount}`
     : `${campaign.currentMilestone + 1n}/${campaign.milestoneCount}`;
+
+  // Cumulative target for the current milestone (to show milestone-level funding progress)
+  const mi = Number(campaign.currentMilestone);
+  const currentCumulativeTarget = milestones
+    .slice(0, mi + 1)
+    .reduce((s, m) => s + m.amount, 0n);
+  const milestoneFundingPct = percent(
+    campaign.totalRaised > currentCumulativeTarget ? currentCumulativeTarget : campaign.totalRaised,
+    currentCumulativeTarget || campaign.goalAmount,
+  );
 
   return (
     <div className="mx-auto max-w-6xl px-4 py-8 sm:px-6">
@@ -104,12 +110,28 @@ export default function CampaignDetailPage() {
           <Stat label="Milestone" value={currentLabel} />
         </div>
 
-        <div className="mt-5">
-          <div className="mb-1.5 flex items-center justify-between text-sm text-gray-400">
-            <span>Funding progress</span>
-            <span className="font-mono">{raisedPct.toFixed(0)}%</span>
+        {/* Dual progress: overall goal + current milestone tranche */}
+        <div className="mt-5 space-y-3">
+          <div>
+            <div className="mb-1.5 flex items-center justify-between text-sm text-gray-400">
+              <span>Overall funding</span>
+              <span className="font-mono">{raisedPct.toFixed(0)}%</span>
+            </div>
+            <ProgressBar value={raisedPct} />
           </div>
-          <ProgressBar value={raisedPct} />
+          {!campaign.completed && milestones.length > 0 && (
+            <div>
+              <div className="mb-1.5 flex items-center justify-between text-sm text-gray-400">
+                <span>Current milestone ({mi + 1}) threshold</span>
+                <span className="font-mono">
+                  {formatEth(campaign.totalRaised > currentCumulativeTarget ? currentCumulativeTarget : campaign.totalRaised)}
+                  {" / "}
+                  {formatEth(currentCumulativeTarget)} ETH
+                </span>
+              </div>
+              <ProgressBar value={milestoneFundingPct} tone="violet" />
+            </div>
+          )}
         </div>
       </div>
 
@@ -126,14 +148,10 @@ export default function CampaignDetailPage() {
         <div className="space-y-6 lg:sticky lg:top-20 lg:self-start">
           <DonationPanel campaign={campaign} />
           <EvidencePanel campaign={campaign} milestones={milestones} isCreator={isCreator} />
-          <DonorApprovalPanel
+          <CreatorReleasePanel
             campaign={campaign}
             milestones={milestones}
-            approvalWeight={progress.approvalWeight}
-            totalRaised={progress.totalRaised || campaign.totalRaised}
-            thresholdReached={progress.thresholdReached}
-            myDonation={donation}
-            hasApproved={approved}
+            isCreator={isCreator}
           />
         </div>
       </div>

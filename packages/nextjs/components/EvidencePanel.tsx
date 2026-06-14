@@ -17,8 +17,6 @@ export function EvidencePanel({
   isCreator: boolean;
   onSuccess?: () => void;
 }) {
-  const current = Number(campaign.currentMilestone);
-  const activeMilestone = campaign.completed ? undefined : milestones[current];
   const [evidence, setEvidence] = useState("");
   const { execute, refresh, isPending, isConfirming, isConfirmed, error, hash } =
     useTraceFundWrite();
@@ -32,10 +30,25 @@ export function EvidencePanel({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [isConfirmed]);
 
+  // Determine which milestone the creator should prove next.
+  // Priority: the last released-but-unproven milestone (so the next tranche can open).
+  // Fallback: the current active milestone (pre-withdrawal).
+  const current = Number(campaign.currentMilestone);
+  const evidenceIndex = (() => {
+    if (campaign.completed) return milestones.length - 1;
+    // If previous milestone was withdrawn but not yet proven, show that first
+    if (current > 0 && milestones[current - 1]?.released && !milestones[current - 1]?.evidenceSubmitted) {
+      return current - 1;
+    }
+    return current < milestones.length ? current : milestones.length - 1;
+  })();
+
+  const targetMilestone: Milestone | undefined = milestones[evidenceIndex];
+
   const submit = async () => {
     if (!evidence.trim()) return;
     try {
-      await execute("submitEvidence", [campaign.id, evidence.trim()]);
+      await execute("submitEvidence", [campaign.id, BigInt(evidenceIndex), evidence.trim()]);
     } catch {
       /* surfaced via TxFeedback */
     }
@@ -45,40 +58,53 @@ export function EvidencePanel({
     <div className="card p-5">
       <div className="mb-4 flex items-center justify-between">
         <h3 className="font-semibold text-white">
-          {isCreator && activeMilestone ? "Submit evidence" : "Milestone evidence"}
+          {isCreator && targetMilestone ? "Submit proof" : "Milestone proof"}
         </h3>
-        {!campaign.completed && (
-          <span className="pill bg-white/5 text-gray-400">Milestone {current + 1}</span>
+        {targetMilestone && (
+          <span className="pill bg-white/5 text-gray-400">Milestone {evidenceIndex + 1}</span>
         )}
       </div>
 
       {campaign.completed ? (
         <p className="rounded-xl bg-white/5 px-4 py-3 text-sm text-gray-400">
-          All milestones have been proven and released. 🎉
+          All milestones completed and proven. 🎉
         </p>
-      ) : activeMilestone?.evidenceSubmitted ? (
+      ) : targetMilestone?.evidenceSubmitted ? (
         <div className="rounded-xl bg-white/[0.03] px-4 py-3">
           <p className="mb-1 text-xs uppercase tracking-wide text-gray-500">
-            Submitted for “{activeMilestone.description}”
+            Proof for "{targetMilestone.description}"
           </p>
-          <EvidenceLink evidence={activeMilestone.evidence} />
+          <EvidenceLink evidence={targetMilestone.evidence} />
+          {/* If there's a more recent released-but-unproven milestone, show a nudge */}
+          {current > 0 &&
+            milestones[current - 1]?.released &&
+            !milestones[current - 1]?.evidenceSubmitted &&
+            evidenceIndex !== current - 1 && (
+              <p className="mt-2 text-xs text-amber-300">
+                Milestone {current} needs proof to unlock the next tranche.
+              </p>
+            )}
         </div>
-      ) : (
+      ) : targetMilestone?.released ? (
         <p className="rounded-xl bg-amber-500/10 px-4 py-3 text-sm text-amber-200">
-          No evidence submitted yet for “{activeMilestone?.description}”. Funds stay locked until the
-          creator posts proof.
+          Milestone {evidenceIndex + 1} funds were withdrawn — post proof here to unlock the next
+          tranche.
+        </p>
+      ) : (
+        <p className="rounded-xl bg-white/[0.03] px-4 py-3 text-sm text-gray-400">
+          No proof submitted yet for "{targetMilestone?.description}". Proof becomes relevant after
+          withdrawing this tranche.
         </p>
       )}
 
-      {isCreator && activeMilestone && (
+      {isCreator && targetMilestone && (
         <div className="mt-4 border-t border-canvas-border/60 pt-4">
           <label className="label">
-            {activeMilestone.evidenceSubmitted ? "Update evidence" : "Evidence"} — URL, IPFS CID, or
-            text
+            {targetMilestone.evidenceSubmitted ? "Update proof" : "Proof"}
           </label>
-          <textarea
-            className="input min-h-[80px] resize-y"
-            placeholder="ipfs://… or https://… or a short description of the proof"
+          <input
+            className="input"
+            placeholder="Describe what was accomplished"
             value={evidence}
             onChange={(e) => setEvidence(e.target.value)}
           />
@@ -87,7 +113,7 @@ export function EvidencePanel({
             onClick={submit}
             disabled={!evidence.trim() || isPending || isConfirming}
           >
-            {isPending || isConfirming ? "Submitting…" : "Submit evidence on-chain"}
+            {isPending || isConfirming ? "Submitting…" : "Post proof on-chain"}
           </button>
           <div className="mt-3 min-h-[1.25rem]">
             <TxFeedback
@@ -96,11 +122,11 @@ export function EvidencePanel({
               isConfirmed={isConfirmed}
               error={error}
               hash={hash}
-              successText="Evidence recorded on-chain."
+              successText="Proof recorded on-chain."
             />
           </div>
           <p className="mt-1 text-xs text-gray-500">
-            Submitting evidence creates a public record but does not release any money.
+            Stored permanently on-chain and unlocks the next milestone for withdrawal.
           </p>
         </div>
       )}

@@ -6,8 +6,6 @@ export interface Milestone {
   amount: bigint;
   evidence: string;
   evidenceSubmitted: boolean;
-  approvalWeight: bigint;
-  approvalBase: bigint;
   released: boolean;
 }
 
@@ -36,11 +34,10 @@ export interface CreatorStats {
   evidenceUpdates: bigint;
 }
 
-// Per-milestone UI status derived from on-chain state (PRD §14 MilestoneTimeline).
+// Per-milestone UI status derived from on-chain state.
 export type MilestoneStatus =
-  | "locked"
-  | "awaiting-evidence"
-  | "evidence-submitted"
-  | "awaiting-approval"
-  | "ready-to-release"
-  | "released";
+  | "locked"             // future milestone or proof gate not yet met
+  | "funding"            // proof gate passed but not enough raised yet
+  | "ready-to-withdraw"  // threshold reached and proof gate passed
+  | "withdrawn"          // creator withdrew, proof not yet submitted
+  | "proven";            // withdrawn and evidence submitted

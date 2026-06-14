@@ -2,7 +2,7 @@
 
 import { useEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
-import { parseEther } from "viem";
+import { parseEther, formatEther } from "viem";
 import { useAccount } from "wagmi";
 import { ConnectButton } from "@rainbow-me/rainbowkit";
 import { useCampaignCount, useTraceFundWrite } from "../../hooks/useTraceFund";
@@ -10,22 +10,22 @@ import { TxFeedback } from "../../components/TxFeedback";
 import { ContractNotice } from "../../components/ContractNotice";
 import { formatEth } from "../../lib/format";
 
-interface MilestoneInput {
-  description: string;
-  amount: string;
-}
-
-const MAX = 5;
+const MIN_MILESTONES = 3;
+const MAX_MILESTONES = 20;
 
 const DEMO = {
   title: "Community Medical Relief Fund",
   description:
-    "A transparent emergency fundraiser where donations unlock only after milestone proof is submitted and donors approve the release.",
-  milestones: [
-    { description: "Hospital deposit receipt", amount: "0.02" },
-    { description: "Medication purchase receipt", amount: "0.015" },
-    { description: "Follow-up appointment confirmation", amount: "0.015" },
+    "A transparent emergency fundraiser where donations unlock in equal tranches. Each withdrawal requires on-chain proof of how the previous funds were used.",
+  mode: "even" as "even" | "manual",
+  totalGoal: "0.05",
+  milestoneCount: 3,
+  descriptions: [
+    "Hospital deposit — receipt posted on-chain",
+    "Medication purchase — purchase proof submitted",
+    "Follow-up appointment — confirmation uploaded",
   ],
+  amounts: ["", "", ""],
 };
 
 function safeParse(amount: string): bigint | null {
@@ -44,12 +44,35 @@ export default function CreateCampaignPage() {
 
   const [title, setTitle] = useState("");
   const [description, setDescription] = useState("");
-  const [milestones, setMilestones] = useState<MilestoneInput[]>([
-    { description: "", amount: "" },
-  ]);
+  const [mode, setMode] = useState<"even" | "manual">("even");
+
+  // Even split state
+  const [totalGoal, setTotalGoal] = useState("");
+  const [milestoneCount, setMilestoneCount] = useState(3);
+
+  // Shared: per-milestone descriptions + manual amounts
+  const [descriptions, setDescriptions] = useState<string[]>(["", "", ""]);
+  const [amounts, setAmounts] = useState<string[]>(["", "", ""]);
 
   const { execute, refresh, isPending, isConfirming, isConfirmed, error, hash } =
     useTraceFundWrite();
+
+  // Keep descriptions + amounts arrays in sync with milestoneCount (even mode)
+  useEffect(() => {
+    if (mode !== "even") return;
+    setDescriptions((prev) => {
+      if (prev.length === milestoneCount) return prev;
+      return prev.length < milestoneCount
+        ? [...prev, ...Array(milestoneCount - prev.length).fill("")]
+        : prev.slice(0, milestoneCount);
+    });
+    setAmounts((prev) => {
+      if (prev.length === milestoneCount) return prev;
+      return prev.length < milestoneCount
+        ? [...prev, ...Array(milestoneCount - prev.length).fill("")]
+        : prev.slice(0, milestoneCount);
+    });
+  }, [milestoneCount, mode]);
 
   useEffect(() => {
     if (isConfirmed && predictedId.current !== null) {
@@ -59,37 +82,92 @@ export default function CreateCampaignPage() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [isConfirmed]);
 
-  const updateMilestone = (i: number, patch: Partial<MilestoneInput>) =>
-    setMilestones((prev) => prev.map((m, idx) => (idx === i ? { ...m, ...patch } : m)));
+  // Derived values
+  const parsedGoal = safeParse(totalGoal);
+  const amountEach = parsedGoal && milestoneCount > 0 ? parsedGoal / BigInt(milestoneCount) : null;
 
-  const addMilestone = () =>
-    setMilestones((prev) => (prev.length < MAX ? [...prev, { description: "", amount: "" }] : prev));
+  // In manual mode, compute totalGoal from sum of amounts
+  const parsedAmounts = amounts.map(safeParse);
+  const manualTotal =
+    mode === "manual" && parsedAmounts.every((a) => a !== null && a > 0n)
+      ? parsedAmounts.reduce((s, a) => s! + a!, 0n as bigint)
+      : null;
 
-  const removeMilestone = (i: number) =>
-    setMilestones((prev) => (prev.length > 1 ? prev.filter((_, idx) => idx !== i) : prev));
-
-  const parsedAmounts = milestones.map((m) => safeParse(m.amount));
-  const total = parsedAmounts.reduce<bigint>((acc, v) => acc + (v ?? 0n), 0n);
+  // Per-milestone amounts array to pass to contract
+  const finalAmounts: bigint[] | null = (() => {
+    if (mode === "even") {
+      if (!amountEach || !parsedGoal) return null;
+      const n = milestoneCount;
+      return Array.from({ length: n }, (_, i) =>
+        i === n - 1 ? parsedGoal - amountEach * BigInt(n - 1) : amountEach,
+      );
+    } else {
+      if (parsedAmounts.some((a) => a === null || a <= 0n)) return null;
+      return parsedAmounts as bigint[];
+    }
+  })();
 
   const titleValid = title.trim().length > 0;
   const descValid = description.trim().length > 0;
-  const milestonesValid =
-    milestones.length >= 1 &&
-    milestones.length <= MAX &&
-    milestones.every((m, i) => m.description.trim().length > 0 && (parsedAmounts[i] ?? 0n) > 0n);
-  const formValid = titleValid && descValid && milestonesValid;
+  const goalValid = mode === "even" ? (parsedGoal !== null && parsedGoal > 0n) : manualTotal !== null;
+  const descsValid = descriptions.every((d) => d.trim().length > 0);
+  const formValid = titleValid && descValid && goalValid && descsValid && finalAmounts !== null;
 
   const submit = async () => {
-    if (!formValid) return;
-    predictedId.current = count; // the new campaign id == current count
-    const descs = milestones.map((m) => m.description.trim());
-    const amts = parsedAmounts.map((v) => v ?? 0n);
+    if (!formValid || !finalAmounts) return;
+    predictedId.current = count;
     try {
-      await execute("createCampaign", [title.trim(), description.trim(), descs, amts]);
+      await execute("createCampaign", [
+        title.trim(),
+        description.trim(),
+        descriptions.map((d) => d.trim()),
+        finalAmounts,
+      ]);
     } catch {
       /* surfaced via TxFeedback */
     }
   };
+
+  const loadDemo = () => {
+    setTitle(DEMO.title);
+    setDescription(DEMO.description);
+    setMode(DEMO.mode);
+    setTotalGoal(DEMO.totalGoal);
+    setMilestoneCount(DEMO.milestoneCount);
+    setDescriptions(DEMO.descriptions);
+    setAmounts(DEMO.amounts);
+  };
+
+  const addMilestone = () => {
+    setDescriptions((prev) => [...prev, ""]);
+    setAmounts((prev) => [...prev, ""]);
+  };
+
+  const removeMilestone = (i: number) => {
+    setDescriptions((prev) => prev.filter((_, idx) => idx !== i));
+    setAmounts((prev) => prev.filter((_, idx) => idx !== i));
+  };
+
+  // Cumulative thresholds for display
+  const cumulativeTargets: string[] = (() => {
+    if (mode === "even") {
+      return descriptions.map((_, i) => {
+        if (!amountEach) return "?";
+        const n = milestoneCount;
+        const cum = i === n - 1
+          ? parsedGoal! - amountEach * BigInt(n - 1) + amountEach * BigInt(i)
+          : amountEach * BigInt(i + 1);
+        return formatEth(cum);
+      });
+    } else {
+      let running = 0n;
+      return parsedAmounts.map((a) => {
+        if (a === null) return "?";
+        running += a;
+        return formatEth(running);
+      });
+    }
+  })();
 
   return (
     <div className="mx-auto max-w-3xl px-4 py-10 sm:px-6">
@@ -97,18 +175,10 @@ export default function CreateCampaignPage() {
         <div>
           <h1 className="text-2xl font-bold text-white">Create a campaign</h1>
           <p className="mt-1 text-sm text-gray-400">
-            Define milestones with amounts. The goal is the sum of all milestones.
+            Set milestone amounts — funds unlock in tranches as each milestone is proven.
           </p>
         </div>
-        <button
-          type="button"
-          className="btn-ghost text-xs"
-          onClick={() => {
-            setTitle(DEMO.title);
-            setDescription(DEMO.description);
-            setMilestones(DEMO.milestones);
-          }}
-        >
+        <button type="button" className="btn-ghost text-xs" onClick={loadDemo}>
           Use demo campaign
         </button>
       </div>
@@ -118,6 +188,7 @@ export default function CreateCampaignPage() {
       </div>
 
       <div className="card space-y-5 p-6">
+        {/* Title */}
         <div>
           <label className="label">Title</label>
           <input
@@ -128,6 +199,7 @@ export default function CreateCampaignPage() {
           />
         </div>
 
+        {/* Description */}
         <div>
           <label className="label">Description</label>
           <textarea
@@ -138,62 +210,149 @@ export default function CreateCampaignPage() {
           />
         </div>
 
+        {/* Mode toggle */}
         <div>
-          <div className="mb-2 flex items-center justify-between">
-            <label className="label mb-0">Milestones ({milestones.length}/{MAX})</label>
+          <label className="label">Milestone amounts</label>
+          <div className="flex gap-2">
             <button
               type="button"
-              className="text-xs font-medium text-brand-400 hover:text-brand-300 disabled:opacity-40"
-              onClick={addMilestone}
-              disabled={milestones.length >= MAX}
+              className={`flex-1 rounded-xl border px-4 py-2 text-sm font-medium transition ${
+                mode === "even"
+                  ? "border-brand-500/60 bg-brand-500/10 text-brand-300"
+                  : "border-canvas-border bg-white/[0.03] text-gray-400 hover:text-white"
+              }`}
+              onClick={() => setMode("even")}
             >
-              + Add milestone
+              Even split
             </button>
-          </div>
-
-          <div className="space-y-3">
-            {milestones.map((m, i) => (
-              <div key={i} className="rounded-xl border border-canvas-border/60 bg-canvas-soft/40 p-3">
-                <div className="mb-2 flex items-center justify-between">
-                  <span className="text-xs font-semibold text-gray-400">Milestone {i + 1}</span>
-                  {milestones.length > 1 && (
-                    <button
-                      type="button"
-                      className="text-xs text-gray-500 hover:text-red-400"
-                      onClick={() => removeMilestone(i)}
-                    >
-                      Remove
-                    </button>
-                  )}
-                </div>
-                <div className="grid gap-2 sm:grid-cols-[1fr_140px]">
-                  <input
-                    className="input"
-                    placeholder="Hospital deposit receipt"
-                    value={m.description}
-                    onChange={(e) => updateMilestone(i, { description: e.target.value })}
-                  />
-                  <input
-                    className="input"
-                    inputMode="decimal"
-                    placeholder="ETH e.g. 0.02"
-                    value={m.amount}
-                    onChange={(e) =>
-                      updateMilestone(i, { amount: e.target.value.replace(/[^0-9.]/g, "") })
-                    }
-                  />
-                </div>
-              </div>
-            ))}
+            <button
+              type="button"
+              className={`flex-1 rounded-xl border px-4 py-2 text-sm font-medium transition ${
+                mode === "manual"
+                  ? "border-brand-500/60 bg-brand-500/10 text-brand-300"
+                  : "border-canvas-border bg-white/[0.03] text-gray-400 hover:text-white"
+              }`}
+              onClick={() => {
+                setMode("manual");
+                // migrate descriptions length into manual mode
+                setAmounts(Array(descriptions.length).fill(""));
+              }}
+            >
+              Set manually
+            </button>
           </div>
         </div>
 
-        {/* Goal summary */}
-        <div className="flex items-center justify-between rounded-xl bg-white/[0.03] px-4 py-3">
-          <span className="text-sm text-gray-400">Total goal</span>
-          <span className="font-mono text-lg font-semibold text-brand-300">
-            {formatEth(total)} ETH
-          </span>
+        {/* Even split controls */}
+        {mode === "even" && (
+          <div className="grid gap-4 sm:grid-cols-2">
+            <div>
+              <label className="label">Total goal (ETH)</label>
+              <input
+                className="input font-mono"
+                inputMode="decimal"
+                placeholder="e.g. 0.10"
+                value={totalGoal}
+                onChange={(e) => setTotalGoal(e.target.value.replace(/[^0-9.]/g, ""))}
+              />
+            </div>
+            <div>
+              <label className="label">Number of milestones</label>
+              <select
+                className="input"
+                value={milestoneCount}
+                onChange={(e) => setMilestoneCount(Number(e.target.value))}
+              >
+                {Array.from({ length: MAX_MILESTONES - MIN_MILESTONES + 1 }, (_, i) => i + MIN_MILESTONES).map((n) => (
+                  <option key={n} value={n}>
+                    {n} milestones
+                  </option>
+                ))}
+              </select>
+            </div>
+          </div>
+        )}
+
+        {/* Even split preview */}
+        {mode === "even" && amountEach !== null && amountEach > 0n && (
+          <div className="flex items-center justify-between rounded-xl bg-white/[0.03] px-4 py-3">
+            <span className="text-sm text-gray-400">Each milestone unlocks</span>
+            <span className="font-mono text-lg font-semibold text-brand-300">
+              {formatEth(amountEach)} ETH
+            </span>
+          </div>
+        )}
+
+        {/* Manual total preview */}
+        {mode === "manual" && manualTotal !== null && (
+          <div className="flex items-center justify-between rounded-xl bg-white/[0.03] px-4 py-3">
+            <span className="text-sm text-gray-400">Total goal</span>
+            <span className="font-mono text-lg font-semibold text-brand-300">
+              {formatEth(manualTotal)} ETH
+            </span>
+          </div>
+        )}
+
+        {/* Milestone rows */}
+        <div>
+          <label className="label">Milestones</label>
+          <p className="mb-3 text-xs text-gray-500">
+            To unlock milestone N, the creator must first post on-chain proof for milestone N−1.
+          </p>
+          <div className="space-y-2">
+            {descriptions.map((d, i) => (
+              <div key={i} className="flex items-center gap-2">
+                <div className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-white/5 text-xs font-bold text-gray-400">
+                  {i + 1}
+                </div>
+                <input
+                  className="input flex-1"
+                  placeholder={`What milestone ${i + 1} delivers`}
+                  value={d}
+                  onChange={(e) => {
+                    const next = [...descriptions];
+                    next[i] = e.target.value;
+                    setDescriptions(next);
+                  }}
+                />
+                {mode === "manual" && (
+                  <input
+                    className="input w-28 font-mono"
+                    inputMode="decimal"
+                    placeholder="ETH"
+                    value={amounts[i] ?? ""}
+                    onChange={(e) => {
+                      const next = [...amounts];
+                      next[i] = e.target.value.replace(/[^0-9.]/g, "");
+                      setAmounts(next);
+                    }}
+                  />
+                )}
+                <span className="w-24 shrink-0 text-right font-mono text-xs text-gray-500">
+                  at {cumulativeTargets[i]} ETH
+                </span>
+                {mode === "manual" && descriptions.length > MIN_MILESTONES && (
+                  <button
+                    type="button"
+                    className="shrink-0 text-gray-600 hover:text-red-400"
+                    onClick={() => removeMilestone(i)}
+                    title="Remove milestone"
+                  >
+                    ✕
+                  </button>
+                )}
+              </div>
+            ))}
+          </div>
+          {mode === "manual" && descriptions.length < MAX_MILESTONES && (
+            <button
+              type="button"
+              className="btn-ghost mt-3 text-xs"
+              onClick={addMilestone}
+            >
+              + Add milestone
+            </button>
+          )}
         </div>
 
         {/* Submit */}
@@ -226,12 +385,14 @@ export default function CreateCampaignPage() {
           />
         </div>
 
-        {!formValid && (title || description || milestones.some((m) => m.description || m.amount)) && (
-          <p className="text-xs text-gray-500">
-            Provide a title, a description, and at least one milestone with a description and an
-            amount greater than zero.
-          </p>
-        )}
+        {!formValid &&
+          (title || description || totalGoal || descriptions.some((d) => d)) && (
+            <p className="text-xs text-gray-500">
+              Provide a title, description,{" "}
+              {mode === "even" ? "total goal and milestone count" : "an ETH amount for every milestone"},{" "}
+              and a description for every milestone.
+            </p>
+          )}
       </div>
     </div>
   );

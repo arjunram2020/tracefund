@@ -1,10 +1,6 @@
 import { formatEther } from "viem";
 import type { Campaign, Milestone, MilestoneStatus } from "./types";
 
-/** 50% of raised funds, expressed in basis points (mirrors the contract). */
-export const APPROVAL_THRESHOLD_BPS = 5000n;
-const BPS = 10000n;
-
 /** Format wei to a trimmed ETH string, e.g. 0.05 instead of 0.050000000000000000. */
 export function formatEth(wei: bigint | undefined, maxDigits = 4): string {
   if (wei === undefined) return "0";
@@ -27,11 +23,6 @@ export function percent(part: bigint, whole: bigint): number {
   return Math.max(0, Math.min(100, p));
 }
 
-export function thresholdReached(approvalWeight: bigint, totalRaised: bigint): boolean {
-  if (totalRaised === 0n) return false;
-  return approvalWeight * BPS >= totalRaised * APPROVAL_THRESHOLD_BPS;
-}
-
 export function timeAgo(timestampSec: bigint | number): string {
   const ts = Number(timestampSec) * 1000;
   const diff = Date.now() - ts;
@@ -45,61 +36,71 @@ export function timeAgo(timestampSec: bigint | number): string {
   return new Date(ts).toLocaleDateString();
 }
 
-/** Derive a single milestone's UI status from on-chain state. */
+/**
+ * Derive a milestone's UI status from on-chain state.
+ *
+ * The proof-gate rule: to withdraw milestone N (N > 0), milestone N-1 must
+ * have evidence submitted. Milestone 0 needs no prior proof.
+ */
 export function milestoneStatus(
   milestone: Milestone,
   index: number,
   currentMilestone: number,
   totalRaised: bigint,
+  milestones: Milestone[],
 ): MilestoneStatus {
-  if (milestone.released) return "released";
+  // Past milestones (already withdrawn)
+  if (milestone.released) {
+    return milestone.evidenceSubmitted ? "proven" : "withdrawn";
+  }
+
+  // Future milestones not yet reachable
   if (index > currentMilestone) return "locked";
-  if (index < currentMilestone) return "released";
-  // index === currentMilestone: this is the active milestone.
-  if (!milestone.evidenceSubmitted) return "awaiting-evidence";
-  if (thresholdReached(milestone.approvalWeight, totalRaised)) return "ready-to-release";
-  if (milestone.approvalWeight > 0n) return "awaiting-approval";
-  return "evidence-submitted";
+
+  // Active milestone (index === currentMilestone)
+  const proofGateMet = index === 0 || (milestones[index - 1]?.evidenceSubmitted ?? false);
+  if (!proofGateMet) return "locked";
+
+  // Check cumulative funding threshold
+  const cumulativeTarget = milestones
+    .slice(0, index + 1)
+    .reduce((sum, m) => sum + m.amount, 0n);
+
+  if (totalRaised >= cumulativeTarget) return "ready-to-withdraw";
+  return "funding";
 }
 
 interface StatusMeta {
   label: string;
-  /** Tailwind classes for a small status pill. */
   pill: string;
   dot: string;
 }
 
 export function milestoneStatusMeta(status: MilestoneStatus): StatusMeta {
   switch (status) {
-    case "released":
+    case "proven":
       return {
-        label: "Released",
+        label: "Proven",
         pill: "bg-brand-500/15 text-brand-300 ring-1 ring-brand-500/30",
         dot: "bg-brand-400",
       };
-    case "ready-to-release":
+    case "ready-to-withdraw":
       return {
-        label: "Ready to release",
+        label: "Ready to withdraw",
         pill: "bg-emerald-500/15 text-emerald-300 ring-1 ring-emerald-500/30",
         dot: "bg-emerald-400 animate-pulse",
       };
-    case "awaiting-approval":
+    case "withdrawn":
       return {
-        label: "Awaiting donor approval",
-        pill: "bg-violet-500/15 text-violet-300 ring-1 ring-violet-500/30",
-        dot: "bg-violet-400",
+        label: "Proof pending",
+        pill: "bg-amber-500/15 text-amber-300 ring-1 ring-amber-500/30",
+        dot: "bg-amber-400 animate-pulse",
       };
-    case "evidence-submitted":
+    case "funding":
       return {
-        label: "Evidence submitted",
+        label: "Collecting funds",
         pill: "bg-sky-500/15 text-sky-300 ring-1 ring-sky-500/30",
         dot: "bg-sky-400",
-      };
-    case "awaiting-evidence":
-      return {
-        label: "Awaiting evidence",
-        pill: "bg-amber-500/15 text-amber-300 ring-1 ring-amber-500/30",
-        dot: "bg-amber-400",
       };
     case "locked":
     default:

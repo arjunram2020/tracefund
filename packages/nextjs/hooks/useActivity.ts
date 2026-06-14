@@ -10,7 +10,6 @@ export type ActivityType =
   | "CampaignCreated"
   | "DonationReceived"
   | "EvidenceSubmitted"
-  | "MilestoneApproved"
   | "MilestoneReleased"
   | "CampaignCompleted";
 
@@ -27,15 +26,10 @@ const EVENT_NAMES: ActivityType[] = [
   "CampaignCreated",
   "DonationReceived",
   "EvidenceSubmitted",
-  "MilestoneApproved",
   "MilestoneReleased",
   "CampaignCompleted",
 ];
 
-/**
- * Builds the public, tamper-resistant activity trail for a campaign by reading
- * the contract's emitted events directly from the chain.
- */
 export function useCampaignActivity(campaignId?: bigint) {
   const { address, abi, chainId } = useReadChain();
   const client = usePublicClient({ chainId });
@@ -74,7 +68,6 @@ export function useCampaignActivity(campaignId?: bigint) {
 
       const items = batches.flat();
 
-      // Resolve timestamps for the blocks we touched (few in a demo).
       const uniqueBlocks = Array.from(new Set(items.map((i) => i.blockNumber)));
       const blockTimes = new Map<bigint, number>();
       await Promise.all(
