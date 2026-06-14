@@ -8,12 +8,25 @@ import * as path from "path";
  * It creates "Community Medical Relief Fund", then donates from two donors,
  * leaving milestone one waiting for evidence — exactly the pre-demo state.
  *
- * Run AFTER `yarn deploy` on the same (local) network:
+ * Run AFTER `yarn deploy` on the same network:
  *   yarn seed
  *
- * On the local Hardhat node the first three unlocked accounts act as
- * creator, donor A and donor B.
+ * Accounts:
+ *   - Local Hardhat node: the first three unlocked accounts act as creator,
+ *     donor A and donor B automatically.
+ *   - Public networks (e.g. Base): only the deployer signer exists, so set
+ *     DONOR_A_KEY and DONOR_B_KEY in packages/hardhat/.env. Each must hold a
+ *     little ETH for gas + its donation.
+ *
+ * Amounts are intentionally tiny (PRD §9 safety rule) because Base / Ethereum
+ * mainnet use REAL ETH. Adjust the constants below if needed.
  */
+
+// ETH amounts — tiny on purpose for real-money networks.
+const MILESTONE_AMOUNTS = ["0.0002", "0.0001", "0.0001"]; // goal = 0.0004 ETH
+const DONATION_A = "0.0002";
+const DONATION_B = "0.0002";
+
 async function main() {
   const net = await ethers.provider.getNetwork();
   const chainId = Number(net.chainId);
@@ -26,13 +39,25 @@ async function main() {
   }
 
   const signers = await ethers.getSigners();
-  const [creator, donorA, donorB] = signers;
+  const creator = signers[0];
+  if (!creator) {
+    throw new Error("No signer available. Set DEPLOYER_PRIVATE_KEY in packages/hardhat/.env.");
+  }
+
+  // On a public network only the deployer signer exists, so fall back to the
+  // donor keys from the environment.
+  const donorA = signers[1] ?? walletFromEnv("DONOR_A_KEY");
+  const donorB = signers[2] ?? walletFromEnv("DONOR_B_KEY");
   if (!donorA || !donorB) {
-    throw new Error("Need at least 3 accounts to seed the demo (creator + 2 donors).");
+    throw new Error(
+      "Need creator + 2 donors. On a public network (e.g. Base) set DONOR_A_KEY and " +
+        "DONOR_B_KEY in packages/hardhat/.env, each funded with a little ETH for gas + donation.",
+    );
   }
 
   const traceFund = await ethers.getContractAt("TraceFund", address);
 
+  const goal = MILESTONE_AMOUNTS.reduce((sum, v) => sum + Number(v), 0);
   console.log(`Seeding demo campaign on chainId ${chainId} at ${address}`);
   console.log(`  creator: ${creator.address}`);
   console.log(`  donorA:  ${donorA.address}`);
@@ -48,11 +73,7 @@ async function main() {
         "Medication purchase receipt",
         "Follow-up appointment confirmation",
       ],
-      [
-        ethers.parseEther("0.02"),
-        ethers.parseEther("0.015"),
-        ethers.parseEther("0.015"),
-      ],
+      MILESTONE_AMOUNTS.map((a) => ethers.parseEther(a)),
     );
   const receipt = await tx.wait();
 
@@ -67,15 +88,22 @@ async function main() {
     })
     .find((p) => p?.name === "CampaignCreated");
   const campaignId = created ? created.args[0] : 0n;
-  console.log(`Created campaign #${campaignId} (goal 0.05 ETH)`);
+  console.log(`Created campaign #${campaignId} (goal ${goal} ETH)`);
 
-  await (await traceFund.connect(donorA).donate(campaignId, { value: ethers.parseEther("0.02") })).wait();
-  console.log(`Donor A donated 0.02 ETH`);
+  await (await traceFund.connect(donorA).donate(campaignId, { value: ethers.parseEther(DONATION_A) })).wait();
+  console.log(`Donor A donated ${DONATION_A} ETH`);
 
-  await (await traceFund.connect(donorB).donate(campaignId, { value: ethers.parseEther("0.03") })).wait();
-  console.log(`Donor B donated 0.03 ETH`);
+  await (await traceFund.connect(donorB).donate(campaignId, { value: ethers.parseEther(DONATION_B) })).wait();
+  console.log(`Donor B donated ${DONATION_B} ETH`);
 
   console.log(`\nDemo ready: milestone one is funded and waiting for evidence.`);
+}
+
+/** Build a signer from a private key in the environment, connected to the provider. */
+function walletFromEnv(name: string): ethers.Wallet | undefined {
+  const key = process.env[name];
+  if (!key) return undefined;
+  return new ethers.Wallet(key.startsWith("0x") ? key : `0x${key}`, ethers.provider);
 }
 
 function readDeployedAddress(chainId: number): string | undefined {
