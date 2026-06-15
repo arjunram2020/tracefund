@@ -38,6 +38,6 @@ export interface CreatorStats {
 export type MilestoneStatus =
   | "locked"             // future milestone or proof gate not yet met
   | "funding"            // proof gate passed but not enough raised yet
-  | "ready-to-withdraw"  // threshold reached and proof gate passed
+  | "readytowithdraw"  // threshold reached and proof gate passed
   | "withdrawn"          // creator withdrew, proof not yet submitted
   | "proven";            // withdrawn and evidence submitted
