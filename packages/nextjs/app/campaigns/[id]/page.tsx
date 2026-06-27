@@ -4,7 +4,9 @@ import Link from "next/link";
 import { useParams } from "next/navigation";
 import { useAccount } from "wagmi";
 import {
+  useApprovalProgress,
   useCampaign,
+  useHasApproved,
   useMilestones,
   useMyDonation,
   useTrustScore,
@@ -16,8 +18,8 @@ import { Stat } from "../../../components/Stat";
 import { ProgressBar } from "../../../components/ProgressBar";
 import { MilestoneTimeline } from "../../../components/MilestoneTimeline";
 import { DonationPanel } from "../../../components/DonationPanel";
+import { DonorApprovalPanel } from "../../../components/DonorApprovalPanel";
 import { EvidencePanel } from "../../../components/EvidencePanel";
-import { CreatorReleasePanel } from "../../../components/CreatorReleasePanel";
 import { ActivityFeed } from "../../../components/ActivityFeed";
 
 export default function CampaignDetailPage() {
@@ -35,6 +37,8 @@ export default function CampaignDetailPage() {
   const { milestones } = useMilestones(id);
   const { donation } = useMyDonation(id, address);
   const { score } = useTrustScore(campaign?.creator);
+  const { approvalWeight, totalRaised: approvalTotalRaised, thresholdReached } = useApprovalProgress(id);
+  const { hasApproved } = useHasApproved(id, campaign?.currentMilestone, address);
 
   if (id === undefined) {
     return <CenteredMessage title="Invalid campaign" body="That campaign id is not valid." />;
@@ -148,10 +152,14 @@ export default function CampaignDetailPage() {
         <div className="space-y-6 lg:sticky lg:top-20 lg:self-start">
           <DonationPanel campaign={campaign} />
           <EvidencePanel campaign={campaign} milestones={milestones} isCreator={isCreator} />
-          <CreatorReleasePanel
+          <DonorApprovalPanel
             campaign={campaign}
             milestones={milestones}
-            isCreator={isCreator}
+            approvalWeight={approvalWeight}
+            totalRaised={approvalTotalRaised}
+            thresholdReached={thresholdReached}
+            myDonation={donation}
+            hasApproved={hasApproved}
           />
         </div>
       </div>

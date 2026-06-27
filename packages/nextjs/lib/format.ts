@@ -39,35 +39,26 @@ export function timeAgo(timestampSec: bigint | number): string {
 /**
  * Derive a milestone's UI status from on-chain state.
  *
- * The proof-gate rule: to withdraw milestone N (N > 0), milestone N-1 must
- * have evidence submitted. Milestone 0 needs no prior proof.
+ * New contract flow: creator posts evidence → donors approve (weighted) →
+ * anyone triggers release once 50% threshold is met. No proof-gate on
+ * previous milestones; no cumulative funding gate.
  */
 export function milestoneStatus(
   milestone: Milestone,
   index: number,
   currentMilestone: number,
   totalRaised: bigint,
-  milestones: Milestone[],
 ): MilestoneStatus {
-  // Past milestones (already withdrawn)
-  if (milestone.released) {
-    return milestone.evidenceSubmitted ? "proven" : "withdrawn";
-  }
-
-  // Future milestones not yet reachable
+  if (milestone.released) return "released";
   if (index > currentMilestone) return "locked";
 
-  // Active milestone (index === currentMilestone)
-  const proofGateMet = index === 0 || (milestones[index - 1]?.evidenceSubmitted ?? false);
-  if (!proofGateMet) return "locked";
+  // Active milestone
+  if (totalRaised === 0n) return "funding";
+  if (!milestone.evidenceSubmitted) return "awaiting-evidence";
 
-  // Check cumulative funding threshold
-  const cumulativeTarget = milestones
-    .slice(0, index + 1)
-    .reduce((sum, m) => sum + m.amount, 0n);
-
-  if (totalRaised >= cumulativeTarget) return "ready-to-withdraw";
-  return "funding";
+  // 50% weighted approval check (mirrors APPROVAL_THRESHOLD_BPS = 5000 / 10000)
+  const thresholdReached = milestone.approvalWeight * 10000n >= totalRaised * 5000n;
+  return thresholdReached ? "ready-to-release" : "awaiting-approval";
 }
 
 interface StatusMeta {
@@ -78,21 +69,27 @@ interface StatusMeta {
 
 export function milestoneStatusMeta(status: MilestoneStatus): StatusMeta {
   switch (status) {
-    case "proven":
+    case "released":
       return {
-        label: "Proven",
+        label: "Released",
         pill: "bg-brand-500/15 text-brand-300 ring-1 ring-brand-500/30",
         dot: "bg-brand-400",
       };
-    case "ready-to-withdraw":
+    case "ready-to-release":
       return {
-        label: "Ready to withdraw",
+        label: "Ready to release",
         pill: "bg-emerald-500/15 text-emerald-300 ring-1 ring-emerald-500/30",
         dot: "bg-emerald-400 animate-pulse",
       };
-    case "withdrawn":
+    case "awaiting-approval":
       return {
-        label: "Proof pending",
+        label: "Awaiting approval",
+        pill: "bg-violet-500/15 text-violet-300 ring-1 ring-violet-500/30",
+        dot: "bg-violet-400 animate-pulse",
+      };
+    case "awaiting-evidence":
+      return {
+        label: "Awaiting evidence",
         pill: "bg-amber-500/15 text-amber-300 ring-1 ring-amber-500/30",
         dot: "bg-amber-400 animate-pulse",
       };

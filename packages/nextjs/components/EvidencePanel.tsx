@@ -30,25 +30,19 @@ export function EvidencePanel({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [isConfirmed]);
 
-  // Determine which milestone the creator should prove next.
-  // Priority: the last released-but-unproven milestone (so the next tranche can open).
-  // Fallback: the current active milestone (pre-withdrawal).
+  // Evidence always targets the current active milestone. In the new contract flow,
+  // the creator posts evidence first, then donors approve, then funds release.
   const current = Number(campaign.currentMilestone);
-  const evidenceIndex = (() => {
-    if (campaign.completed) return milestones.length - 1;
-    // If previous milestone was withdrawn but not yet proven, show that first
-    if (current > 0 && milestones[current - 1]?.released && !milestones[current - 1]?.evidenceSubmitted) {
-      return current - 1;
-    }
-    return current < milestones.length ? current : milestones.length - 1;
-  })();
+  const evidenceIndex = campaign.completed
+    ? milestones.length - 1
+    : Math.min(current, milestones.length - 1);
 
   const targetMilestone: Milestone | undefined = milestones[evidenceIndex];
 
   const submit = async () => {
     if (!evidence.trim()) return;
     try {
-      await execute("submitEvidence", [campaign.id, BigInt(evidenceIndex), evidence.trim()]);
+      await execute("submitEvidence", [campaign.id, evidence.trim()]);
     } catch {
       /* surfaced via TxFeedback */
     }
@@ -85,15 +79,10 @@ export function EvidencePanel({
               </p>
             )}
         </div>
-      ) : targetMilestone?.released ? (
-        <p className="rounded-xl bg-amber-500/10 px-4 py-3 text-sm text-amber-200">
-          Milestone {evidenceIndex + 1} funds were withdrawn — post proof here to unlock the next
-          tranche.
-        </p>
       ) : (
         <p className="rounded-xl bg-white/[0.03] px-4 py-3 text-sm text-gray-400">
-          No proof submitted yet for "{targetMilestone?.description}". Proof becomes relevant after
-          withdrawing this tranche.
+          No proof submitted yet for &ldquo;{targetMilestone?.description}&rdquo;. The creator must
+          post proof before donors can approve and funds can be released.
         </p>
       )}
 
@@ -126,7 +115,8 @@ export function EvidencePanel({
             />
           </div>
           <p className="mt-1 text-xs text-gray-500">
-            Stored permanently on-chain and unlocks the next milestone for withdrawal.
+            Stored permanently on-chain. Donors can then approve, and once the 50% threshold is met
+            the milestone funds are released to you.
           </p>
         </div>
       )}

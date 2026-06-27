@@ -2,13 +2,36 @@
 
 import { useCampaignActivity, type ActivityItem, type ActivityType } from "../hooks/useActivity";
 import { formatEth, shortenAddress, timeAgo } from "../lib/format";
+import { useReadChain } from "../hooks/useTraceFund";
+
+function explorerTxUrl(chainId: number, txHash: string): string {
+  if (chainId === 84532) return `https://sepolia.basescan.org/tx/${txHash}`;
+  return `https://basescan.org/tx/${txHash}`;
+}
 
 const ICON: Record<ActivityType, { glyph: string; ring: string }> = {
   CampaignCreated: { glyph: "✦", ring: "bg-white/5 text-gray-300" },
   DonationReceived: { glyph: "↓", ring: "bg-brand-500/15 text-brand-300" },
   EvidenceSubmitted: { glyph: "▣", ring: "bg-sky-500/15 text-sky-300" },
+  MilestoneApproved: { glyph: "✓", ring: "bg-violet-500/15 text-violet-300" },
   MilestoneReleased: { glyph: "↑", ring: "bg-emerald-500/15 text-emerald-300" },
   CampaignCompleted: { glyph: "★", ring: "bg-brand-500/20 text-brand-200" },
+};
+
+type FlowTag = { label: string; cls: string } | null;
+const FLOW: Record<ActivityType, FlowTag> = {
+  CampaignCreated: null,
+  DonationReceived: {
+    label: "wallet → escrow",
+    cls: "text-brand-400 bg-brand-500/10 ring-1 ring-brand-500/20",
+  },
+  EvidenceSubmitted: null,
+  MilestoneApproved: null,
+  MilestoneReleased: {
+    label: "escrow → creator wallet",
+    cls: "text-emerald-400 bg-emerald-500/10 ring-1 ring-emerald-500/20",
+  },
+  CampaignCompleted: null,
 };
 
 function describe(item: ActivityItem): React.ReactNode {
@@ -18,34 +41,54 @@ function describe(item: ActivityItem): React.ReactNode {
     case "CampaignCreated":
       return (
         <>
-          Campaign created with goal{" "}
-          <span className="font-mono text-gray-200">{formatEth(a.goalAmount)} ETH</span>
+          Campaign launched with a{" "}
+          <span className="font-mono text-gray-200">{formatEth(a.goalAmount)} ETH</span> goal —
+          all donor contributions will be locked in the escrow contract until each milestone is
+          approved
         </>
       );
     case "DonationReceived":
       return (
         <>
-          <span className="font-mono">{shortenAddress(a.donor)}</span> donated{" "}
-          <span className="font-mono text-brand-300">{formatEth(a.amount)} ETH</span> into escrow
+          <span className="font-mono">{shortenAddress(a.donor)}</span> sent{" "}
+          <span className="font-mono text-brand-300">{formatEth(a.amount)} ETH</span> — now locked
+          in escrow on-chain &nbsp;·&nbsp; total raised{" "}
+          <span className="font-mono text-gray-200">{formatEth(a.totalRaised)} ETH</span>
         </>
       );
     case "EvidenceSubmitted":
-      return <>Creator posted proof for {ms}</>;
+      return (
+        <>
+          Creator posted on-chain proof for {ms} — donors can now vote to approve the release
+        </>
+      );
+    case "MilestoneApproved":
+      return (
+        <>
+          <span className="font-mono">{shortenAddress(a.donor)}</span> voted to approve {ms}{" "}
+          <span className="text-violet-300">
+            ({formatEth(a.weight)} ETH weight · {formatEth(a.totalApprovalWeight)} ETH total
+            approved)
+          </span>
+        </>
+      );
     case "MilestoneReleased":
       return (
         <>
-          Creator withdrew{" "}
-          <span className="font-mono text-emerald-300">{formatEth(a.amount)} ETH</span> for {ms}
+          <span className="font-mono text-emerald-300">{formatEth(a.amount)} ETH</span> transferred
+          from escrow to creator{" "}
+          <span className="font-mono">{shortenAddress(a.creator)}</span> for {ms}
         </>
       );
     case "CampaignCompleted":
-      return <>Campaign completed — all milestones withdrawn 🎉</>;
+      return <>All milestones approved and released — campaign complete</>;
     default:
       return item.type;
   }
 }
 
 export function ActivityFeed({ campaignId }: { campaignId: bigint }) {
+  const { chainId } = useReadChain();
   const { data, isLoading } = useCampaignActivity(campaignId);
   const items = data ?? [];
 
@@ -64,6 +107,8 @@ export function ActivityFeed({ campaignId }: { campaignId: bigint }) {
         <ol className="relative space-y-4 before:absolute before:left-[15px] before:top-1 before:h-[calc(100%-1rem)] before:w-px before:bg-canvas-border">
           {items.map((item, idx) => {
             const meta = ICON[item.type];
+            const flow = FLOW[item.type];
+            const explorerUrl = explorerTxUrl(chainId, item.txHash);
             return (
               <li key={`${item.txHash}-${item.logIndex}-${idx}`} className="relative flex gap-3">
                 <span
@@ -73,9 +118,24 @@ export function ActivityFeed({ campaignId }: { campaignId: bigint }) {
                 </span>
                 <div className="min-w-0 flex-1 pt-1">
                   <p className="text-sm text-gray-300">{describe(item)}</p>
-                  {item.timestamp && (
-                    <p className="mt-0.5 text-xs text-gray-600">{timeAgo(item.timestamp)}</p>
-                  )}
+                  <div className="mt-1.5 flex flex-wrap items-center gap-2">
+                    {flow && (
+                      <span className={`rounded px-1.5 py-0.5 font-mono text-xs ${flow.cls}`}>
+                        {flow.label}
+                      </span>
+                    )}
+                    {item.timestamp && (
+                      <span className="text-xs text-gray-600">{timeAgo(item.timestamp)}</span>
+                    )}
+                    <a
+                      href={explorerUrl}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="text-xs text-gray-600 hover:text-gray-400"
+                    >
+                      view on Basescan ↗
+                    </a>
+                  </div>
                 </div>
               </li>
             );
