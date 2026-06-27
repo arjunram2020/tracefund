@@ -15,7 +15,6 @@ export function MilestoneTimeline({
   const current = Number(campaign.currentMilestone);
   const totalRaised = campaign.totalRaised;
 
-  // Cumulative target up to each milestone index
   const cumulativeTargets = milestones.map((_, i) =>
     milestones.slice(0, i + 1).reduce((s, m) => s + m.amount, 0n),
   );
@@ -23,11 +22,13 @@ export function MilestoneTimeline({
   return (
     <ol className="relative space-y-3">
       {milestones.map((m, i) => {
-        const status = milestoneStatus(m, i, current, totalRaised, milestones);
+        const status = milestoneStatus(m, i, current, totalRaised);
         const meta = milestoneStatusMeta(status);
         const isActive = i === current && !campaign.completed;
         const cumTarget = cumulativeTargets[i] ?? 0n;
-        const fundingPct = percent(totalRaised > cumTarget ? cumTarget : totalRaised, cumTarget);
+
+        const approvalPct =
+          totalRaised > 0n ? percent(m.approvalWeight, totalRaised) : 0;
 
         return (
           <li
@@ -37,21 +38,20 @@ export function MilestoneTimeline({
             }`}
           >
             <div className="flex items-start gap-3">
-              <div className="flex flex-col items-center">
-                <span
-                  className={`flex h-7 w-7 shrink-0 items-center justify-center rounded-full text-xs font-bold ${
-                    status === "proven"
-                      ? "bg-brand-500 text-canvas"
-                      : status === "withdrawn"
-                        ? "bg-amber-500/30 text-amber-300 ring-1 ring-amber-500/40"
-                        : isActive
-                          ? "bg-brand-500/20 text-brand-300 ring-1 ring-brand-500/40"
-                          : "bg-white/5 text-gray-500"
-                  }`}
-                >
-                  {status === "proven" ? "✓" : i + 1}
-                </span>
-              </div>
+              {/* Step indicator */}
+              <span
+                className={`flex h-7 w-7 shrink-0 items-center justify-center rounded-full text-xs font-bold ${
+                  status === "released"
+                    ? "bg-brand-500 text-canvas"
+                    : status === "ready-to-release"
+                      ? "bg-emerald-500/30 text-emerald-300 ring-1 ring-emerald-500/40"
+                      : isActive
+                        ? "bg-brand-500/20 text-brand-300 ring-1 ring-brand-500/40"
+                        : "bg-white/5 text-gray-500"
+                }`}
+              >
+                {status === "released" ? "✓" : i + 1}
+              </span>
 
               <div className="min-w-0 flex-1">
                 <div className="flex flex-wrap items-center justify-between gap-2">
@@ -71,20 +71,33 @@ export function MilestoneTimeline({
                   </span>
                 </div>
 
-                {/* Funding progress for the active milestone */}
+                {/* Funding progress — no donations yet */}
                 {isActive && status === "funding" && (
+                  <p className="mt-2 text-xs text-sky-300">
+                    Waiting for first donation — donors must contribute before approval is possible.
+                  </p>
+                )}
+
+                {/* Approval progress — evidence submitted, waiting for votes */}
+                {isActive && (status === "awaiting-approval" || status === "ready-to-release") && (
                   <div className="mt-3">
                     <div className="mb-1 flex items-center justify-between text-xs text-gray-400">
-                      <span>Funding progress</span>
+                      <span>Donor approval weight</span>
                       <span className="font-mono">
-                        {formatEth(totalRaised)} / {formatEth(cumTarget)} ETH
+                        {formatEth(m.approvalWeight)} / {formatEth(totalRaised)} ETH
+                        &nbsp;({approvalPct.toFixed(0)}%)
                       </span>
                     </div>
-                    <ProgressBar value={fundingPct} />
+                    <ProgressBar value={approvalPct} tone="violet" marker={50} />
+                    {status === "ready-to-release" && (
+                      <p className="mt-1 text-xs text-emerald-300">
+                        50% threshold reached — release can be triggered from the approval panel.
+                      </p>
+                    )}
                   </div>
                 )}
 
-                {/* Evidence display */}
+                {/* On-chain proof */}
                 {m.evidenceSubmitted && (
                   <div className="mt-2 rounded-lg bg-white/[0.03] px-3 py-2 text-sm">
                     <p className="mb-0.5 text-xs uppercase tracking-wide text-gray-500">
@@ -92,13 +105,6 @@ export function MilestoneTimeline({
                     </p>
                     <EvidenceLink evidence={m.evidence} />
                   </div>
-                )}
-
-                {/* Nudge: withdrawn but needs proof */}
-                {status === "withdrawn" && (
-                  <p className="mt-2 text-xs text-amber-300">
-                    Withdrawn — creator must post proof to unlock the next milestone.
-                  </p>
                 )}
               </div>
             </div>
