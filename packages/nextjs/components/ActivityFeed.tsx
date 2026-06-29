@@ -96,7 +96,13 @@ export function ActivityFeed({ campaignId }: { campaignId: bigint }) {
     <div className="card p-5">
       <div className="mb-4 flex items-center justify-between">
         <h3 className="font-semibold text-white">Public activity</h3>
-        <span className="pill bg-white/5 text-gray-400">on-chain events</span>
+        <span className="pill flex items-center gap-1.5 bg-white/5 text-gray-400">
+          <span className="relative flex h-2 w-2">
+            <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-emerald-400 opacity-75" />
+            <span className="relative inline-flex h-2 w-2 rounded-full bg-emerald-400" />
+          </span>
+          live · on-chain
+        </span>
       </div>
 
       {isLoading && items.length === 0 ? (
