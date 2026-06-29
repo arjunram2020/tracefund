@@ -4,15 +4,15 @@ pragma solidity ^0.8.20;
 import "@openzeppelin/contracts/utils/ReentrancyGuard.sol";
 
 /**
- * @title TraceFund
- * @notice Milestone-based crowdfunding with automatic release on evidence submission.
+ * @title Covenant
+ * @notice Milestone-based crowdfunding with donor-weighted approval gates.
  *
  * Flow per milestone:
  *   1. Donors send ETH into escrow via donate().
  *   2. Creator posts on-chain proof via submitEvidence() for the current milestone.
  *   3. Funds are automatically released to the creator and the next milestone begins.
  */
-contract TraceFund is ReentrancyGuard {
+contract Covenant is ReentrancyGuard {
     uint256 public constant MAX_MILESTONES = 5;
 
     struct Milestone {

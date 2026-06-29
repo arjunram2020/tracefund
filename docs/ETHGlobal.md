@@ -1,12 +1,12 @@
-# **TraceFund PRD**
+# **Covenant PRD**
 
 ## **Crowdfunding with Enforced Accountability**
 
 ### **Project Summary**
 
-TraceFund is a milestone-based crowdfunding platform built on Ethereum. It fixes a major trust problem in traditional donation platforms: once money is donated, donors usually have little visibility or control over whether the money is actually used as promised.
+Covenant is a milestone-based crowdfunding platform built on Ethereum. It fixes a major trust problem in traditional donation platforms: once money is donated, donors usually have little visibility or control over whether the money is actually used as promised.
 
-On TraceFund, donations do not go directly to the campaign creator. Instead, funds are held inside a smart contract escrow. The creator can only unlock money milestone by milestone after submitting public evidence and receiving donor approval.
+On Covenant, donations do not go directly to the campaign creator. Instead, funds are held inside a smart contract escrow. The creator can only unlock money milestone by milestone after submitting public evidence and receiving donor approval.
 
 The core idea is simple:
 
@@ -34,9 +34,9 @@ Even when a campaign is honest, donors still lack a clear public trail showing h
 
 ## **2\. Workflow**
 
-TraceFund makes crowdfunding accountable by changing the money flow.
+Covenant makes crowdfunding accountable by changing the money flow.
 
-Instead of sending donations directly to the creator, TraceFund sends donations into a smart contract escrow. The creator creates a campaign with specific milestones. Users get to describe what the milestones are but the milestones themselves stay flexible/realistic. Each milestone has a description and an amount of money attached to it. 
+Instead of sending donations directly to the creator, Covenant sends donations into a smart contract escrow. The creator creates a campaign with specific milestones. Users get to describe what the milestones are but the milestones themselves stay flexible/realistic. Each milestone has a description and an amount of money attached to it.
 
 To unlock a milestone, the creator must:
 
@@ -72,7 +72,7 @@ Count votes and release funds when threshold hit
 
 ## **3\. One-Sentence Pitch**
 
-TraceFund is a crowdfunding platform where donations stay locked in smart contract escrow until campaign creators submit milestone evidence and donors approve the release.
+Covenant is a crowdfunding platform where donations stay locked in smart contract escrow until campaign creators submit milestone evidence and donors approve the release.
 
 ---
 
@@ -84,7 +84,7 @@ Blockchain is useful here because the important records need to be public, tampe
 
 A normal database could track donations and evidence, but users would still have to trust the company running that database. The company could edit records, hide bad history, delete reputation data, or release money manually.
 
-TraceFund uses Ethereum for the parts that should not depend on trust:
+Covenant uses Ethereum for the parts that should not depend on trust:
 
 * donation records  
 * escrow balances  
@@ -283,7 +283,7 @@ This gives the project a clean wallet connection flow without needing to build o
 
 Use **Base Mainnet** as the first production deployment network. Do **not** use Base Sepolia as the main deployment target.
 
-TraceFund should be built as a generic EVM-compatible Solidity dApp so the same contract can later be deployed to **Ethereum Mainnet** without major rewrites.
+Covenant should be built as a generic EVM-compatible Solidity dApp so the same contract can later be deployed to **Ethereum Mainnet** without major rewrites.
 
 ### **Deployment Plan**
 
@@ -318,11 +318,11 @@ The goal is to prove real on-chain escrow works, not to move meaningful money.
 
 ## **10\. Smart Contract Design**
 
-The smart contract is the core of TraceFund.
+The smart contract is the core of Covenant.
 
 It should be named:
 
-TraceFund.sol
+Covenant.sol
 
 The contract should store campaigns, milestones, donations, donor approvals, and creator reputation.
 
@@ -378,7 +378,7 @@ The contract should track each creator’s history:
 
   ## **11\. Donor Approval System**
 
-The donor approval system is what makes TraceFund stronger than a basic escrow demo.
+The donor approval system is what makes Covenant stronger than a basic escrow demo.
 
 The creator should not be able to submit evidence and immediately release their own money.
 
@@ -693,7 +693,7 @@ During the live demo:
 
 Most crowdfunding platforms have a trust problem. You donate, the money moves, and after that you mostly rely on screenshots, vague updates, or platform moderation.
 
-TraceFund changes the money flow. Donations do not go straight to the campaign creator. They go into a smart contract escrow.
+Covenant changes the money flow. Donations do not go straight to the campaign creator. They go into a smart contract escrow.
 
 Here is the campaign. You can see the total raised, the milestones, and the current status. The first milestone is locked because no evidence has been submitted yet.
 
@@ -705,7 +705,7 @@ Once the approval threshold is met, anyone can trigger release. The contract rel
 
 Every donation, evidence update, approval, and release is part of the public record. Over time, creators build a reputation trail that no platform can quietly edit or delete.
 
-GoFundMe asks donors to trust a black box. TraceFund makes the money follow the proof.
+GoFundMe asks donors to trust a black box. Covenant makes the money follow the proof.
 
 ---
 
@@ -720,7 +720,7 @@ Get the contract compiling, tested, and working locally.
 Tasks:
 
 * initialize Scaffold-ETH 2 project  
-* create TraceFund.sol  
+* create Covenant.sol
 * implement campaign creation  
 * implement donations  
 * implement evidence submission  
@@ -916,7 +916,7 @@ Do not force Chainlink into the project unless it has an actual purpose.
 
 ## **22\. Why This Can Win**
 
-TraceFund is strong because the blockchain part is not random. The product actually needs public, tamper-resistant records and enforceable money flow.
+Covenant is strong because the blockchain part is not random. The product actually needs public, tamper-resistant records and enforceable money flow.
 
 The demo is also easy to understand:
 
@@ -924,7 +924,7 @@ Old model:
 
 Donate money and hope the creator uses it correctly.
 
-TraceFund model:
+Covenant model:
 
 Donate money into escrow. Funds unlock only after evidence and donor approval.
 
@@ -943,11 +943,11 @@ Judges should immediately understand:
 
 Use this as the first instruction to Claude Code:
 
-Build TraceFund using Scaffold-ETH 2\.
+Build Covenant using Scaffold-ETH 2\.
 
 Start by creating the smart contract and tests before building the frontend.
 
-Implement a Solidity contract called TraceFund.sol that supports:
+Implement a Solidity contract called Covenant.sol that supports:
 
 1. campaign creation with milestones  
 2. ETH donations into escrow  
@@ -975,9 +975,9 @@ Do not build frontend pages until the contract tests pass.
 
 Keep the product simple.
 
-TraceFund is not trying to solve all charity fraud in one weekend.
+Covenant is not trying to solve all charity fraud in one weekend.
 
-TraceFund is proving one powerful mechanism:
+Covenant is proving one powerful mechanism:
 
 When donations are locked in escrow and released only after public proof and donor approval, crowdfunding becomes more accountable.
 

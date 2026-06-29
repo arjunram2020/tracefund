@@ -3,7 +3,7 @@ import * as fs from "fs";
 import * as path from "path";
 
 /**
- * Seeds the demo campaign (PRD §15-16) against an already-deployed TraceFund.
+ * Seeds the demo campaign (PRD §15-16) against an already-deployed Covenant.
  *
  * It creates "Community Medical Relief Fund", then donates from two donors,
  * leaving milestone one waiting for evidence — exactly the pre-demo state.
@@ -39,7 +39,7 @@ async function main() {
   const address = readDeployedAddress(chainId);
   if (!address) {
     throw new Error(
-      `No deployed TraceFund found for chainId ${chainId}. Run \`yarn deploy\` first.`,
+      `No deployed Covenant found for chainId ${chainId}. Run \`yarn deploy\` first.`,
     );
   }
 
@@ -60,7 +60,7 @@ async function main() {
     );
   }
 
-  const traceFund = await ethers.getContractAt("TraceFund", address);
+  const covenant = await ethers.getContractAt("Covenant", address);
 
   const goal = MILESTONE_AMOUNTS.reduce((sum, v) => sum + Number(v), 0);
   console.log(`Seeding demo campaign on chainId ${chainId} at ${address}`);
@@ -68,7 +68,7 @@ async function main() {
   console.log(`  donorA:  ${donorA.address}`);
   console.log(`  donorB:  ${donorB.address}\n`);
 
-  const tx = await traceFund
+  const tx = await covenant
     .connect(creator)
     .createCampaign(
       "Community Medical Relief Fund",
@@ -86,7 +86,7 @@ async function main() {
   const created = receipt!.logs
     .map((l) => {
       try {
-        return traceFund.interface.parseLog(l);
+        return covenant.interface.parseLog(l);
       } catch {
         return null;
       }
@@ -95,13 +95,13 @@ async function main() {
   const campaignId = created ? created.args[0] : 0n;
   console.log(`Created campaign #${campaignId} (goal ${goal} ETH)`);
 
-  await (await traceFund.connect(donorA).donate(campaignId, { value: ethers.parseEther(DONATION_A1) })).wait();
+  await (await covenant.connect(donorA).donate(campaignId, { value: ethers.parseEther(DONATION_A1) })).wait();
   console.log(`Donor A donated ${DONATION_A1} ETH`);
 
-  await (await traceFund.connect(donorB).donate(campaignId, { value: ethers.parseEther(DONATION_B) })).wait();
+  await (await covenant.connect(donorB).donate(campaignId, { value: ethers.parseEther(DONATION_B) })).wait();
   console.log(`Donor B donated ${DONATION_B} ETH`);
 
-  await (await traceFund.connect(donorA).donate(campaignId, { value: ethers.parseEther(DONATION_A2) })).wait();
+  await (await covenant.connect(donorA).donate(campaignId, { value: ethers.parseEther(DONATION_A2) })).wait();
   console.log(`Donor A donated ${DONATION_A2} ETH (total now at the ${goal} ETH goal)`);
 
   console.log(`\nDemo ready: milestone one is funded and waiting for evidence.`);
@@ -119,7 +119,7 @@ function readDeployedAddress(chainId: number): string | undefined {
   if (!fs.existsSync(file)) return undefined;
   try {
     const json = JSON.parse(fs.readFileSync(file, "utf8"));
-    return json?.[chainId]?.TraceFund?.address;
+    return json?.[chainId]?.Covenant?.address;
   } catch {
     return undefined;
   }

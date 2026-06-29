@@ -1,4 +1,4 @@
-// Shapes that mirror the TraceFund.sol structs. viem decodes named tuple
+// Shapes that mirror the Covenant.sol structs. viem decodes named tuple
 // outputs into objects with these exact field names.
 
 export interface Milestone {

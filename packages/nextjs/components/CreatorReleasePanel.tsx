@@ -5,7 +5,7 @@ import { useAccount } from "wagmi";
 import { ConnectButton } from "@rainbow-me/rainbowkit";
 import type { Campaign, Milestone } from "../lib/types";
 import { formatEth, percent } from "../lib/format";
-import { useTraceFundWrite } from "../hooks/useTraceFund";
+import { useCovenantWrite } from "../hooks/useCovenant";
 import { ProgressBar } from "./ProgressBar";
 import { TxFeedback } from "./TxFeedback";
 
@@ -21,7 +21,7 @@ export function CreatorReleasePanel({
   onSuccess?: () => void;
 }) {
   const { isConnected } = useAccount();
-  const release = useTraceFundWrite();
+  const release = useCovenantWrite();
 
   useEffect(() => {
     if (release.isConfirmed) {

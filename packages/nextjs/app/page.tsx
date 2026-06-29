@@ -4,7 +4,7 @@ const STEPS = [
   {
     n: "01",
     title: "Donate into escrow",
-    body: "Your ETH goes into the TraceFund smart contract — not the creator's wallet. It stays locked.",
+    body: "Your ETH goes into the Covenant smart contract — not the creator's wallet. It stays locked.",
   },
   {
     n: "02",
@@ -76,7 +76,7 @@ export default function HomePage() {
         </div>
         <div className="card border-brand-500/30 p-6 shadow-glow">
           <h3 className="text-sm font-semibold uppercase tracking-wide text-brand-300">
-            The TraceFund model
+            The Covenant model
           </h3>
           <p className="mt-3 text-2xl font-semibold text-white">
             Donate into escrow. Proof &amp; approval unlock it.
@@ -93,7 +93,7 @@ export default function HomePage() {
       <section className="card my-12 p-8">
         <h2 className="text-xl font-semibold text-white">What lives on-chain</h2>
         <p className="mt-1 text-sm text-gray-400">
-          TraceFund uses Ethereum only for the parts that shouldn&apos;t depend on trust.
+          Covenant uses Ethereum only for the parts that shouldn&apos;t depend on trust.
         </p>
         <div className="mt-6 grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-4">
           {[

@@ -5,7 +5,7 @@ export function Footer() {
     <footer className="border-t border-canvas-border/70 py-8">
       <div className="mx-auto flex max-w-6xl flex-col items-center justify-between gap-3 px-4 text-sm text-gray-500 sm:flex-row sm:px-6">
         <p>
-          TraceFund · Donations follow the proof. Built on Ethereum &amp; Base.
+          Covenant · Donations follow the proof. Built on Ethereum &amp; Base.
         </p>
         <div className="flex items-center gap-4">
           <Link href="/campaigns" className="hover:text-gray-300">

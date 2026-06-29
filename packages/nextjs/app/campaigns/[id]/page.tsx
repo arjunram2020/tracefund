@@ -8,7 +8,7 @@ import {
   useMilestones,
   useMyDonation,
   useTrustScore,
-} from "../../../hooks/useTraceFund";
+} from "../../../hooks/useCovenant";
 import { campaignStatus, formatEth, percent } from "../../../lib/format";
 import { Address } from "../../../components/Address";
 import { ReputationBadge } from "../../../components/ReputationBadge";

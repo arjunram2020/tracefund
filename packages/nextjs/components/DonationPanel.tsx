@@ -6,7 +6,7 @@ import { useAccount } from "wagmi";
 import { ConnectButton } from "@rainbow-me/rainbowkit";
 import type { Campaign, Milestone } from "../lib/types";
 import { formatEth } from "../lib/format";
-import { useTraceFundWrite } from "../hooks/useTraceFund";
+import { useCovenantWrite } from "../hooks/useCovenant";
 import { TxFeedback } from "./TxFeedback";
 
 // Safe demo values from PRD §9 — tiny real-ETH amounts.
@@ -24,7 +24,7 @@ export function DonationPanel({
   const { isConnected } = useAccount();
   const [amount, setAmount] = useState("");
   const { execute, refresh, isPending, isConfirming, isConfirmed, error, hash } =
-    useTraceFundWrite();
+    useCovenantWrite();
 
   useEffect(() => {
     if (isConfirmed) {
@@ -35,7 +35,7 @@ export function DonationPanel({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [isConfirmed]);
 
-  // On-chain donation caps (mirror TraceFund.donate):
+  // On-chain donation caps (mirror Covenant.donate):
   //  1. a single donation must be strictly BELOW the current milestone's amount;
   //  2. the total raised may never exceed the campaign goal.
   const mi = Number(campaign.currentMilestone);
@@ -197,7 +197,7 @@ export function DonationPanel({
           </div>
 
           <p className="mt-2 text-xs text-gray-500">
-            Funds are held by the TraceFund contract and only released to the creator milestone by
+            Funds are held by the Covenant contract and only released to the creator milestone by
             milestone, after evidence and donor approval.
           </p>
         </>

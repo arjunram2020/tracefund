@@ -3,7 +3,7 @@ import * as fs from "fs";
 import * as path from "path";
 
 /**
- * Deploys TraceFund and exports its address + ABI to the Next.js frontend so the
+ * Deploys Covenant and exports its address + ABI to the Next.js frontend so the
  * web app can read/write the contract without any manual copy-paste.
  *
  * Usage:
@@ -16,21 +16,21 @@ async function main() {
   const net = await ethers.provider.getNetwork();
   const chainId = Number(net.chainId);
 
-  console.log(`\nDeploying TraceFund`);
+  console.log(`\nDeploying Covenant`);
   console.log(`  network:  ${network.name} (chainId ${chainId})`);
   console.log(`  deployer: ${deployer.address}`);
   console.log(`  balance:  ${ethers.formatEther(await ethers.provider.getBalance(deployer.address))} ETH\n`);
 
-  const Factory = await ethers.getContractFactory("TraceFund");
-  const traceFund = await Factory.deploy();
-  await traceFund.waitForDeployment();
-  const address = await traceFund.getAddress();
+  const Factory = await ethers.getContractFactory("Covenant");
+  const covenant = await Factory.deploy();
+  await covenant.waitForDeployment();
+  const address = await covenant.getAddress();
 
   // Record the deployment block so the frontend activity feed only scans from here.
-  const receipt = await traceFund.deploymentTransaction()?.wait();
+  const receipt = await covenant.deploymentTransaction()?.wait();
   const deployBlock = receipt?.blockNumber ?? 0;
 
-  console.log(`TraceFund deployed to: ${address} (block ${deployBlock})`);
+  console.log(`Covenant deployed to: ${address} (block ${deployBlock})`);
 
   await exportToFrontend(chainId, address, deployBlock);
 
@@ -42,7 +42,7 @@ async function main() {
  * merging with any existing entries so multiple networks can coexist.
  */
 async function exportToFrontend(chainId: number, address: string, deployBlock: number) {
-  const artifact = await artifacts.readArtifact("TraceFund");
+  const artifact = await artifacts.readArtifact("Covenant");
   const outDir = path.resolve(__dirname, "../../nextjs/contracts");
   fs.mkdirSync(outDir, { recursive: true });
 
@@ -57,7 +57,7 @@ async function exportToFrontend(chainId: number, address: string, deployBlock: n
   }
 
   existing[chainId] = {
-    TraceFund: {
+    Covenant: {
       address,
       deployBlock,
       abi: artifact.abi,

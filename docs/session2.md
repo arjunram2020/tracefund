@@ -123,7 +123,7 @@ is the only required one for Base Sepolia.
 
 3 — Deploy to Base Sepolia
 
-yarn workspace @tracefund/hardhat
+yarn workspace @covenant/hardhat
 deploy:baseSepolia
 
 This prints the contract address and
@@ -142,8 +142,8 @@ NEXT_PUBLIC_WALLETCONNECT_PROJECT_ID=<from
 
 5 — Rebuild and start
 
-yarn workspace @tracefund/nextjs build
-yarn workspace @tracefund/nextjs start
+yarn workspace @covenant/nextjs build
+yarn workspace @covenant/nextjs start
 
 After this, anyone pointing MetaMask at Base
 Sepolia can create campaigns, donate, approve
@@ -164,7 +164,7 @@ tsx)
 1 "use client";
 2  
  3 import { useReadChain } from "../h
-ooks/useTraceFund";
+ooks/useCovenant";
 4 +import { deployedChainIds } from "
 +../lib/contract";  
  5  
@@ -205,7 +205,7 @@ eReadChain();
 -raceFund isn&apos;t deployed on ch
 -ain {chainId}.</p>  
  27 + <p className="font-medium">
-28 + TraceFund isn&apos;t deplo
+28 + Covenant isn&apos;t deplo
 +yed on {CHAIN_NAMES[chainId] ?? `c
          +hain ${chainId}`}.  
  29 + </p>  
@@ -238,9 +238,9 @@ fund/hardhat test",
 13 "deploy": "yarn workspace @tra
 cefund/hardhat deploy",
 14 + "deploy:baseSepolia": "yarn wo
-+rkspace @tracefund/hardhat deploy:
++rkspace @covenant/hardhat deploy:
 +baseSepolia",  
- 15 + "deploy:base": "yarn workspace + @tracefund/hardhat deploy:base",
+ 15 + "deploy:base": "yarn workspace + @covenant/hardhat deploy:base",
 16 "seed": "yarn workspace @trace
 fund/hardhat seed",
 17 "start": "yarn workspace @trac
@@ -266,7 +266,7 @@ urn null;
 -inId}.</p>  
  27 + <p className=
 +"font-medium">  
- 28 + TraceFund i
+ 28 + Covenant i
 +sn&apos;t deployed
 +on {CHAIN_NAMES[cha
 +inId] ?? `chain ${c
@@ -313,14 +313,14 @@ n workspace @tracef
 und/hardhat compile
 ",
 12 "test": "yarn w
-orkspace @tracefund
+orkspace @covenant
 /hardhat test",
 13 "deploy": "yarn
 workspace @tracefu
 nd/hardhat deploy",
 14 + "deploy:baseSep
 +olia": "yarn worksp
-+ace @tracefund/hard
++ace @covenant/hard
 +hat deploy:baseSepo
 +lia",  
  15 + "deploy:base":
@@ -328,7 +328,7 @@ nd/hardhat deploy",
 +acefund/hardhat dep
 +loy:base",  
  16 "seed": "yarn w
-orkspace @tracefund
+orkspace @covenant
 /hardhat seed",
 17 "start": "yarn
 workspace @tracefun
@@ -343,7 +343,7 @@ fund/nextjs dev"
       17      "start": "yarn workspace @t
           racefund/nextjs dev",
       18      "frontend": "yarn workspace
-           @tracefund/nextjs dev"
+           @covenant/nextjs dev"
 
 ⏺ ---
 Summary

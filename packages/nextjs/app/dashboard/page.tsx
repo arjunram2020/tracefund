@@ -7,7 +7,7 @@ import {
   useAllCampaigns,
   useCreatorStats,
   useTrustScore,
-} from "../../hooks/useTraceFund";
+} from "../../hooks/useCovenant";
 import { CampaignCard } from "../../components/CampaignCard";
 import { ReputationBadge } from "../../components/ReputationBadge";
 import { Stat } from "../../components/Stat";

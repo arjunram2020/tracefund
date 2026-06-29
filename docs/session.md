@@ -7,7 +7,7 @@
 │                        ▘▘ ▝▝                       │ Session titles are now… │
 │    Opus 4.8 · Claude Pro ·                         │ Added `footerLinksRege… │
 │    nityanth.maramreddy@gmail.com's Organization    │ Improved Bedrock crede… │
-│               ~/Downloads/tracefund                │ /release-notes for more │
+│               ~/Downloads/covenant                │ /release-notes for more │
 ╰──────────────────────────────────────────────────────────────────────────────╯
 
 
@@ -28,12 +28,12 @@
   ⎿  Set effort level to max (this session only): Maximum capability with deepest
      reasoning
 
-❯ read the @ETHGlobal.md file. Implement the tracefund platform as specified in 
+❯ read the @ETHGlobal.md file. Implement the covenant platform as specified in
   the prd                                                                       
   ⎿  Read ETHGlobal.md (986 lines)
 
 ⏺ I'll start by exploring the current state of the working directory and
-  checking what tooling is available, then build out the TraceFund platform.
+  checking what tooling is available, then build out the Covenant platform.
 
 ⏺ Bash(ls -la && echo "---NODE---" && node --version 2>/dev/null && echo
       "---NPM---" && npm --version 2>/dev/null && echo "---YARN---" && yarn
@@ -61,8 +61,8 @@
 
 ⏺ Now the core smart contract:
 
-⏺ Write(packages/hardhat/contracts/TraceFund.sol)
-  ⎿  Wrote 428 lines to packages/hardhat/contracts/TraceFund.sol
+⏺ Write(packages/hardhat/contracts/Covenant.sol)
+  ⎿  Wrote 428 lines to packages/hardhat/contracts/Covenant.sol
        2 pragma solidity ^0.8.20;er: MIT
        3 
        4 import "@openzeppelin/contracts/utils/ReentrancyGuard.sol";
@@ -79,7 +79,7 @@
 
 ⏺ Write(packages/hardhat/package.json)
   ⎿  Wrote 30 lines to packages/hardhat/package.json
-       2   "name": "@tracefund/hardhat",
+       2   "name": "@covenant/hardhat",
        3   "version": "0.1.0",
        4   "private": true,
        5   "scripts": {
@@ -125,11 +125,11 @@
 
 ⏺ Now the comprehensive test suite:
 
-⏺ Write(packages/hardhat/test/TraceFund.ts)
-  ⎿  Wrote 403 lines to packages/hardhat/test/TraceFund.ts
+⏺ Write(packages/hardhat/test/Covenant.ts)
+  ⎿  Wrote 403 lines to packages/hardhat/test/Covenant.ts
        2 import { ethers } from "hardhat";
          lpers";{ loadFixture } from "@nomicfoundation/hardhat-network-he
-       4 import { TraceFund } from "../typechain-types";
+       4 import { Covenant } from "../typechain-types";
          hers/signers";atEthersSigner } from "@nomicfoundation/hardhat-et
        6 
          r the safe demo values.one amounts (PRD §15). Kept tiny to mirro
@@ -147,7 +147,7 @@
        3 import * as path from "path";
        4 
        5 /**
-       6  * Deploys TraceFund and exports its address + ABI to the Next.j
+       6  * Deploys Covenant and exports its address + ABI to the Next.j
        7  * web app can read/write the contract without any manual copy-p
          aste.
        8  *
@@ -161,7 +161,7 @@
        3 import * as path from "path";
        4 
        6  * Seeds the demo campaign (PRD §15-16) against an already-deplo
-         yed TraceFund.
+         yed Covenant.
        7  *
           two donors,s "Community Medical Relief Fund", then donates from
        9  * leaving milestone one waiting for evidence — exactly the pre-
@@ -173,16 +173,16 @@
 
 ⏺ Write(package.json)
   ⎿  Wrote 19 lines to package.json
-       2   "name": "tracefund",
+       2   "name": "covenant",
        3   "version": "0.1.0",
        4   "private": true,
-       5   "description": "TraceFund — milestone-based crowdfunding with 
+       5   "description": "Covenant — milestone-based crowdfunding with
          enforced accountability on Ethereum (Base).",
        6   "workspaces": [
        7     "packages/*"
        8   ],
        9   "scripts": {
-      10     "chain": "yarn workspace @tracefund/hardhat chain",
+      10     "chain": "yarn workspace @covenant/hardhat chain",
      … +10 lines (ctrl+o to expand)
 
 ⏺ Write(.gitignore)
@@ -294,15 +294,15 @@
   release, completion, trust score). Let me clean up the one unused-variable
   warning in the test:
 
-⏺ Update(packages/hardhat/test/TraceFund.ts)
+⏺ Update(packages/hardhat/test/Covenant.ts)
   ⎿  Added 1 line, removed 1 line
       346      });
       347  
       348      it("emits CampaignCompleted on the final milestone release
            ", async function () {
-      349 -      const { traceFund, creator, donorA, donorB, id } = await
+      349 -      const { covenant, creator, donorA, donorB, id } = await
           - loadFixture(fundedFixture);                                  
-      349 +      const { traceFund, creator, donorB, id } = await loadFix
+      349 +      const { covenant, creator, donorB, id } = await loadFix
           +ture(fundedFixture);                                          
       350  
       351        // First two milestones.
@@ -365,7 +365,7 @@
 ⏺ Now Phase 2 — the frontend. Let me scaffold the Next.js package structure and
   config files:
 
-⏺ Bash(cd /Users/nityanthmaramreddy/Downloads/tracefund/packages/nextjs && mkdir
+⏺ Bash(cd /Users/nityanthmaramreddy/Downloads/covenant/packages/nextjs && mkdir
       -p app/campaigns/'[id]' app/create app/dashboard components lib hooks
       public && echo "…)
   ⎿  created nextjs dirs
@@ -376,7 +376,7 @@
 ⏺ Write(packages/nextjs/package.json)
   ⎿  Wrote 30 lines to packages/nextjs/package.json
        1 {
-       2   "name": "@tracefund/nextjs",
+       2   "name": "@covenant/nextjs",
        3   "version": "0.1.0",
        4   "private": true,
        5   "scripts": {
@@ -455,7 +455,7 @@
 
 ⏺ Write(packages/nextjs/lib/types.ts)
   ⎿  Wrote 46 lines to packages/nextjs/lib/types.ts
-         med tuple that mirror the TraceFund.sol structs. viem decodes na
+         med tuple that mirror the Covenant.sol structs. viem decodes na
        2 // outputs into objects with these exact field names.
        3 
        4 export interface Milestone {
@@ -471,10 +471,10 @@
   ⎿  Wrote 31 lines to packages/nextjs/lib/contract.ts
        2 import deployed from "../contracts/deployedContracts.json";
        3 
-       5 const data = deployed as unknown as Record<string, { TraceFund: 
+       5 const data = deployed as unknown as Record<string, { Covenant:
          Entry }>;
        6 
-         eploy script. */at have a TraceFund deployment recorded by the d
+         eploy script. */at have a Covenant deployment recorded by the d
        8 export const deployedChainIds: number[] = Object.keys(data).map(
        9 Number);
       10 /** The contract address + abi for a given chain, if deployed th
@@ -489,9 +489,9 @@
          wallet (MetaMask).
        5 // Set NEXT_PUBLIC_WALLETCONNECT_PROJECT_ID to enable WalletConn
        6 const projectId = process.env.NEXT_PUBLIC_WALLETCONNECT_PROJECT_
-         ID || "tracefund_local_demo";
+         ID || "covenant_local_demo";
        8 export const config = getDefaultConfig({
-       9   appName: "TraceFund",
+       9   appName: "Covenant",
       10   projectId,
      … +8 lines (ctrl+o to expand)
 
@@ -524,8 +524,8 @@
 ⏺ Now the React hooks that wrap contract reads/writes. First the core data
   hooks:
 
-⏺ Write(packages/nextjs/hooks/useTraceFund.ts)
-  ⎿  Wrote 205 lines to packages/nextjs/hooks/useTraceFund.ts
+⏺ Write(packages/nextjs/hooks/useCovenant.ts)
+  ⎿  Wrote 205 lines to packages/nextjs/hooks/useCovenant.ts
        1 "use client";
        2 
        3 import { useCallback } from "react";
@@ -547,7 +547,7 @@
        3 import { usePublicClient } from "wagmi";
        4 import { useQuery } from "@tanstack/react-query";
        5 import type { Abi } from "viem";
-       6 import { useReadChain } from "./useTraceFund";
+       6 import { useReadChain } from "./useCovenant";
        7 
        8 export type ActivityType =
        9   | "CampaignCreated"
@@ -593,7 +593,7 @@
        6 import { Footer } from "../components/Footer";
        7 
        8 export const metadata: Metadata = {
-       9   title: "TraceFund — Crowdfunding with enforced accountability"
+       9   title: "Covenant — Crowdfunding with enforced accountability"
          ,
       10   description:
      … +20 lines (ctrl+o to expand)
@@ -636,7 +636,7 @@
        6       <div className="mx-auto flex max-w-6xl flex-col items-cent
          er justify-between gap-3 px-4 text-sm text-gray-500 sm:flex-row 
          sm:px-6">
-       8           TraceFund · Donations follow the proof. Built on Ether
+       8           Covenant · Donations follow the proof. Built on Ether
          eum &amp; Base.
        9         </p>
       10         <div className="flex items-center gap-4">
@@ -710,7 +710,7 @@
       4 import type { Campaign } from "../lib/types";
       5 import { campaignStatus, formatEth, percent } from "../lib/format
         ";
-      6 import { useTrustScore } from "../hooks/useTraceFund";
+      6 import { useTrustScore } from "../hooks/useCovenant";
       7 import { ProgressBar } from "./ProgressBar";
       8 import { ReputationBadge } from "./ReputationBadge";
       9 import { Address } from "./Address";
@@ -728,7 +728,7 @@
        6 import { ConnectButton } from "@rainbow-me/rainbowkit";
        7 import type { Campaign } from "../lib/types";
        8 import { formatEth } from "../lib/format";
-       9 import { useTraceFundWrite } from "../hooks/useTraceFund";
+       9 import { useCovenantWrite } from "../hooks/useCovenant";
       10 import { TxFeedback } from "./TxFeedback";
      … +139 lines (ctrl+o to expand)
 
@@ -772,7 +772,7 @@
        2 
        3 import { useEffect, useState } from "react";
        4 import type { Campaign, Milestone } from "../lib/types";
-       5 import { useTraceFundWrite } from "../hooks/useTraceFund";
+       5 import { useCovenantWrite } from "../hooks/useCovenant";
        6 import { TxFeedback } from "./TxFeedback";
        7 import { EvidenceLink } from "./EvidenceLink";
        8 
@@ -791,7 +791,7 @@
        5 import { ConnectButton } from "@rainbow-me/rainbowkit";
        6 import type { Campaign, Milestone } from "../lib/types";
        7 import { formatEth, percent } from "../lib/format";
-       8 import { useTraceFundWrite } from "../hooks/useTraceFund";
+       8 import { useCovenantWrite } from "../hooks/useCovenant";
        9 import { ProgressBar } from "./ProgressBar";
       10 import { TxFeedback } from "./TxFeedback";
      … +204 lines (ctrl+o to expand)
@@ -832,10 +832,10 @@
 ⏺ Write(packages/nextjs/components/ContractNotice.tsx)
   ⎿  Wrote 23 lines to packages/nextjs/components/ContractNotice.tsx
        2 "use client";
-       3 import { useReadChain } from "../hooks/useTraceFund";
+       3 import { useReadChain } from "../hooks/useCovenant";
        4 
        5 /**
-       6  * Friendly banner shown when TraceFund has no deployment on the
+       6  * Friendly banner shown when Covenant has no deployment on the
        7  * (e.g. the local node isn't running, or the wallet is on an un
          supported network).
        8  */
@@ -852,7 +852,7 @@
        4   {
        5     n: "01",
        6     title: "Donate into escrow",
-       7     body: "Your ETH goes into the TraceFund smart contract — not
+       7     body: "Your ETH goes into the Covenant smart contract — not
           the creator's wallet. It stays locked.",
        8   },
        9   {
@@ -865,7 +865,7 @@
   ⎿  Wrote 58 lines to packages/nextjs/app/campaigns/page.tsx
        2 "use client";
        3 import Link from "next/link";
-       4 import { useAllCampaigns } from "../../hooks/useTraceFund";
+       4 import { useAllCampaigns } from "../../hooks/useCovenant";
        5 import { CampaignCard } from "../../components/CampaignCard";
        6 import { ContractNotice } from "../../components/ContractNotice"
          ;
@@ -899,8 +899,8 @@
        4 import { useRouter } from "next/navigation";
        5 import { parseEther } from "viem";
        6 import { useAccount } from "wagmi";
-       8 import { useCampaignCount, useTraceFundWrite } from "../../hooks
-         /useTraceFund";
+       8 import { useCampaignCount, useCovenantWrite } from "../../hooks
+         /useCovenant";
        9 import { TxFeedback } from "../../components/TxFeedback";
       10 import { ContractNotice } from "../../components/ContractNotice"
          ;
@@ -919,13 +919,13 @@
        7   useAllCampaigns,
        8   useCreatorStats,
        9   useTrustScore,
-      10 } from "../../hooks/useTraceFund";
+      10 } from "../../hooks/useCovenant";
      … +117 lines (ctrl+o to expand)
 
 ⏺ All frontend files are written. Now let me install the frontend dependencies
   (this is a large install — Next.js, wagmi, RainbowKit):
 
-⏺ Bash(cd /Users/nityanthmaramreddy/Downloads/tracefund && yarn install 2>&1 |
+⏺ Bash(cd /Users/nityanthmaramreddy/Downloads/covenant && yarn install 2>&1 |
       tail -15)
   ⎿  warning workspace-aggregator-324901b7-f789-4f85-83c4-1edd57c05427 > @t
      racefund/nextjs > wagmi > @wagmi/connectors > @metamask/sdk > @metamas
@@ -936,7 +936,7 @@
 ⏺ Install succeeded. Let me typecheck the frontend to catch errors before a full
   build:
 
-⏺ Bash(yarn workspace @tracefund/nextjs typecheck 2>&1 | tail -40)
+⏺ Bash(yarn workspace @covenant/nextjs typecheck 2>&1 | tail -40)
   ⎿  yarn workspace v1.22.22
      yarn run v1.22.22
      $ tsc --noEmit
@@ -956,7 +956,7 @@
       16      "incremental": true,
       17      "plugins": [{ "name": "next" }],
 
-⏺ Bash(yarn workspace @tracefund/nextjs build 2>&1 | tail -50)
+⏺ Bash(yarn workspace @covenant/nextjs build 2>&1 | tail -50)
   ⎿    35 |
 
          at tryRunOrWebpackError (/Users/nityanthmaramreddy/Downloads/trace
@@ -967,12 +967,12 @@
   generates the class canvas (not canvas-DEFAULT). Let me find all the bad
   usages:
 
-⏺ Bash(cd /Users/nityanthmaramreddy/Downloads/tracefund/packages/nextjs && grep
+⏺ Bash(cd /Users/nityanthmaramreddy/Downloads/covenant/packages/nextjs && grep
       -rn "canvas-DEFAULT" app components --include=*.tsx --include=*.css
       2>/dev/null)
   ⎿  (eval):1: no matches found: --include=*.tsx
 
-⏺ Bash(cd /Users/nityanthmaramreddy/Downloads/tracefund/packages/nextjs && grep
+⏺ Bash(cd /Users/nityanthmaramreddy/Downloads/covenant/packages/nextjs && grep
       -rn "canvas-DEFAULT" app components)
   ⎿  app/globals.css:33:    @apply btn bg-brand-500 text-canvas-DEFAULT hov
      er:bg-brand-400 active:scale-[0.98] shadow-glow;
@@ -1037,9 +1037,9 @@
       20          <Link href="/" className="flex items-center gap-2.5">
       21            <Logo className="h-8 w-8" />
 
-⏺ Bash(yarn workspace @tracefund/nextjs build 2>&1 | tail -40)  ⎿  ../../node_modules/@metamask/sdk/dist/browser/es/metamask-sdk.js
+⏺ Bash(yarn workspace @covenant/nextjs build 2>&1 | tail -40)  ⎿  ../../node_modules/@metamask/sdk/dist/browser/es/metamask-sdk.js
      Module not found: Can't resolve '@react-native-async-storage/async-sto
-     rage' in '/Users/nityanthmaramreddy/Downloads/tracefund/node_modules/@
+     rage' in '/Users/nityanthmaramreddy/Downloads/covenant/node_modules/@
      … +36 lines (ctrl+o to expand)
   ⎿  (timeout 5m)
 
@@ -1066,8 +1066,8 @@
 ⏺ Now let me start the dev server and smoke-test it against the running local
   chain (which has the seeded demo campaign):
 
-⏺ Bash(cd /Users/nityanthmaramreddy/Downloads/tracefund && yarn workspace
-      @tracefund/nextjs dev > /tmp/next-dev.log 2>&1 &
+⏺ Bash(cd /Users/nityanthmaramreddy/Downloads/covenant && yarn workspace
+      @covenant/nextjs dev > /tmp/next-dev.log 2>&1 &
       echo "started next dev, pid $!"; sleep 14; t…)
   ⎿  started next dev, pid 83827
      yarn workspace v1.22.22
@@ -1075,7 +1075,7 @@
      … +6 lines (ctrl+o to expand)
   ⎿  (timeout 1m)
 
-⏺ Bash(cd /Users/nityanthmaramreddy/Downloads/tracefund
+⏺ Bash(cd /Users/nityanthmaramreddy/Downloads/covenant
       echo "=== / (home) ==="; curl -s -o /dev/null -w "HTTP %{http_code}\n"
       http://localhost:3000/…)
   ⎿  === / (home) ===
@@ -1169,9 +1169,9 @@
 ⏺ Now the comprehensive README — this is judge-facing, so I'll make it thorough:
 
 ⏺ Write(README.md)  ⎿  Wrote 206 lines to README.md
-       2 # TraceFund
+       2 # Covenant
        3 ### Crowdfunding with enforced accountability
-       5 TraceFund is a milestone-based crowdfunding platform built on Et
+       5 Covenant is a milestone-based crowdfunding platform built on Et
          hereum (Base first).
        6 It fixes the core trust problem of donation platforms: once mone
        7 usually have no enforceable way to verify it's used as promised.
@@ -1185,7 +1185,7 @@
   the contract tests and a production build to confirm the committed state is
   green:
 
-⏺ Bash(cd /Users/nityanthmaramreddy/Downloads/tracefund
+⏺ Bash(cd /Users/nityanthmaramreddy/Downloads/covenant
       # Stop the dev server to free .next + port 3000 for a clean build…)
   ⎿  === CONTRACT TESTS ===
            ✔ starts at zero and increases as milestones are proven and the
@@ -1203,18 +1203,18 @@
 
 ⏺ Update(packages/hardhat/scripts/deploy.ts)
   ⎿  Added 6 lines, removed 2 lines
-      26    await traceFund.waitForDeployment();
-      27    const address = await traceFund.getAddress();
+      26    await covenant.waitForDeployment();
+      27    const address = await covenant.getAddress();
       28  
-      29 -  console.log(`TraceFund deployed to: ${address}`);            
+      29 -  console.log(`Covenant deployed to: ${address}`);
       29 +  // Record the deployment block so the frontend activity feed 
          +only scans from here.                                          
-      30 +  const receipt = await traceFund.deploymentTransaction()?.wait
+      30 +  const receipt = await covenant.deploymentTransaction()?.wait
          +();                                                            
       31 +  const deployBlock = receipt?.blockNumber ?? 0;               
       32  
       31 -  await exportToFrontend(chainId, address);                    
-      33 +  console.log(`TraceFund deployed to: ${address} (block ${deplo
+      33 +  console.log(`Covenant deployed to: ${address} (block ${deplo
          +yBlock})`);                                                    
       34  
       35 +  await exportToFrontend(chainId, address, deployBlock);       
@@ -1235,13 +1235,13 @@
          -g) {                                                           
       44 +async function exportToFrontend(chainId: number, address: strin
          +g, deployBlock: number) {                                      
-      45    const artifact = await artifacts.readArtifact("TraceFund");
+      45    const artifact = await artifacts.readArtifact("Covenant");
       46    const outDir = path.resolve(__dirname, "../../nextjs/contract
           s");
       47    fs.mkdirSync(outDir, { recursive: true });
      ...
       59    existing[chainId] = {
-      60      TraceFund: {
+      60      Covenant: {
       61        address,
       62 +      deployBlock,                                             
       63        abi: artifact.abi,
@@ -1259,17 +1259,17 @@
       4 -type Entry = { address: `0x${string}`; abi: Abi };              
       4 +type Entry = { address: `0x${string}`; abi: Abi; deployBlock?: n
         +umber };                                                        
-      5  const data = deployed as unknown as Record<string, { TraceFund: 
+      5  const data = deployed as unknown as Record<string, { Covenant:
          Entry }>;
       6  
-      7  /** Chain ids that have a TraceFund deployment recorded by the d
+      7  /** Chain ids that have a Covenant deployment recorded by the d
          eploy script. */
 
 ⏺ Update(packages/nextjs/lib/contract.ts)
   ⎿  Added 6 lines
       16  /** ABI is identical across networks — grab whichever deploymen
           t exists first. */
-      17  export const traceFundAbi: Abi = (Object.values(data)[0]?.Trace
+      17  export const covenantAbi: Abi = (Object.values(data)[0]?.Trace
           Fund.abi as Abi) ?? [];
       18  
       19 +/** Block the contract was deployed at, so event scans don't st
@@ -1292,7 +1292,7 @@
       4  import { useQuery } from "@tanstack/react-query";
       5  import type { Abi } from "viem";
       6 +import { getDeployBlock } from "../lib/contract";               
-      7  import { useReadChain } from "./useTraceFund";
+      7  import { useReadChain } from "./useCovenant";
       8  
       9  export type ActivityType =
 
@@ -1319,10 +1319,10 @@
 ⏺ Now let me restart the local chain fresh, re-deploy (recording the deploy
   block), and re-seed — this also re-verifies the scripts after my edits:
 
-⏺ Bash(cd /Users/nityanthmaramreddy/Downloads/tracefund
+⏺ Bash(cd /Users/nityanthmaramreddy/Downloads/covenant
       kill 82022 2>/dev/null; sleep 2…)
   ⎿  fresh node pid 86031
-     TraceFund deployed to: 0x5FbDB2315678afecb367f032d93F642f64180aa3 (blo
+     Covenant deployed to: 0x5FbDB2315678afecb367f032d93F642f64180aa3 (blo
      ck 1)
      … +10 lines (ctrl+o to expand)
   ⎿  (timeout 2m)
@@ -1330,7 +1330,7 @@
 ⏺ Deploy block recorded (block 1), demo re-seeded. Let me confirm the frontend
   still builds cleanly after the useActivity/contract.ts edits:
 
-⏺ Bash(yarn workspace @tracefund/nextjs build 2>&1 | tail -16)
+⏺ Bash(yarn workspace @covenant/nextjs build 2>&1 | tail -16)
   ⎿  ├ ○ /_not-found                          880 B          90.9 kB
      ├ ○ /campaigns                           2.55 kB         169 kB
      ├ ƒ /campaigns/[id]                      7.42 kB         323 kB
@@ -1341,7 +1341,7 @@
   chain is already running with the seeded demo) so the app is live and ready,
   and do a final smoke check:
 
-⏺ Bash(cd /Users/nityanthmaramreddy/Downloads/tracefund
+⏺ Bash(cd /Users/nityanthmaramreddy/Downloads/covenant
       # ensure no stale dev server…)
   ⎿  dev server pid 86298
      GET / -> 200
@@ -1358,7 +1358,7 @@
   deployment target is unusual — Base Mainnet first, explicitly not Sepolia):
   Wrote 2 memories (ctrl+o to expand)
 
-⏺ Done. The full TraceFund platform is built, tested, and running live right now
+⏺ Done. The full Covenant platform is built, tested, and running live right now
   at http://localhost:3000 (local chain on :8545 with the demo campaign
   seeded).
 
@@ -1368,7 +1368,7 @@
   and tests first, then frontend" order:
 
   packages/hardhat — the accountability layer
-  - TraceFund.sol — campaigns with 1–5 milestones, ETH escrow, evidence
+  - Covenant.sol — campaigns with 1–5 milestones, ETH escrow, evidence
   submission, donation-weighted donor approval, milestone release at the 50% 
   threshold, and an on-chain creator trust score (0–100, four tiers).
   ReentrancyGuard + checks-effects-interactions; releases pay exactly the
@@ -1434,4 +1434,4 @@
 
 ✻ Churned for 41m 40s
 
-※ recap: TraceFund (milestone-escrow crowdfunding dApp) is fully built, tested (27/27), and running live at localhost:3000 with the demo campaign seeded. Next: do the MetaMask click-through of donate, evidence, approve, and release to confirm the write flow. (disable recaps in /config)
+※ recap: Covenant (milestone-escrow crowdfunding dApp) is fully built, tested (27/27), and running live at localhost:3000 with the demo campaign seeded. Next: do the MetaMask click-through of donate, evidence, approve, and release to confirm the write flow. (disable recaps in /config)

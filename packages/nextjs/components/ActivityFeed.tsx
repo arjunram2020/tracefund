@@ -2,7 +2,7 @@
 
 import { useCampaignActivity, type ActivityItem, type ActivityType } from "../hooks/useActivity";
 import { formatEth, shortenAddress, timeAgo } from "../lib/format";
-import { useReadChain } from "../hooks/useTraceFund";
+import { useReadChain } from "../hooks/useCovenant";
 
 function explorerTxUrl(chainId: number, txHash: string): string {
   if (chainId === 84532) return `https://sepolia.basescan.org/tx/${txHash}`;

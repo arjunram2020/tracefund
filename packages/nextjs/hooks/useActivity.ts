@@ -6,7 +6,7 @@ import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { createPublicClient, http, type Abi } from "viem";
 import { base } from "wagmi/chains";
 import { getDeployBlock } from "../lib/contract";
-import { useReadChain } from "./useTraceFund";
+import { useReadChain } from "./useCovenant";
 
 // Alchemy free tier caps eth_getLogs at 10 blocks per call.
 // The public Base RPC supports up to 10,000 blocks per call, so we use a

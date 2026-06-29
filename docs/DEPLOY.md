@@ -64,7 +64,7 @@ deploy + the seed donations).
    the repo, so the Base deployment must be committed:
 
    ```
-   git add packages/nextjs/contracts/deployedContracts.json && git commit -m "deploy TraceFund to Base Mainnet" && git push
+   git add packages/nextjs/contracts/deployedContracts.json && git commit -m "deploy Covenant to Base Mainnet" && git push
    ```
 
 ---
@@ -72,7 +72,7 @@ deploy + the seed donations).
 ## 2. Host the frontend on Vercel
 
 A root `vercel.json` is already committed with the monorepo build settings
-(install at the workspace root, build the `@tracefund/nextjs` workspace).
+(install at the workspace root, build the `@covenant/nextjs` workspace).
 
 1. Import the repo at https://vercel.com/new. Leave **Root Directory** as the
    repository root (the committed `vercel.json` handles the rest).
@@ -90,7 +90,7 @@ A root `vercel.json` is already committed with the monorepo build settings
    a phone connecting via QR / WalletConnect. A second laptop with the MetaMask
    extension works without it.
 
-3. Deploy. You get a public URL (e.g. `https://tracefund.vercel.app`).
+3. Deploy. You get a public URL (e.g. `https://covenant.vercel.app`).
 
 ---
 
@@ -102,7 +102,7 @@ A root `vercel.json` is already committed with the monorepo build settings
    transactions (donate / approve / release / submit evidence cost gas).
 3. Both must be on **Base Mainnet**. If a wallet is on the wrong network, the
    app now prompts it to switch to Base automatically when it tries to write
-   (see `useTraceFundWrite` → `switchChainAsync`), and the connect button shows
+   (see `useCovenantWrite` → `switchChainAsync`), and the connect button shows
    a "wrong network" switcher.
 4. Device A creates/donates; Device B sees the same campaign and can donate,
    approve, or release. Every action is shared on-chain, so both stay in sync
@@ -119,7 +119,7 @@ contract see the same campaigns.
 - `packages/nextjs/lib/wagmi.ts` — the configured default chain (Base) is listed
   first, and each chain's RPC is overridable via `NEXT_PUBLIC_*_RPC_URL` env vars
   so hosted reads don't depend on a rate-limited public endpoint.
-- `packages/nextjs/hooks/useTraceFund.ts` — writes now switch the wallet to the
+- `packages/nextjs/hooks/useCovenant.ts` — writes now switch the wallet to the
   deployment chain first, so a device on the wrong network is guided to Base
   instead of failing with a chain-mismatch error.
 - `packages/hardhat/scripts/seed.ts` — tiny, real-money-safe amounts, and donor

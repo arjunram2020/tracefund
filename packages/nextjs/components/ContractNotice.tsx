@@ -1,6 +1,6 @@
 "use client";
 
-import { useReadChain } from "../hooks/useTraceFund";
+import { useReadChain } from "../hooks/useCovenant";
 import { deployedChainIds } from "../lib/contract";
 
 const CHAIN_NAMES: Record<number, string> = {
@@ -11,7 +11,7 @@ const CHAIN_NAMES: Record<number, string> = {
 };
 
 /**
- * Friendly banner shown when TraceFund has no deployment on the resolved chain
+ * Friendly banner shown when Covenant has no deployment on the resolved chain
  * (e.g. the wallet is on an unsupported network).
  */
 export function ContractNotice() {
@@ -25,7 +25,7 @@ export function ContractNotice() {
   return (
     <div className="card border-amber-500/30 bg-amber-500/[0.06] p-4 text-sm text-amber-200">
       <p className="font-medium">
-        TraceFund isn&apos;t deployed on {CHAIN_NAMES[chainId] ?? `chain ${chainId}`}.
+        Covenant isn&apos;t deployed on {CHAIN_NAMES[chainId] ?? `chain ${chainId}`}.
       </p>
       <p className="mt-1 text-amber-200/80">
         Switch your wallet to a supported network: <strong>{supported}</strong>.
