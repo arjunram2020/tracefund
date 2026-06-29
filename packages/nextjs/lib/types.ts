@@ -6,8 +6,6 @@ export interface Milestone {
   amount: bigint;
   evidence: string;
   evidenceSubmitted: boolean;
-  approvalWeight: bigint;
-  approvalBase: bigint;
   released: boolean;
 }
 
@@ -38,9 +36,7 @@ export interface CreatorStats {
 
 // Per-milestone UI status derived from on-chain state.
 export type MilestoneStatus =
-  | "locked"              // future milestone, not yet reachable
-  | "funding"             // active but no donations yet — approval impossible
-  | "awaiting-evidence"   // active, has donations, creator hasn't posted proof yet
-  | "awaiting-approval"   // evidence submitted, waiting for donors to reach 50%
-  | "ready-to-release"    // 50% approval threshold met — anyone can trigger release
-  | "released";           // funds released to creator
+  | "locked"             // future milestone, not yet reachable
+  | "funding"            // active, waiting for donations
+  | "awaiting-evidence"  // active with donations, creator hasn't posted proof yet
+  | "released";          // funds released to creator

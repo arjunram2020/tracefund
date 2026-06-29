@@ -4,15 +4,14 @@ import { loadFixture } from "@nomicfoundation/hardhat-network-helpers";
 import { TraceFund } from "../typechain-types";
 import { HardhatEthersSigner } from "@nomicfoundation/hardhat-ethers/signers";
 
-// Demo campaign milestone amounts (PRD §15). Kept tiny to mirror the safe demo values.
-const M1 = ethers.parseEther("0.02"); // Hospital deposit receipt
-const M2 = ethers.parseEther("0.015"); // Medication purchase receipt
-const M3 = ethers.parseEther("0.015"); // Follow-up appointment confirmation
+const M1 = ethers.parseEther("0.02");
+const M2 = ethers.parseEther("0.015");
+const M3 = ethers.parseEther("0.015");
 const GOAL = M1 + M2 + M3; // 0.05 ETH
 
 const TITLE = "Community Medical Relief Fund";
 const DESCRIPTION =
-  "A transparent emergency fundraiser where donations unlock only after milestone proof is submitted and donors approve the release.";
+  "A transparent emergency fundraiser where donations unlock only after milestone proof is submitted.";
 const MILESTONE_DESCRIPTIONS = [
   "Hospital deposit receipt",
   "Medication purchase receipt",
@@ -33,23 +32,17 @@ describe("TraceFund", function () {
     await traceFund
       .connect(creator)
       .createCampaign(TITLE, DESCRIPTION, MILESTONE_DESCRIPTIONS, MILESTONE_AMOUNTS);
-    return 0n; // first campaign id
+    return 0n;
   }
 
-  // A fixture with a created campaign and two donors funded into escrow.
-  // Each individual donation must stay strictly below the current milestone
-  // amount (M1 = 0.02) and the running total may not exceed the goal, so the
-  // per-donor totals (0.02 for donorA, 0.03 for donorB) are reached across
-  // multiple sub-cap donations.
   async function fundedFixture() {
     const base = await deployFixture();
     const { traceFund, creator, donorA, donorB } = base;
     const id = await createDemoCampaign(traceFund, creator);
     await traceFund.connect(donorA).donate(id, { value: ethers.parseEther("0.01") });
-    await traceFund.connect(donorA).donate(id, { value: ethers.parseEther("0.01") }); // donorA total 0.02
+    await traceFund.connect(donorA).donate(id, { value: ethers.parseEther("0.01") });
     await traceFund.connect(donorB).donate(id, { value: ethers.parseEther("0.019") });
-    await traceFund.connect(donorB).donate(id, { value: ethers.parseEther("0.011") }); // donorB total 0.03
-    // totalRaised = 0.05 (= goal), 50% threshold = 0.025
+    await traceFund.connect(donorB).donate(id, { value: ethers.parseEther("0.011") });
     return { ...base, id };
   }
 
@@ -57,7 +50,6 @@ describe("TraceFund", function () {
     it("exposes the expected constants", async function () {
       const { traceFund } = await loadFixture(deployFixture);
       expect(await traceFund.MAX_MILESTONES()).to.equal(5n);
-      expect(await traceFund.APPROVAL_THRESHOLD_BPS()).to.equal(5000n);
       expect(await traceFund.campaignCount()).to.equal(0n);
     });
   });
@@ -92,7 +84,6 @@ describe("TraceFund", function () {
       expect(milestones[0].amount).to.equal(M1);
       expect(milestones[0].released).to.equal(false);
 
-      // Creator reputation reflects a created campaign.
       const stats = await traceFund.getCreatorStats(creator.address);
       expect(stats.campaignsCreated).to.equal(1n);
     });
@@ -143,7 +134,6 @@ describe("TraceFund", function () {
   });
 
   describe("donate", function () {
-    // Sub-cap donation amounts (each strictly below the current milestone M1 = 0.02).
     const DA = ethers.parseEther("0.01");
     const DB = ethers.parseEther("0.015");
 
@@ -155,7 +145,6 @@ describe("TraceFund", function () {
         .to.emit(traceFund, "DonationReceived")
         .withArgs(id, donorA.address, DA, DA);
 
-      // ETH is held by the contract (escrow), not forwarded to the creator.
       expect(await ethers.provider.getBalance(await traceFund.getAddress())).to.equal(DA);
 
       await traceFund.connect(donorB).donate(id, { value: DB });
@@ -189,28 +178,10 @@ describe("TraceFund", function () {
       ).to.be.revertedWith("Donation must be > 0");
     });
 
-    it("reverts when a single donation equals the current milestone amount", async function () {
-      const { traceFund, creator, donorA } = await loadFixture(deployFixture);
-      const id = await createDemoCampaign(traceFund, creator);
-      // M1 is the current milestone amount; the donation must be strictly below it.
-      await expect(
-        traceFund.connect(donorA).donate(id, { value: M1 }),
-      ).to.be.revertedWith("Donation must be below milestone amount");
-    });
-
-    it("reverts when a single donation exceeds the current milestone amount", async function () {
-      const { traceFund, creator, donorA } = await loadFixture(deployFixture);
-      const id = await createDemoCampaign(traceFund, creator);
-      await expect(
-        traceFund.connect(donorA).donate(id, { value: M1 + 1n }),
-      ).to.be.revertedWith("Donation must be below milestone amount");
-    });
-
     it("allows reaching exactly the goal but reverts a donation that would exceed it", async function () {
       const { traceFund, creator, donorA, donorB } = await loadFixture(deployFixture);
       const id = await createDemoCampaign(traceFund, creator);
 
-      // Fund up to exactly the goal (0.05) with sub-cap donations.
       await traceFund.connect(donorA).donate(id, { value: ethers.parseEther("0.019") });
       await traceFund.connect(donorA).donate(id, { value: ethers.parseEther("0.019") });
       await traceFund.connect(donorB).donate(id, { value: ethers.parseEther("0.012") });
@@ -218,7 +189,6 @@ describe("TraceFund", function () {
       const c = await traceFund.getCampaign(id);
       expect(c.totalRaised).to.equal(GOAL);
 
-      // Any further donation pushes total above the goal and must revert.
       await expect(
         traceFund.connect(donorB).donate(id, { value: ethers.parseEther("0.0001") }),
       ).to.be.revertedWith("Donation exceeds campaign goal");
@@ -233,24 +203,28 @@ describe("TraceFund", function () {
   });
 
   describe("submitEvidence", function () {
-    it("lets the creator submit evidence without releasing funds", async function () {
+    it("releases funds automatically when the creator submits evidence", async function () {
       const { traceFund, creator, id } = await loadFixture(fundedFixture);
 
-      await expect(traceFund.connect(creator).submitEvidence(id, "ipfs://receipt-1"))
+      const tx = traceFund.connect(creator).submitEvidence(id, "ipfs://receipt-1");
+      await expect(tx)
         .to.emit(traceFund, "EvidenceSubmitted")
-        .withArgs(id, 0n, "ipfs://receipt-1");
+        .withArgs(id, 0n, "ipfs://receipt-1")
+        .and.to.emit(traceFund, "MilestoneReleased");
+      await expect(tx).to.changeEtherBalances([creator, traceFund], [M1, -M1]);
 
       const m = await traceFund.getMilestone(id, 0);
       expect(m.evidenceSubmitted).to.equal(true);
       expect(m.evidence).to.equal("ipfs://receipt-1");
-      expect(m.released).to.equal(false);
+      expect(m.released).to.equal(true);
 
-      // No money moved.
       const c = await traceFund.getCampaign(id);
-      expect(c.totalReleased).to.equal(0n);
+      expect(c.totalReleased).to.equal(M1);
+      expect(c.currentMilestone).to.equal(1n);
 
       const stats = await traceFund.getCreatorStats(creator.address);
       expect(stats.evidenceUpdates).to.equal(1n);
+      expect(stats.milestonesCompleted).to.equal(1n);
     });
 
     it("reverts when a non-creator submits evidence", async function () {
@@ -266,114 +240,26 @@ describe("TraceFund", function () {
         traceFund.connect(creator).submitEvidence(id, ""),
       ).to.be.revertedWith("Evidence required");
     });
-  });
 
-  describe("approveMilestone", function () {
-    it("records weighted approval from a donor", async function () {
-      const { traceFund, creator, donorA, id } = await loadFixture(fundedFixture);
-      await traceFund.connect(creator).submitEvidence(id, "ipfs://receipt-1");
-
-      await expect(traceFund.connect(donorA).approveMilestone(id))
-        .to.emit(traceFund, "MilestoneApproved")
-        .withArgs(id, 0n, donorA.address, ethers.parseEther("0.02"), ethers.parseEther("0.02"));
-
-      const m = await traceFund.getMilestone(id, 0);
-      expect(m.approvalWeight).to.equal(ethers.parseEther("0.02"));
-      expect(await traceFund.hasApproved(id, 0, donorA.address)).to.equal(true);
-    });
-
-    it("reverts when approving before evidence is submitted", async function () {
-      const { traceFund, donorA, id } = await loadFixture(fundedFixture);
-      await expect(
-        traceFund.connect(donorA).approveMilestone(id),
-      ).to.be.revertedWith("Evidence not submitted");
-    });
-
-    it("reverts when a non-donor tries to approve", async function () {
-      const { traceFund, creator, outsider, id } = await loadFixture(fundedFixture);
-      await traceFund.connect(creator).submitEvidence(id, "ipfs://receipt-1");
-      await expect(
-        traceFund.connect(outsider).approveMilestone(id),
-      ).to.be.revertedWith("Not a donor");
-    });
-
-    it("reverts when a donor approves twice", async function () {
-      const { traceFund, creator, donorA, id } = await loadFixture(fundedFixture);
-      await traceFund.connect(creator).submitEvidence(id, "ipfs://receipt-1");
-      await traceFund.connect(donorA).approveMilestone(id);
-      await expect(
-        traceFund.connect(donorA).approveMilestone(id),
-      ).to.be.revertedWith("Already approved");
-    });
-  });
-
-  describe("releaseMilestoneFunds", function () {
-    it("reverts when no donors have approved", async function () {
+    it("reverts when submitting evidence on a completed campaign", async function () {
       const { traceFund, creator, id } = await loadFixture(fundedFixture);
-      await traceFund.connect(creator).submitEvidence(id, "ipfs://receipt-1");
+
+      for (let i = 0; i < 3; i++) {
+        await traceFund.connect(creator).submitEvidence(id, `ipfs://receipt-${i + 1}`);
+      }
+
       await expect(
-        traceFund.connect(creator).releaseMilestoneFunds(id),
-      ).to.be.revertedWith("Approval threshold not reached");
-    });
-
-    it("reverts when approval weight is below the 50% threshold", async function () {
-      const { traceFund, creator, donorA, id } = await loadFixture(fundedFixture);
-      await traceFund.connect(creator).submitEvidence(id, "ipfs://receipt-1");
-      // donorA gave 0.02 of 0.05 (40%) — not enough on its own.
-      await traceFund.connect(donorA).approveMilestone(id);
-      expect(await traceFund.isThresholdReached(id)).to.equal(false);
-      await expect(
-        traceFund.connect(creator).releaseMilestoneFunds(id),
-      ).to.be.revertedWith("Approval threshold not reached");
-    });
-
-    it("releases exactly the milestone amount once the weighted threshold is met", async function () {
-      const { traceFund, creator, donorB, id } = await loadFixture(fundedFixture);
-      await traceFund.connect(creator).submitEvidence(id, "ipfs://receipt-1");
-
-      // donorB gave 0.03 of 0.05 (60%) — crosses the 50% threshold alone.
-      await traceFund.connect(donorB).approveMilestone(id);
-      expect(await traceFund.isThresholdReached(id)).to.equal(true);
-
-      // Exactly M1 is transferred to the creator, no more.
-      await expect(
-        traceFund.connect(donorB).releaseMilestoneFunds(id),
-      ).to.changeEtherBalances([creator, traceFund], [M1, -M1]);
-
-      const c = await traceFund.getCampaign(id);
-      expect(c.totalReleased).to.equal(M1);
-      expect(c.currentMilestone).to.equal(1n); // advanced to next milestone
-      expect(c.completed).to.equal(false);
-
-      const m0 = await traceFund.getMilestone(id, 0);
-      expect(m0.released).to.equal(true);
-
-      // Remaining funds stay locked for future milestones.
-      expect(await ethers.provider.getBalance(await traceFund.getAddress())).to.equal(GOAL - M1);
-    });
-
-    it("reverts on a second release of an already-released milestone", async function () {
-      const { traceFund, creator, donorB, id } = await loadFixture(fundedFixture);
-      await traceFund.connect(creator).submitEvidence(id, "ipfs://receipt-1");
-      await traceFund.connect(donorB).approveMilestone(id);
-      await traceFund.connect(creator).releaseMilestoneFunds(id);
-
-      // Milestone 0 is released; calling again now targets milestone 1 which has no evidence.
-      await expect(
-        traceFund.connect(creator).releaseMilestoneFunds(id),
-      ).to.be.revertedWith("Evidence not submitted");
+        traceFund.connect(creator).submitEvidence(id, "late"),
+      ).to.be.revertedWith("Campaign not active");
     });
   });
 
   describe("Full lifecycle & campaign completion", function () {
     it("releases all milestones, completes the campaign, and drains escrow to zero", async function () {
-      const { traceFund, creator, donorA, donorB, id } = await loadFixture(fundedFixture);
+      const { traceFund, creator, id } = await loadFixture(fundedFixture);
 
       for (let i = 0; i < 3; i++) {
         await traceFund.connect(creator).submitEvidence(id, `ipfs://receipt-${i + 1}`);
-        await traceFund.connect(donorA).approveMilestone(id);
-        await traceFund.connect(donorB).approveMilestone(id); // 0.05 of 0.05 approves
-        await traceFund.connect(creator).releaseMilestoneFunds(id);
       }
 
       const c = await traceFund.getCampaign(id);
@@ -382,7 +268,6 @@ describe("TraceFund", function () {
       expect(c.currentMilestone).to.equal(3n);
       expect(c.totalReleased).to.equal(GOAL);
 
-      // All escrowed ETH has been released.
       expect(await ethers.provider.getBalance(await traceFund.getAddress())).to.equal(0n);
 
       const stats = await traceFund.getCreatorStats(creator.address);
@@ -390,53 +275,35 @@ describe("TraceFund", function () {
       expect(stats.milestonesCompleted).to.equal(3n);
     });
 
-    it("emits CampaignCompleted on the final milestone release", async function () {
-      const { traceFund, creator, donorB, id } = await loadFixture(fundedFixture);
+    it("emits CampaignCompleted on the final milestone evidence submission", async function () {
+      const { traceFund, creator, id } = await loadFixture(fundedFixture);
 
-      // First two milestones.
       for (let i = 0; i < 2; i++) {
         await traceFund.connect(creator).submitEvidence(id, `ipfs://receipt-${i + 1}`);
-        await traceFund.connect(donorB).approveMilestone(id);
-        await traceFund.connect(creator).releaseMilestoneFunds(id);
       }
 
-      // Final milestone.
-      await traceFund.connect(creator).submitEvidence(id, "ipfs://receipt-3");
-      await traceFund.connect(donorB).approveMilestone(id);
-      await expect(traceFund.connect(creator).releaseMilestoneFunds(id))
+      await expect(traceFund.connect(creator).submitEvidence(id, "ipfs://receipt-3"))
         .to.emit(traceFund, "MilestoneReleased")
         .and.to.emit(traceFund, "CampaignCompleted")
         .withArgs(id);
-
-      // Cannot submit evidence on a completed campaign.
-      await expect(
-        traceFund.connect(creator).submitEvidence(id, "late"),
-      ).to.be.revertedWith("Campaign completed");
     });
   });
 
   describe("Reputation / trust score", function () {
     it("starts at zero and increases as milestones are proven and the campaign completes", async function () {
-      const { traceFund, creator, donorA, donorB, id } = await loadFixture(fundedFixture);
+      const { traceFund, creator, id } = await loadFixture(fundedFixture);
 
-      // Brand new creator with one created campaign: base score of 10 (New Creator).
       expect(await traceFund.trustScore(creator.address)).to.equal(10n);
 
-      // Complete milestone 1 (1 evidence + 1 milestone): 10 + 12 + 3 = 25 (Early Creator).
       await traceFund.connect(creator).submitEvidence(id, "ipfs://receipt-1");
-      await traceFund.connect(donorB).approveMilestone(id);
-      await traceFund.connect(creator).releaseMilestoneFunds(id);
+      // 10 base + 1*12 milestone + 1*3 evidence = 25
       expect(await traceFund.trustScore(creator.address)).to.equal(25n);
 
-      // Complete the remaining two milestones and the campaign.
       for (let i = 1; i < 3; i++) {
         await traceFund.connect(creator).submitEvidence(id, `ipfs://receipt-${i + 1}`);
-        await traceFund.connect(donorA).approveMilestone(id);
-        await traceFund.connect(donorB).approveMilestone(id);
-        await traceFund.connect(creator).releaseMilestoneFunds(id);
       }
 
-      // 10 base + 3*12 milestones + 1*15 campaign + min(3*3,15)=9 evidence = 70 (Proven Creator).
+      // 10 base + 3*12 milestones + 1*15 campaign + min(3*3,15)=9 evidence = 70
       expect(await traceFund.trustScore(creator.address)).to.equal(70n);
     });
 

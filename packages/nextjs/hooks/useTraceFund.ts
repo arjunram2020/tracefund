@@ -114,46 +114,10 @@ export function useMyDonation(id?: bigint, donor?: `0x${string}`) {
   return { ...q, donation: (q.data as bigint | undefined) ?? 0n };
 }
 
-export function useApprovalProgress(id?: bigint) {
-  const { address, abi, chainId } = useReadChain();
-  const q = useReadContract({
-    address,
-    abi,
-    functionName: "getApprovalProgress",
-    args: id !== undefined ? [id] : undefined,
-    chainId,
-    query: { enabled: !!address && id !== undefined },
-  });
-  const result = q.data as [bigint, bigint, boolean] | undefined;
-  return {
-    ...q,
-    approvalWeight: result?.[0] ?? 0n,
-    totalRaised: result?.[1] ?? 0n,
-    thresholdReached: result?.[2] ?? false,
-  };
-}
-
-export function useHasApproved(id?: bigint, milestoneIndex?: bigint, donor?: `0x${string}`) {
-  const { address, abi, chainId } = useReadChain();
-  const q = useReadContract({
-    address,
-    abi,
-    functionName: "hasApproved",
-    args: id !== undefined && milestoneIndex !== undefined && donor
-      ? [id, milestoneIndex, donor]
-      : undefined,
-    chainId,
-    query: { enabled: !!address && id !== undefined && milestoneIndex !== undefined && !!donor },
-  });
-  return { ...q, hasApproved: (q.data as boolean | undefined) ?? false };
-}
-
 export type TraceFundFn =
   | "createCampaign"
   | "donate"
-  | "submitEvidence"
-  | "approveMilestone"
-  | "releaseMilestoneFunds";
+  | "submitEvidence";
 
 export function useTraceFundWrite() {
   const { address, abi, chainId } = useReadChain();

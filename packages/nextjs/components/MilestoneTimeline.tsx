@@ -1,8 +1,7 @@
 "use client";
 
 import type { Campaign, Milestone } from "../lib/types";
-import { formatEth, milestoneStatus, milestoneStatusMeta, percent } from "../lib/format";
-import { ProgressBar } from "./ProgressBar";
+import { formatEth, milestoneStatus, milestoneStatusMeta } from "../lib/format";
 import { EvidenceLink } from "./EvidenceLink";
 
 export function MilestoneTimeline({
@@ -27,9 +26,6 @@ export function MilestoneTimeline({
         const isActive = i === current && !campaign.completed;
         const cumTarget = cumulativeTargets[i] ?? 0n;
 
-        const approvalPct =
-          totalRaised > 0n ? percent(m.approvalWeight, totalRaised) : 0;
-
         return (
           <li
             key={i}
@@ -43,11 +39,9 @@ export function MilestoneTimeline({
                 className={`flex h-7 w-7 shrink-0 items-center justify-center rounded-full text-xs font-bold ${
                   status === "released"
                     ? "bg-brand-500 text-canvas"
-                    : status === "ready-to-release"
-                      ? "bg-emerald-500/30 text-emerald-300 ring-1 ring-emerald-500/40"
-                      : isActive
-                        ? "bg-brand-500/20 text-brand-300 ring-1 ring-brand-500/40"
-                        : "bg-white/5 text-gray-500"
+                    : isActive
+                      ? "bg-brand-500/20 text-brand-300 ring-1 ring-brand-500/40"
+                      : "bg-white/5 text-gray-500"
                 }`}
               >
                 {status === "released" ? "✓" : i + 1}
@@ -71,30 +65,10 @@ export function MilestoneTimeline({
                   </span>
                 </div>
 
-                {/* Funding progress — no donations yet */}
-                {isActive && status === "funding" && (
-                  <p className="mt-2 text-xs text-sky-300">
-                    Waiting for first donation — donors must contribute before approval is possible.
+                {isActive && status === "awaiting-evidence" && (
+                  <p className="mt-2 text-xs text-amber-300">
+                    Waiting for the creator to submit proof — funds release automatically on submission.
                   </p>
-                )}
-
-                {/* Approval progress — evidence submitted, waiting for votes */}
-                {isActive && (status === "awaiting-approval" || status === "ready-to-release") && (
-                  <div className="mt-3">
-                    <div className="mb-1 flex items-center justify-between text-xs text-gray-400">
-                      <span>Donor approval weight</span>
-                      <span className="font-mono">
-                        {formatEth(m.approvalWeight)} / {formatEth(totalRaised)} ETH
-                        &nbsp;({approvalPct.toFixed(0)}%)
-                      </span>
-                    </div>
-                    <ProgressBar value={approvalPct} tone="violet" marker={50} />
-                    {status === "ready-to-release" && (
-                      <p className="mt-1 text-xs text-emerald-300">
-                        50% threshold reached — release can be triggered from the approval panel.
-                      </p>
-                    )}
-                  </div>
                 )}
 
                 {/* On-chain proof */}
