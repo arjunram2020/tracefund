@@ -81,8 +81,8 @@ export function EvidencePanel({
         </div>
       ) : (
         <p className="rounded-xl bg-white/[0.03] px-4 py-3 text-sm text-gray-400">
-          No proof submitted yet for &ldquo;{targetMilestone?.description}&rdquo;. The creator must
-          post proof before donors can approve and funds can be released.
+          No proof submitted yet for &ldquo;{targetMilestone?.description}&rdquo;. Once the creator
+          posts proof, funds are automatically released to them.
         </p>
       )}
 
@@ -115,8 +115,8 @@ export function EvidencePanel({
             />
           </div>
           <p className="mt-1 text-xs text-gray-500">
-            Stored permanently on-chain. Donors can then approve, and once the 50% threshold is met
-            the milestone funds are released to you.
+            Stored permanently on-chain. Submitting proof automatically releases this milestone&apos;s
+            funds to you.
           </p>
         </div>
       )}
