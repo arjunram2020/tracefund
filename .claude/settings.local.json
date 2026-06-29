@@ -3,7 +3,9 @@
     "allow": [
       "Bash(npm --version)",
       "Bash(yarn --version)",
-      "Bash(git --version)"
+      "Bash(git --version)",
+      "Bash(find app *)",
+      "Bash(ls *.ts *.json)"
     ]
   }
 }

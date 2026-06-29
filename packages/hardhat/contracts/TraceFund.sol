@@ -162,6 +162,15 @@ contract TraceFund is ReentrancyGuard {
         require(c.active, "Campaign not active");
         require(msg.value > 0, "Donation must be > 0");
 
+        // A single donation must stay strictly below the current milestone's
+        // amount, so no one donor can single-handedly fund (and then dominate the
+        // weighted approval of) a milestone in one shot. An active campaign always
+        // has a valid current milestone (completion flips `active` to false).
+        Milestone storage current = _milestones[campaignId][c.currentMilestone];
+        require(msg.value < current.amount, "Donation must be below milestone amount");
+        // A campaign can never raise more than its goal (sum of all milestones).
+        require(c.totalRaised + msg.value <= c.goalAmount, "Donation exceeds campaign goal");
+
         if (donations[campaignId][msg.sender] == 0) {
             _donors[campaignId].push(msg.sender);
             c.donorCount += 1;
