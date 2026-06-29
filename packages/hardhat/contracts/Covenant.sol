@@ -9,24 +9,17 @@ import "@openzeppelin/contracts/utils/ReentrancyGuard.sol";
  *
  * Flow per milestone:
  *   1. Donors send ETH into escrow via donate().
- *   2. Creator posts on-chain evidence via submitEvidence() for the current milestone.
- *   3. Donors call approveMilestone() — each vote is weighted by their donation amount.
- *   4. Once cumulative approval weight >= 50% of totalRaised, anyone can call
- *      releaseMilestoneFunds() to transfer that tranche to the creator.
- *   5. currentMilestone advances; repeat from step 2.
+ *   2. Creator posts on-chain proof via submitEvidence() for the current milestone.
+ *   3. Funds are automatically released to the creator and the next milestone begins.
  */
 contract Covenant is ReentrancyGuard {
     uint256 public constant MAX_MILESTONES = 5;
-    uint256 public constant APPROVAL_THRESHOLD_BPS = 5000; // 50%
-    uint256 public constant BPS_DENOMINATOR = 10000;
 
     struct Milestone {
         string description;
         uint256 amount;
         string evidence;
         bool evidenceSubmitted;
-        uint256 approvalWeight; // cumulative donation weight of approving donors
-        uint256 approvalBase;   // totalRaised snapshot at last approval (informational)
         bool released;
     }
 
@@ -62,8 +55,6 @@ contract Covenant is ReentrancyGuard {
     mapping(uint256 => mapping(address => uint256)) public donations;
     mapping(uint256 => address[]) private _donors;
     mapping(address => CreatorStats) private _creatorStats;
-    // approved[campaignId][milestoneIndex][donor] = true once they approve
-    mapping(uint256 => mapping(uint256 => mapping(address => bool))) public approved;
 
     event CampaignCreated(
         uint256 indexed campaignId,
@@ -82,13 +73,6 @@ contract Covenant is ReentrancyGuard {
         uint256 indexed campaignId,
         uint256 indexed milestoneIndex,
         string evidence
-    );
-    event MilestoneApproved(
-        uint256 indexed campaignId,
-        uint256 indexed milestoneIndex,
-        address indexed donor,
-        uint256 weight,
-        uint256 totalApprovalWeight
     );
     event MilestoneReleased(
         uint256 indexed campaignId,
@@ -136,8 +120,6 @@ contract Covenant is ReentrancyGuard {
                     amount: milestoneAmounts[i],
                     evidence: "",
                     evidenceSubmitted: false,
-                    approvalWeight: 0,
-                    approvalBase: 0,
                     released: false
                 })
             );
@@ -161,14 +143,6 @@ contract Covenant is ReentrancyGuard {
         Campaign storage c = _campaigns[campaignId];
         require(c.active, "Campaign not active");
         require(msg.value > 0, "Donation must be > 0");
-
-        // A single donation must stay strictly below the current milestone's
-        // amount, so no one donor can single-handedly fund (and then dominate the
-        // weighted approval of) a milestone in one shot. An active campaign always
-        // has a valid current milestone (completion flips `active` to false).
-        Milestone storage current = _milestones[campaignId][c.currentMilestone];
-        require(msg.value < current.amount, "Donation must be below milestone amount");
-        // A campaign can never raise more than its goal (sum of all milestones).
         require(c.totalRaised + msg.value <= c.goalAmount, "Donation exceeds campaign goal");
 
         if (donations[campaignId][msg.sender] == 0) {
@@ -184,79 +158,30 @@ contract Covenant is ReentrancyGuard {
 
     /**
      * @notice Creator submits proof for the current milestone.
-     *         This is a prerequisite before donors can approve and funds can be released.
+     *         Funds are automatically released to the creator upon submission.
      */
     function submitEvidence(
         uint256 campaignId,
         string calldata evidence
-    ) external campaignExists(campaignId) {
+    ) external campaignExists(campaignId) nonReentrant {
         Campaign storage c = _campaigns[campaignId];
         require(msg.sender == c.creator, "Only creator");
         require(bytes(evidence).length > 0, "Evidence required");
-        require(!c.completed, "Campaign completed");
-
-        uint256 mi = c.currentMilestone;
-        require(mi < c.milestoneCount, "No active milestone");
-
-        Milestone storage m = _milestones[campaignId][mi];
-        m.evidence = evidence;
-        m.evidenceSubmitted = true;
-        _creatorStats[c.creator].evidenceUpdates += 1;
-
-        emit EvidenceSubmitted(campaignId, mi, evidence);
-    }
-
-    /**
-     * @notice Donor approves the current milestone. Vote weight = their donation amount.
-     *         Requires evidence to have been submitted first.
-     */
-    function approveMilestone(uint256 campaignId) external campaignExists(campaignId) {
-        Campaign storage c = _campaigns[campaignId];
-        require(c.active, "Campaign not active");
-        require(!c.completed, "Campaign completed");
-
-        uint256 mi = c.currentMilestone;
-        require(mi < c.milestoneCount, "No active milestone");
-
-        Milestone storage m = _milestones[campaignId][mi];
-        require(m.evidenceSubmitted, "Evidence not submitted");
-
-        uint256 donorAmount = donations[campaignId][msg.sender];
-        require(donorAmount > 0, "Not a donor");
-        require(!approved[campaignId][mi][msg.sender], "Already approved");
-
-        approved[campaignId][mi][msg.sender] = true;
-        m.approvalWeight += donorAmount;
-        m.approvalBase = c.totalRaised;
-
-        emit MilestoneApproved(campaignId, mi, msg.sender, donorAmount, m.approvalWeight);
-    }
-
-    /**
-     * @notice Release the current milestone's funds to the creator.
-     *         Can be called by anyone once evidence is submitted and the 50% approval
-     *         threshold is met (weighted by donation amount).
-     */
-    function releaseMilestoneFunds(uint256 campaignId)
-        external
-        campaignExists(campaignId)
-        nonReentrant
-    {
-        Campaign storage c = _campaigns[campaignId];
-        require(!c.completed, "Campaign completed");
+        require(c.active && !c.completed, "Campaign not active");
 
         uint256 mi = c.currentMilestone;
         require(mi < c.milestoneCount, "No active milestone");
 
         Milestone storage m = _milestones[campaignId][mi];
         require(!m.released, "Already released");
-        require(m.evidenceSubmitted, "Evidence not submitted");
-        require(
-            c.totalRaised > 0 &&
-                m.approvalWeight * BPS_DENOMINATOR >= c.totalRaised * APPROVAL_THRESHOLD_BPS,
-            "Approval threshold not reached"
-        );
 
+        m.evidence = evidence;
+        m.evidenceSubmitted = true;
+        _creatorStats[c.creator].evidenceUpdates += 1;
+
+        emit EvidenceSubmitted(campaignId, mi, evidence);
+
+        // Auto-release: transfer this milestone's funds to the creator
         m.released = true;
         c.totalReleased += m.amount;
         c.currentMilestone += 1;
@@ -282,42 +207,6 @@ contract Covenant is ReentrancyGuard {
     // -------------------------------------------------------------------------
     // View functions
     // -------------------------------------------------------------------------
-
-    function getApprovalProgress(uint256 campaignId)
-        external
-        view
-        campaignExists(campaignId)
-        returns (uint256 approvalWeight, uint256 totalRaised, bool thresholdReached)
-    {
-        Campaign storage c = _campaigns[campaignId];
-        totalRaised = c.totalRaised;
-        uint256 mi = c.currentMilestone;
-        if (mi >= c.milestoneCount) return (0, totalRaised, false);
-        approvalWeight = _milestones[campaignId][mi].approvalWeight;
-        thresholdReached = totalRaised > 0 &&
-            approvalWeight * BPS_DENOMINATOR >= totalRaised * APPROVAL_THRESHOLD_BPS;
-    }
-
-    function hasApproved(uint256 campaignId, uint256 milestoneIndex, address donor)
-        external
-        view
-        returns (bool)
-    {
-        return approved[campaignId][milestoneIndex][donor];
-    }
-
-    function isThresholdReached(uint256 campaignId)
-        external
-        view
-        campaignExists(campaignId)
-        returns (bool)
-    {
-        Campaign storage c = _campaigns[campaignId];
-        uint256 mi = c.currentMilestone;
-        if (mi >= c.milestoneCount || c.totalRaised == 0) return false;
-        Milestone storage m = _milestones[campaignId][mi];
-        return m.approvalWeight * BPS_DENOMINATOR >= c.totalRaised * APPROVAL_THRESHOLD_BPS;
-    }
 
     function getCampaign(uint256 campaignId)
         external
