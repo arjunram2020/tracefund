@@ -2,23 +2,23 @@ import type { Abi } from "viem";
 import deployed from "../contracts/deployedContracts.json";
 
 type Entry = { address: `0x${string}`; abi: Abi; deployBlock?: number };
-const data = deployed as unknown as Record<string, { TraceFund: Entry }>;
+const data = deployed as unknown as Record<string, { Covenant: Entry }>;
 
-/** Chain ids that have a TraceFund deployment recorded by the deploy script. */
+/** Chain ids that have a Covenant deployment recorded by the deploy script. */
 export const deployedChainIds: number[] = Object.keys(data).map(Number);
 
 /** The contract address + abi for a given chain, if deployed there. */
-export function getTraceFund(chainId?: number): Entry | undefined {
+export function getCovenant(chainId?: number): Entry | undefined {
   if (chainId == null) return undefined;
-  return data[String(chainId)]?.TraceFund;
+  return data[String(chainId)]?.Covenant;
 }
 
 /** ABI is identical across networks — grab whichever deployment exists first. */
-export const traceFundAbi: Abi = (Object.values(data)[0]?.TraceFund.abi as Abi) ?? [];
+export const covenantAbi: Abi = (Object.values(data)[0]?.Covenant.abi as Abi) ?? [];
 
 /** Block the contract was deployed at, so event scans don't start from genesis. */
 export function getDeployBlock(chainId?: number): bigint {
-  const block = chainId != null ? data[String(chainId)]?.TraceFund.deployBlock : undefined;
+  const block = chainId != null ? data[String(chainId)]?.Covenant.deployBlock : undefined;
   return BigInt(block ?? 0);
 }
 
@@ -32,6 +32,6 @@ export const defaultChainId: number =
  * lets public viewers browse campaigns without connecting a wallet.
  */
 export function resolveReadChainId(connectedChainId?: number): number {
-  if (connectedChainId != null && getTraceFund(connectedChainId)) return connectedChainId;
+  if (connectedChainId != null && getCovenant(connectedChainId)) return connectedChainId;
   return defaultChainId;
 }

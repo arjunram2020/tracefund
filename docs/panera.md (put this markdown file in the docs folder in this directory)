@@ -7,7 +7,7 @@
 │                        ▘▘ ▝▝                       │ Added `CLAUDE_CODE_DIS… │
 │    Sonnet 4.6 · Claude Pro ·                       │ Fixed hook matchers wi… │
 │    nityanth.maramreddy@gmail.com's Organization    │ Fixed voice dictation … │
-│               ~/Downloads/tracefund                │ /release-notes for more │
+│               ~/Downloads/covenant                │ /release-notes for more │
 ╰──────────────────────────────────────────────────────────────────────────────╯
 
 
@@ -96,7 +96,7 @@
   There are two different versions of the smart contract and they're tangled 
   together:
 
-  The contract file (packages/hardhat/contracts/TraceFund.sol) is the OLD 
+  The contract file (packages/hardhat/contracts/Covenant.sol) is the OLD
   version — it has no donor approval system. But the contract already deployed
   to Base Mainnet (chain 8453 in deployedContracts.json) is a NEWER version that
   has the full approval system: approveMilestone, getApprovalProgress,
@@ -120,7 +120,7 @@
   - But it's never rendered anywhere on the campaign detail page — the page only
   shows CreatorReleasePanel
   - There are no hooks (useApprovalProgress, useHasApproved) defined in
-  useTraceFund.ts, yet DonorApprovalPanel needs those values as props
+  useCovenant.ts, yet DonorApprovalPanel needs those values as props
   - The Base Mainnet contract requires donor approval before
   releaseMilestoneFunds can succeed, so the "Withdraw" button will always revert
   on the live contract
@@ -128,7 +128,7 @@
   Breakage 3 — TypeScript types don't reflect the deployed contract.
   - Milestone interface in lib/types.ts is missing approvalWeight and
   approvalBase fields (which the Base Mainnet contract returns)
-  - TraceFundFn union type doesn't include "approveMilestone", meaning
+  - CovenantFn union type doesn't include "approveMilestone", meaning
   TypeScript won't catch misuses
 
   Breakage 4 — The local contract file can't be redeployed without losing 
@@ -151,7 +151,7 @@
   NEXT_PUBLIC_WALLETCONNECT_PROJECT_ID (needed for mobile/WalletConnect users).
   Without these, the build succeeds but the deployed app either shows no
   campaigns or can't connect wallets.
-  2. The traceFundAbi pick is order-dependent. lib/contract.ts line 17 grabs
+  2. The covenantAbi pick is order-dependent. lib/contract.ts line 17 grabs
   Object.values(data)[0] — whatever chain appears first in
   deployedContracts.json. Right now that's "8453" (Base Mainnet ABI), which is
   the right behavior for production, but it means if you add/redeploy to chain
@@ -198,7 +198,7 @@
   3. Connect your GitHub repo
   4. Amplify detects Next.js automatically and sets the build command
   5. You manually override two things in the build settings:
-    - Build command: yarn workspace @tracefund/nextjs build
+    - Build command: yarn workspace @covenant/nextjs build
     - Output directory: packages/nextjs/.next
   6. Set environment variables (same ones Vercel needs):
   NEXT_PUBLIC_DEFAULT_CHAIN_ID=8453, NEXT_PUBLIC_WALLETCONNECT_PROJECT_ID=...,
@@ -218,8 +218,8 @@
   1. Launch an EC2 instance (t3.micro is free tier, t3.small for production)
   2. SSH in, install Node.js, clone your repo
   3. Install PM2 (npm install -g pm2) to keep the process alive
-  4. Build: yarn && yarn workspace @tracefund/nextjs build
-  5. Start: pm2 start "yarn workspace @tracefund/nextjs start" --name tracefund
+  4. Build: yarn && yarn workspace @covenant/nextjs build
+  5. Start: pm2 start "yarn workspace @covenant/nextjs start" --name covenant
   6. Install Nginx as a reverse proxy (handles HTTPS, serves requests to
   port 3000)
   7. Set up a domain, get an SSL cert via Let's Encrypt (certbot)
@@ -242,9 +242,9 @@
   COPY packages/hardhat/package.json ./packages/hardhat/
   RUN yarn install --frozen-lockfile
   COPY . .
-  RUN yarn workspace @tracefund/nextjs build
+  RUN yarn workspace @covenant/nextjs build
   EXPOSE 3000
-  CMD ["yarn", "workspace", "@tracefund/nextjs", "start"]
+  CMD ["yarn", "workspace", "@covenant/nextjs", "start"]
 
   But even this requires understanding ECR (where your container image lives),
   IAM roles, and App Runner's service config. Not beginner territory.
@@ -258,7 +258,7 @@
   the broken submitEvidence call and the missing approval flow, not the hosting.
   If you fix those three things, Vercel will work fine:
 
-  1. Update TraceFund.sol to match the Base Mainnet deployed version (add the
+  1. Update Covenant.sol to match the Base Mainnet deployed version (add the
   approval system)
   2. Fix EvidencePanel.tsx to call submitEvidence with 2 args
   3. Add useApprovalProgress + useHasApproved hooks and wire DonorApprovalPanel
@@ -277,11 +277,11 @@
 
 ✻ Crunched for 3m 12s
 
-※ recap: Fixing TraceFund so the live Base Mainnet app actually works end-to-end. Next: update TraceFund.sol to match the deployed contract, then fix the frontend's broken submitEvidence call and missing donor approval flow. (disable recaps in /config)
+※ recap: Fixing Covenant so the live Base Mainnet app actually works end-to-end. Next: update Covenant.sol to match the deployed contract, then fix the frontend's broken submitEvidence call and missing donor approval flow. (disable recaps in /config)
 
 ❯ What is the easiest choice for deployment on AWS, based on implementation and 
   based on the fact that it won't affect the code base like crazy?              
-  ⎿  ⧉ Selected 1 lines from packages/hardhat/contracts/TraceFund.sol in Visual 
+  ⎿  ⧉ Selected 1 lines from packages/hardhat/contracts/Covenant.sol in Visual
      Studio Code
 
 ⏺ AWS Amplify. No code changes required — it reads your existing vercel.json
@@ -297,7 +297,7 @@
   2. Go to Amplify in the console
 
   AWS Console → search "Amplify" → click "Amplify Hosting" → "Get started" →
-  connect GitHub → select the tracefund repo.
+  connect GitHub → select the covenant repo.
 
   3. Override the build settings
 
@@ -307,7 +307,7 @@
   ┌──────────────────┬────────────────────────────────────────┐
   │      Field       │                 Value                  │
   ├──────────────────┼────────────────────────────────────────┤
-  │ Build command    │ yarn workspace @tracefund/nextjs build │
+  │ Build command    │ yarn workspace @covenant/nextjs build │
   ├──────────────────┼────────────────────────────────────────┤
   │ Output directory │ packages/nextjs/.next                  │
   ├──────────────────┼────────────────────────────────────────┤
@@ -336,7 +336,7 @@
   The only meaningful difference from Vercel is the AWS Console UI is less
   polished and takes a few extra clicks to navigate the first time. The
   vercel.json file won't be read by Amplify, but the values in it (yarn install,
-  yarn workspace @tracefund/nextjs build, packages/nextjs/.next) are exactly
+  yarn workspace @covenant/nextjs build, packages/nextjs/.next) are exactly
   what you'd type into the Amplify build settings — so nothing in the codebase
   changes at all.
 
@@ -429,9 +429,9 @@
   COPY packages/hardhat/package.json ./packages/hardhat/
   RUN yarn install --frozen-lockfile
   COPY . .
-  RUN yarn workspace @tracefund/nextjs build
+  RUN yarn workspace @covenant/nextjs build
   EXPOSE 3000
-  CMD ["yarn", "workspace", "@tracefund/nextjs", "start"]
+  CMD ["yarn", "workspace", "@covenant/nextjs", "start"]
 
   When this builds into an image, it's a complete snapshot: the OS, the Node
   version, your dependencies, your compiled app. That image runs identically on
@@ -459,7 +459,7 @@
   back instantly
 
   For this project, your ECR repository would store every version of the
-  TraceFund frontend image you've ever built.
+  Covenant frontend image you've ever built.
 
   ---
   ECS — Elastic Container Service
@@ -504,11 +504,11 @@
   hotel room only when you need it. You don't manage the building — you just
   use the room.
 
-  Cost for TraceFund at low traffic: roughly $15–30/month for a single Fargate
+  Cost for Covenant at low traffic: roughly $15–30/month for a single Fargate
   task running 24/7. Scales to near-zero cost if you stop the service.
 
   ---
-  How the full architecture looks for TraceFund
+  How the full architecture looks for Covenant
 
   User's browser
        ↓
@@ -557,9 +557,9 @@
   day of setup the first time, not a few hours.
 
   But once it's done, it's done. Deploying a new version becomes:
-  docker build -t tracefund .
-  docker tag tracefund <ecr-url>/tracefund:latest
-  docker push <ecr-url>/tracefund:latest
+  docker build -t covenant .
+  docker tag covenant <ecr-url>/covenant:latest
+  docker push <ecr-url>/covenant:latest
   # ECS picks up the new image automatically on the next deploy trigger
 
   That's a real CI/CD pipeline you can put on a resume. Want me to start
@@ -567,7 +567,7 @@
 
 ✻ Sautéed for 46s
 
-※ recap: We're deploying TraceFund to AWS using Docker, ECS, Fargate, and ECR to simulate a real production setup. Next step is scaffolding the Dockerfile and listing the AWS resources needed. (disable recaps in /config)
+※ recap: We're deploying Covenant to AWS using Docker, ECS, Fargate, and ECR to simulate a real production setup. Next step is scaffolding the Dockerfile and listing the AWS resources needed. (disable recaps in /config)
 
 ❯ Why are Docker images important? I know the containers are essentially just   
   the code and all the backend you need for a successful deploy. Can you        
@@ -612,7 +612,7 @@
   - The runtime (Node.js 20, Python 3.11, Java 17 — whatever your app needs)
   - Your dependencies (everything in node_modules, compiled exactly once)
   - Your compiled application (the Next.js build output)
-  - The command to start it (yarn workspace @tracefund/nextjs start)
+  - The command to start it (yarn workspace @covenant/nextjs start)
 
   When you build an image, all of that gets frozen into a single artifact. Think
   of it like a snapshot of a perfectly configured computer at the exact moment
@@ -683,9 +683,9 @@
 
   Every image gets a tag:
 
-  123456789.dkr.ecr.us-east-1.amazonaws.com/tracefund:latest
-  123456789.dkr.ecr.us-east-1.amazonaws.com/tracefund:v1.2.0
-  123456789.dkr.ecr.us-east-1.amazonaws.com/tracefund:git-a3f9c12
+  123456789.dkr.ecr.us-east-1.amazonaws.com/covenant:latest
+  123456789.dkr.ecr.us-east-1.amazonaws.com/covenant:v1.2.0
+  123456789.dkr.ecr.us-east-1.amazonaws.com/covenant:git-a3f9c12
 
   The last one is what production teams actually use — tagging by the git commit
   SHA. Now you have a permanent, auditable link between the code that was
@@ -712,7 +712,7 @@
   manager that decides what should be running and makes sure it stays that way.
 
   Fargate is the compute underneath. When ECS decides "I need to run the
-  TraceFund container," Fargate provides the actual CPU and RAM to do it,
+  Covenant container," Fargate provides the actual CPU and RAM to do it,
   completely invisibly. You never SSH into a server. You never patch an
   operating system. You never worry about what happens if the underlying
   hardware fails. AWS handles all of that. You just declare what you want
@@ -720,7 +720,7 @@
 
   The combination works like this:
 
-  You define: "Keep 2 copies of tracefund:latest running,
+  You define: "Keep 2 copies of covenant:latest running,
                each with 0.5 vCPU and 1GB RAM,
                restart if they crash,
                deploy new versions with zero downtime"
@@ -739,11 +739,11 @@
   guessing about what environment prod is in.
 
   Isolation. Two different services can run on the same hardware without
-  interfering. The TraceFund frontend and a hypothetical backend API can have
+  interfering. The Covenant frontend and a hypothetical backend API can have
   completely different Node versions, dependency trees, and environment
   variables, running side by side.
 
-  Scalability. If TraceFund suddenly gets featured somewhere and traffic spikes,
+  Scalability. If Covenant suddenly gets featured somewhere and traffic spikes,
   ECS can start five more containers in under a minute. Then scale back down
   when traffic drops. You pay only for what you run.
 
@@ -789,7 +789,7 @@
   The honest cost of this choice:
 
   You will spend one to two full days just on AWS setup before a single line of
-  TraceFund code touches the cloud. The order of pain you'll hit:
+  Covenant code touches the cloud. The order of pain you'll hit:
 
   1. IAM roles — getting ECS permission to pull from ECR and write logs
   2. VPC + subnets — where your containers actually live in the network
@@ -871,7 +871,7 @@
   - Install PM2
   - Clone the repo
   - Set environment variables
-  - Run yarn install and yarn workspace @tracefund/nextjs build
+  - Run yarn install and yarn workspace @covenant/nextjs build
   - Start the app with PM2
   - Configure Nginx as a reverse proxy pointing to port 3000
   - Set up SSL with Let's Encrypt / Certbot
@@ -984,12 +984,12 @@
   In the AWS Console:
 
   1. Go to EC2 → Launch Instance
-  2. Name: tracefund-prod
+  2. Name: covenant-prod
   3. AMI: Ubuntu Server 22.04 LTS (not Amazon Linux — Ubuntu has better
   community docs for Nginx/Certbot)
   4. Instance type: t3.small — not t3.micro. The Next.js build for a monorepo
   needs 2GB RAM or it will crash during yarn install
-  5. Key pair: Create new → name it tracefund-key → download the .pem file → do 
+  5. Key pair: Create new → name it covenant-key → download the .pem file → do
   not lose this, you cannot recover it
   6. Storage: Change from 8GB to 20GB — node_modules for this project is large
   7. Security group: Create new with these inbound rules:
@@ -1013,7 +1013,7 @@
   everything breaks.
 
   1. EC2 → Elastic IPs → Allocate Elastic IP
-  2. Associate it with your tracefund-prod instance
+  2. Associate it with your covenant-prod instance
   3. Write down this IP — it's your server's permanent address
 
   ---
@@ -1021,11 +1021,11 @@
 
   On your Mac, first fix the key permissions:
 
-  chmod 400 ~/Downloads/tracefund-key.pem
+  chmod 400 ~/Downloads/covenant-key.pem
 
   Then connect:
 
-  ssh -i ~/Downloads/tracefund-key.pem ubuntu@<your-elastic-ip>
+  ssh -i ~/Downloads/covenant-key.pem ubuntu@<your-elastic-ip>
 
   You're now inside the server.
 
@@ -1060,8 +1060,8 @@
   Step 5 — Clone and Build the App
 
   # Clone your repo
-  git clone https://github.com/<your-username>/tracefund.git
-  cd tracefund
+  git clone https://github.com/<your-username>/covenant.git
+  cd covenant
 
   # Create the environment file for the Next.js app
   nano packages/nextjs/.env.local
@@ -1078,7 +1078,7 @@
   yarn install
 
   # Build the Next.js app
-  yarn workspace @tracefund/nextjs build
+  yarn workspace @covenant/nextjs build
 
   The build will take 2–3 minutes on t3.small.
 
@@ -1086,7 +1086,7 @@
   Step 6 — Start the App With PM2
 
   # Start the app
-  pm2 start "yarn workspace @tracefund/nextjs start" --name tracefund
+  pm2 start "yarn workspace @covenant/nextjs start" --name covenant
 
   # Tell PM2 to restart the app if the server reboots
   pm2 startup
@@ -1102,7 +1102,7 @@
   ---
   Step 7 — Configure Nginx
 
-  sudo nano /etc/nginx/sites-available/tracefund
+  sudo nano /etc/nginx/sites-available/covenant
 
   Paste this — replace yourdomain.com with your actual domain (or your Elastic
   IP temporarily):
@@ -1125,7 +1125,7 @@
   Save, then enable it:
 
   # Enable the site
-  sudo ln -s /etc/nginx/sites-available/tracefund /etc/nginx/sites-enabled/
+  sudo ln -s /etc/nginx/sites-available/covenant /etc/nginx/sites-enabled/
 
   # Test the config — fix any errors before proceeding
   sudo nginx -t
@@ -1151,22 +1151,22 @@
 
   This is the manual part of EC2. SSH in and run:
 
-  cd tracefund
+  cd covenant
   git pull
   yarn install
-  yarn workspace @tracefund/nextjs build
-  pm2 restart tracefund
+  yarn workspace @covenant/nextjs build
+  pm2 restart covenant
 
   That's your deploy script. You can put it in a shell script so it's one
   command:
 
   # deploy.sh
   #!/bin/bash
-  cd ~/tracefund
+  cd ~/covenant
   git pull
   yarn install
-  yarn workspace @tracefund/nextjs build
-  pm2 restart tracefund
+  yarn workspace @covenant/nextjs build
+  pm2 restart covenant
   echo "Deploy complete"
 
   chmod +x deploy.sh
@@ -1219,7 +1219,7 @@
 
   The deployed Base Mainnet contract (ABI in deployedContracts.json chain 8453)
   is the real, correct version — it has the full approval system. The local 
-  TraceFund.sol is a completely different, older version with no approval system
+  Covenant.sol is a completely different, older version with no approval system
   at all.
 
   The frontend was written for the old local version but the ABI it actually
@@ -1231,7 +1231,7 @@
   ┌─────────────────────────────┬────────────────────────────────────────────┐
   │            File             │                   Issue                    │
   ├─────────────────────────────┼────────────────────────────────────────────┤
-  │ TraceFund.sol               │ Old version — missing approval system,     │
+  │ Covenant.sol               │ Old version — missing approval system,     │
   │                             │ wrong submitEvidence signature             │
   ├─────────────────────────────┼────────────────────────────────────────────┤
   │ lib/types.ts                │ Milestone missing approvalWeight and       │
@@ -1240,8 +1240,8 @@
   │ EvidencePanel.tsx line 51   │ Sends 3 args, Base Mainnet contract takes  │
   │                             │ 2                                          │
   ├─────────────────────────────┼────────────────────────────────────────────┤
-  │                             │ Missing approveMilestone in TraceFundFn,   │
-  │ useTraceFund.ts             │ missing useApprovalProgress and            │
+  │                             │ Missing approveMilestone in CovenantFn,   │
+  │ useCovenant.ts             │ missing useApprovalProgress and            │
   │                             │ useHasApproved hooks                       │
   ├─────────────────────────────┼────────────────────────────────────────────┤
   │ app/campaigns/[id]/page.tsx │ Never renders DonorApprovalPanel, still    │
@@ -1250,10 +1250,10 @@
 
   Let me fix all of this now.
 
-⏺ Write(packages/hardhat/contracts/TraceFund.sol)  ⎿  Added 112 lines, removed 76 lines
+⏺ Write(packages/hardhat/contracts/Covenant.sol)  ⎿  Added 112 lines, removed 76 lines
        5  
        6  /**
-       7   * @title TraceFund
+       7   * @title Covenant
        8 - * @notice Milestone-based crowdfunding with proof-gated accoun
          -tability.                                                      
        8 + * @notice Milestone-based crowdfunding with donor-weighted app
@@ -1291,7 +1291,7 @@
          + creator.                                                      
       16 + *   5. currentMilestone advances; repeat from step 2.         
       17   */
-      18  contract TraceFund is ReentrancyGuard {
+      18  contract Covenant is ReentrancyGuard {
       19      uint256 public constant MAX_MILESTONES = 5;
       20 +    uint256 public constant APPROVAL_THRESHOLD_BPS = 5000; // 5
          +0%                                                             
@@ -1754,9 +1754,9 @@
       121          </div>
       122        )}
 
-⏺ Now add the missing hooks and approveMilestone to useTraceFund.ts:
+⏺ Now add the missing hooks and approveMilestone to useCovenant.ts:
 
-⏺ Update(packages/nextjs/hooks/useTraceFund.ts)
+⏺ Update(packages/nextjs/hooks/useCovenant.ts)
   ⎿  Added 35 lines
       114    return { ...q, donation: (q.data as bigint | undefined) ?? 0
            n };
@@ -1801,14 +1801,14 @@
           +?? false };                                                   
       149 +}                                                             
       150 +                                                              
-      151  export type TraceFundFn =
+      151  export type CovenantFn =
       152    | "createCampaign"
       153    | "donate"
       154    | "submitEvidence"
       155 +  | "approveMilestone"                                        
       156    | "releaseMilestoneFunds";
       157  
-      158  export function useTraceFundWrite() {
+      158  export function useCovenantWrite() {
 
 ⏺ Now update the campaign detail page to wire in DonorApprovalPanel and remove
   CreatorReleasePanel:
@@ -1927,7 +1927,7 @@
   ---
   What was fixed
 
-  TraceFund.sol — full rewrite to match Base Mainnet
+  Covenant.sol — full rewrite to match Base Mainnet
   The local file was an old pre-approval version. It now matches the deployed
   contract at 0x000f8e23a416396184Cd97fF9dD750F3753F4C0c with the complete
   approval system: approveMilestone, getApprovalProgress, hasApproved,
@@ -1944,8 +1944,8 @@
   current milestone, not a released-but-unproven one) and updated the UI copy to
   reflect the new flow (evidence first → donor approval → release).
 
-  hooks/useTraceFund.ts — Added useApprovalProgress and useHasApproved hooks,
-  and added "approveMilestone" to the TraceFundFn type.
+  hooks/useCovenant.ts — Added useApprovalProgress and useHasApproved hooks,
+  and added "approveMilestone" to the CovenantFn type.
 
   app/campaigns/[id]/page.tsx — Replaced CreatorReleasePanel (old contract
   logic) with DonorApprovalPanel (correct for Base Mainnet). Wires in the two
@@ -1972,7 +1972,7 @@
 
 ⏺ 4 revert message mismatches. Fixing them all:
 
-⏺ Update(packages/hardhat/contracts/TraceFund.sol)
+⏺ Update(packages/hardhat/contracts/Covenant.sol)
   ⎿  Added 1 line, removed 1 line
       122  
       123          uint256 totalGoal = 0;
@@ -1985,7 +1985,7 @@
       127          }
       128  
 
-⏺ Update(packages/hardhat/contracts/TraceFund.sol)
+⏺ Update(packages/hardhat/contracts/Covenant.sol)
   ⎿  Added 1 line, removed 1 line
       118          uint256 n = milestoneDescriptions.length;
       119          require(n >= 1, "At least one milestone");
@@ -1998,7 +1998,7 @@
       123          uint256 totalGoal = 0;
       124          for (uint256 i = 0; i < n; i++) {
 
-⏺ Update(packages/hardhat/contracts/TraceFund.sol)
+⏺ Update(packages/hardhat/contracts/Covenant.sol)
   ⎿  Added 1 line, removed 1 line
       210          require(mi < c.milestoneCount, "No active milestone");
       211  
@@ -2012,7 +2012,7 @@
            ];
       216          require(donorAmount > 0, "Not a donor");
 
-⏺ Update(packages/hardhat/contracts/TraceFund.sol)
+⏺ Update(packages/hardhat/contracts/Covenant.sol)
   ⎿  Added 1 line, removed 1 line
       241  
       242          Milestone storage m = _milestones[campaignId][mi];
@@ -2067,7 +2067,7 @@
   EC2 deployment (when ready to ship)
 
   The frontend build is clean and ready to run via yarn workspace 
-  @tracefund/nextjs start. The EC2 guide from the previous message covers
+  @covenant/nextjs start. The EC2 guide from the previous message covers
   everything — it just needs the .env.local file on the server with those three
   vars above.
 
@@ -2076,7 +2076,7 @@
 
 ✻ Cogitated for 1m 48s
 
-※ recap: TraceFund's smart contract and frontend are now fully aligned with the deployed Base Mainnet contract, with 27/27 tests passing. Next: set the three env vars in packages/nextjs/.env.local so the app connects to Base Mainnet. (disable recaps in /config)
+※ recap: Covenant's smart contract and frontend are now fully aligned with the deployed Base Mainnet contract, with 27/27 tests passing. Next: set the three env vars in packages/nextjs/.env.local so the app connects to Base Mainnet. (disable recaps in /config)
 
 ❯ Must-do before the app works on Base Mainnet                                  
                                                                                 
@@ -2116,7 +2116,7 @@
 
   For local development going forward: If you ever want to test locally, run
   yarn chain in one terminal, then yarn deploy in another. The deploy script
-  compiles the current TraceFund.sol and writes a fresh 31337 entry with the
+  compiles the current Covenant.sol and writes a fresh 31337 entry with the
   correct ABI. It won't affect the 8453 entry. After testing, you can either
   leave it in (harmless since 8453 still comes first) or delete it again.
 
@@ -2155,7 +2155,7 @@
   ┌──────────────────────┬──────────────────────────────────────────────────┐
   │       Command        │                   What it does                   │
   ├──────────────────────┼──────────────────────────────────────────────────┤
-  │ yarn compile         │ Compile TraceFund.sol → generates typechain      │
+  │ yarn compile         │ Compile Covenant.sol → generates typechain      │
   │                      │ types                                            │
   ├──────────────────────┼──────────────────────────────────────────────────┤
   │ yarn test            │ Run all 27 contract tests (currently all         │
@@ -2187,10 +2187,10 @@
   │ yarn frontend                  │ Same as yarn start — alias             │
   ├────────────────────────────────┼────────────────────────────────────────┤
   │ yarn workspace                 │ Production build (what you run on EC2) │
-  │ @tracefund/nextjs build        │                                        │
+  │ @covenant/nextjs build        │                                        │
   ├────────────────────────────────┼────────────────────────────────────────┤
   │ yarn workspace                 │ Start production server on port 3000   │
-  │ @tracefund/nextjs start        │ (what PM2 runs)                        │
+  │ @covenant/nextjs start        │ (what PM2 runs)                        │
   └────────────────────────────────┴────────────────────────────────────────┘
 
   The order for a local dev session:
@@ -2202,12 +2202,12 @@
   The order for EC2 deploy:
   yarn install
   # create packages/nextjs/.env.local first
-  yarn workspace @tracefund/nextjs build
-  pm2 start "yarn workspace @tracefund/nextjs start" --name tracefund
+  yarn workspace @covenant/nextjs build
+  pm2 start "yarn workspace @covenant/nextjs start" --name covenant
 
 ✻ Brewed for 1m 44s
 
-※ recap: TraceFund's frontend is now fully synced with the deployed Base Mainnet contract. Next step: create `packages/nextjs/.env.local` with your WalletConnect project ID and chain ID 8453, then run the production build.
+※ recap: Covenant's frontend is now fully synced with the deployed Base Mainnet contract. Next step: create `packages/nextjs/.env.local` with your WalletConnect project ID and chain ID 8453, then run the production build.
 
 ❯ ok let's focus on getting the environmental variables                         
 
@@ -2227,7 +2227,7 @@
   1. Go to cloud.walletconnect.com
   2. Sign up / log in
   3. Click Create Project
-  4. Name it TraceFund, type: App
+  4. Name it Covenant, type: App
   5. Copy the Project ID (looks like a1b2c3d4e5f6..., 32 hex chars)
 
   NEXT_PUBLIC_WALLETCONNECT_PROJECT_ID=<paste here>
@@ -2238,7 +2238,7 @@
   1. Go to alchemy.com
   2. Sign up / log in
   3. Click Create new app
-  4. Name: TraceFund, Chain: Base, Network: Base Mainnet
+  4. Name: Covenant, Chain: Base, Network: Base Mainnet
   5. Click the app → API Key tab → copy the HTTPS URL
 
   It looks like:
@@ -2249,7 +2249,7 @@
   ---
   Once you have both, create the file
 
-  nano /Users/nityanthmaramreddy/Downloads/tracefund/packages/nextjs/.env.local
+  nano /Users/nityanthmaramreddy/Downloads/covenant/packages/nextjs/.env.local
 
   Paste this (filling in your values):
 
@@ -2257,7 +2257,7 @@
   NEXT_PUBLIC_WALLETCONNECT_PROJECT_ID=
   NEXT_PUBLIC_BASE_RPC_URL=
 
-  Save, then run yarn workspace @tracefund/nextjs build once more so the build
+  Save, then run yarn workspace @covenant/nextjs build once more so the build
   picks up the new env vars.
 
   Go get those two and paste them here when you're ready — I'll write the file
@@ -2313,7 +2313,7 @@
   takes precedence and is the right place for secrets. The Alchemy API key
   (ra9iT20aBzKjLvNKinutm) was already valid, it just needed the full URL prefix.
 
-  You can now run yarn workspace @tracefund/nextjs build and the build will pick
+  You can now run yarn workspace @covenant/nextjs build and the build will pick
   up all three variables correctly.
 
 ✻ Churned for 31s
@@ -2371,15 +2371,15 @@
 
   To start it locally and verify everything works end to end:
 
-  yarn workspace @tracefund/nextjs start
+  yarn workspace @covenant/nextjs start
 
   That runs on localhost:3000. Connect MetaMask set to Base Mainnet and you
   should see the live campaigns from the deployed contract.
 
 ✻ Baked for 32s
 
-❯ nityanthmaramreddy@Nityanths-MacBook-Pro-2 tracefund % yarn workspace         
-  @tracefund/nextjs start                                                       
+❯ nityanthmaramreddy@Nityanths-MacBook-Pro-2 covenant % yarn workspace
+  @covenant/nextjs start
   yarn workspace v1.22.22                                                       
   yarn run v1.22.22                                                             
   $ next start                                                                  
@@ -2388,14 +2388,14 @@
       at Server.setupListenHandle [as _listen2] (node:net:1908:16)              
       at listenInCluster (node:net:1965:12)                                     
       at Server.listen (node:net:2067:7)                                        
-      at /Users/nityanthmaramreddy/Downloads/tracefund/node_modules/next/dist/s 
+      at /Users/nityanthmaramreddy/Downloads/covenant/node_modules/next/dist/s
   erver/lib/start-server.js:280:16                                              
       at new Promise (<anonymous>)                                              
-      at startServer (/Users/nityanthmaramreddy/Downloads/tracefund/node_module 
+      at startServer (/Users/nityanthmaramreddy/Downloads/covenant/node_module
   s/next/dist/server/lib/start-server.js:191:11)                                
-      at Module.nextStart (/Users/nityanthmaramreddy/Downloads/tracefund/node_m 
+      at Module.nextStart (/Users/nityanthmaramreddy/Downloads/covenant/node_m
   odules/next/dist/cli/next-start.js:25:40)                                     
-      at /Users/nityanthmaramreddy/Downloads/tracefund/node_modules/next/dist/b 
+      at /Users/nityanthmaramreddy/Downloads/covenant/node_modules/next/dist/b
   in/next:105:856 {                                                             
     code: 'EADDRINUSE',                                                         
     errno: -48,                                                                 
@@ -2411,12 +2411,12 @@
   Command: /Users/nityanthmaramreddy/.nvm/versions/node/v20.19.5/bin/node       
   Arguments: /Users/nityanthmaramreddy/.nvm/versions/node/v20.19.5/lib/node_mod 
   ules/yarn/lib/cli.js start                                                    
-  Directory: /Users/nityanthmaramreddy/Downloads/tracefund/packages/nextjs      
+  Directory: /Users/nityanthmaramreddy/Downloads/covenant/packages/nextjs
   Output:                                                                       
                                                                                 
   info Visit https://yarnpkg.com/en/docs/cli/workspace for documentation about  
   this command.                                                                 
-  nityanthmaramreddy@Nityanths-MacBook-Pro-2 tracefund % ? how do i start this  
+  nityanthmaramreddy@Nityanths-MacBook-Pro-2 covenant % ? how do i start this
   locally?                                                                      
 
 ⏺ Something is already running on port 3000. Find and kill it:
@@ -2434,13 +2434,13 @@
 
   kill $(lsof -ti :3000 | grep -v 7071)   # kills any node on 3000, leaves 
   Chrome alone
-  yarn workspace @tracefund/nextjs start
+  yarn workspace @covenant/nextjs start
 
   The server is running now though — go check localhost:3000.
 
 ✻ Baked for 59s
 
-⏺ Background command "yarn workspace @tracefund/nextjs start 2&gt;&amp;1 | head
+⏺ Background command "yarn workspace @covenant/nextjs start 2&gt;&amp;1 | head
 -10" completed (exit code 0)
 
   Read 1 file (ctrl+o to expand)
@@ -2534,7 +2534,7 @@
 
 ✻ Cogitated for 1m 14s
 
-※ recap: TraceFund is a milestone-based crowdfunding dApp on Base Mainnet that's built and running locally. Next step is fixing the MilestoneTimeline status labels to reflect the new approval-gated contract flow.
+※ recap: Covenant is a milestone-based crowdfunding dApp on Base Mainnet that's built and running locally. Next step is fixing the MilestoneTimeline status labels to reflect the new approval-gated contract flow.
 
 ❯ So we ran this entire website on localhost right now, and we found that       
   currently there's no, there's supposed to be a In the campaigns page on the   
@@ -3064,4 +3064,4 @@
   (0.02 ETH weight · 0.03 ETH total approved) with a violet checkmark icon.
 ✻ Cooked for 2m 17s
 
-※ recap: TraceFund is a milestone-based crowdfunding dApp on Base Mainnet where funds release only after creator proof and donor approval. All code fixes are done and building clean — next step is creating a demo campaign on the live contract so the app has real data to show.
+※ recap: Covenant is a milestone-based crowdfunding dApp on Base Mainnet where funds release only after creator proof and donor approval. All code fixes are done and building clean — next step is creating a demo campaign on the live contract so the app has real data to show.

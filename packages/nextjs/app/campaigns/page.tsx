@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { useAllCampaigns } from "../../hooks/useTraceFund";
+import { useAllCampaigns } from "../../hooks/useCovenant";
 import { CampaignCard } from "../../components/CampaignCard";
 import { ContractNotice } from "../../components/ContractNotice";
 

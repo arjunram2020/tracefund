@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from "react";
 import type { Campaign, Milestone } from "../lib/types";
-import { useTraceFundWrite } from "../hooks/useTraceFund";
+import { useCovenantWrite } from "../hooks/useCovenant";
 import { TxFeedback } from "./TxFeedback";
 import { EvidenceLink } from "./EvidenceLink";
 
@@ -19,7 +19,7 @@ export function EvidencePanel({
 }) {
   const [evidence, setEvidence] = useState("");
   const { execute, refresh, isPending, isConfirming, isConfirmed, error, hash } =
-    useTraceFundWrite();
+    useCovenantWrite();
 
   useEffect(() => {
     if (isConfirmed) {

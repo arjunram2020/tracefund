@@ -6,7 +6,7 @@ import { Header } from "../components/Header";
 import { Footer } from "../components/Footer";
 
 export const metadata: Metadata = {
-  title: "TraceFund — Crowdfunding with enforced accountability",
+  title: "Covenant — Crowdfunding with enforced accountability",
   description:
     "Donations stay locked in smart-contract escrow until campaign creators submit milestone evidence and donors approve each release.",
 };

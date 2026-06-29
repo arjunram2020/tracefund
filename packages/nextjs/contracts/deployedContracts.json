@@ -1,6 +1,6 @@
 {
   "8453": {
-    "TraceFund": {
+    "Covenant": {
       "address": "0x000f8e23a416396184Cd97fF9dD750F3753F4C0c",
       "deployBlock": 47303001,
       "abi": [
@@ -420,7 +420,7 @@
                   "type": "uint256"
                 }
               ],
-              "internalType": "struct TraceFund.Campaign[]",
+              "internalType": "struct Covenant.Campaign[]",
               "name": "list",
               "type": "tuple[]"
             }
@@ -535,7 +535,7 @@
                   "type": "uint256"
                 }
               ],
-              "internalType": "struct TraceFund.Campaign",
+              "internalType": "struct Covenant.Campaign",
               "name": "",
               "type": "tuple"
             }
@@ -586,7 +586,7 @@
                   "type": "uint256"
                 }
               ],
-              "internalType": "struct TraceFund.CreatorStats",
+              "internalType": "struct Covenant.CreatorStats",
               "name": "",
               "type": "tuple"
             }
@@ -690,7 +690,7 @@
                   "type": "bool"
                 }
               ],
-              "internalType": "struct TraceFund.Milestone",
+              "internalType": "struct Covenant.Milestone",
               "name": "",
               "type": "tuple"
             }
@@ -746,7 +746,7 @@
                   "type": "bool"
                 }
               ],
-              "internalType": "struct TraceFund.Milestone[]",
+              "internalType": "struct Covenant.Milestone[]",
               "name": "",
               "type": "tuple[]"
             }
@@ -856,7 +856,7 @@
     }
   },
   "31337": {
-    "TraceFund": {
+    "Covenant": {
       "address": "0x5FbDB2315678afecb367f032d93F642f64180aa3",
       "deployBlock": 1,
       "abi": [
@@ -1276,7 +1276,7 @@
                   "type": "uint256"
                 }
               ],
-              "internalType": "struct TraceFund.Campaign[]",
+              "internalType": "struct Covenant.Campaign[]",
               "name": "list",
               "type": "tuple[]"
             }
@@ -1391,7 +1391,7 @@
                   "type": "uint256"
                 }
               ],
-              "internalType": "struct TraceFund.Campaign",
+              "internalType": "struct Covenant.Campaign",
               "name": "",
               "type": "tuple"
             }
@@ -1442,7 +1442,7 @@
                   "type": "uint256"
                 }
               ],
-              "internalType": "struct TraceFund.CreatorStats",
+              "internalType": "struct Covenant.CreatorStats",
               "name": "",
               "type": "tuple"
             }
@@ -1546,7 +1546,7 @@
                   "type": "bool"
                 }
               ],
-              "internalType": "struct TraceFund.Milestone",
+              "internalType": "struct Covenant.Milestone",
               "name": "",
               "type": "tuple"
             }
@@ -1602,7 +1602,7 @@
                   "type": "bool"
                 }
               ],
-              "internalType": "struct TraceFund.Milestone[]",
+              "internalType": "struct Covenant.Milestone[]",
               "name": "",
               "type": "tuple[]"
             }

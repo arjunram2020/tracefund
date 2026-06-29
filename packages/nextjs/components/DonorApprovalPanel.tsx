@@ -5,7 +5,7 @@ import { useAccount } from "wagmi";
 import { ConnectButton } from "@rainbow-me/rainbowkit";
 import type { Campaign, Milestone } from "../lib/types";
 import { formatEth, percent } from "../lib/format";
-import { useTraceFundWrite } from "../hooks/useTraceFund";
+import { useCovenantWrite } from "../hooks/useCovenant";
 import { ProgressBar } from "./ProgressBar";
 import { TxFeedback } from "./TxFeedback";
 
@@ -31,8 +31,8 @@ export function DonorApprovalPanel({
   const { isConnected } = useAccount();
   const current = Number(campaign.currentMilestone);
   const activeMilestone = campaign.completed ? undefined : milestones[current];
-  const approve = useTraceFundWrite();
-  const release = useTraceFundWrite();
+  const approve = useCovenantWrite();
+  const release = useCovenantWrite();
 
   useEffect(() => {
     if (approve.isConfirmed) {

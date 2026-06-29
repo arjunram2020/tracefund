@@ -3,7 +3,7 @@
 import Link from "next/link";
 import type { Campaign } from "../lib/types";
 import { campaignStatus, formatEth, percent } from "../lib/format";
-import { useTrustScore } from "../hooks/useTraceFund";
+import { useTrustScore } from "../hooks/useCovenant";
 import { ProgressBar } from "./ProgressBar";
 import { ReputationBadge } from "./ReputationBadge";
 import { Address } from "./Address";

@@ -5,7 +5,7 @@ import { useRouter } from "next/navigation";
 import { parseEther, formatEther } from "viem";
 import { useAccount } from "wagmi";
 import { ConnectButton } from "@rainbow-me/rainbowkit";
-import { useCampaignCount, useTraceFundWrite } from "../../hooks/useTraceFund";
+import { useCampaignCount, useCovenantWrite } from "../../hooks/useCovenant";
 import { TxFeedback } from "../../components/TxFeedback";
 import { ContractNotice } from "../../components/ContractNotice";
 import { formatEth } from "../../lib/format";
@@ -55,7 +55,7 @@ export default function CreateCampaignPage() {
   const [amounts, setAmounts] = useState<string[]>(["", "", ""]);
 
   const { execute, refresh, isPending, isConfirming, isConfirmed, error, hash } =
-    useTraceFundWrite();
+    useCovenantWrite();
 
   // Keep descriptions + amounts arrays in sync with milestoneCount (even mode)
   useEffect(() => {

@@ -1,10 +1,10 @@
-# TraceFund
+# Covenant
 
 Milestone-based crowdfunding with enforced accountability on Ethereum.
 
 Donations stay locked in a smart contract escrow until campaign creators submit evidence and donors approve each milestone. Every donation, evidence update, approval, and fund release is part of a permanent public record on-chain.
 
-**Live app:** [tracefund.vercel.app](https://tracefund.vercel.app)  
+**Live app:** Update this link after assigning the Covenant deployment domain.
 **Contract on Base Mainnet:** `0x000f8e23a416396184Cd97fF9dD750F3753F4C0c`
 
 ---
@@ -13,7 +13,7 @@ Donations stay locked in a smart contract escrow until campaign creators submit 
 
 Traditional crowdfunding platforms like GoFundMe rely on trust. Once money moves, donors have no enforceable way to verify how it is used. Updates are optional. The platform holds the funds, not you.
 
-TraceFund changes the money flow:
+Covenant changes the money flow:
 
 1. **Donate** — ETH goes into smart contract escrow, not the creator's wallet
 2. **Evidence** — Creator submits proof for the current milestone (URL, IPFS link, or text)
@@ -40,11 +40,11 @@ The rest stays locked for future milestones.
 ## Project Structure
 
 ```
-tracefund/
+covenant/
 ├── packages/
 │   ├── hardhat/              # Smart contract, tests, deploy scripts
 │   │   ├── contracts/
-│   │   │   └── TraceFund.sol
+│   │   │   └── Covenant.sol
 │   │   ├── scripts/
 │   │   │   └── seed.ts
 │   │   └── test/
@@ -99,7 +99,7 @@ yarn deploy:base
 
 ```bash
 git add packages/nextjs/contracts/deployedContracts.json
-git commit -m "deploy TraceFund to Base Mainnet"
+git commit -m "deploy Covenant to Base Mainnet"
 git push
 ```
 
@@ -117,7 +117,7 @@ git push
 
 ## How the Smart Contract Works
 
-The `TraceFund.sol` contract stores everything on-chain:
+The `Covenant.sol` contract stores everything on-chain:
 
 - **Campaigns** — title, description, goal, raised amount, milestone list, creator address
 - **Milestones** — description, amount, evidence string, approval weight, release status

@@ -19,9 +19,7 @@ export function Header() {
       <div className="mx-auto flex h-16 max-w-6xl items-center justify-between gap-4 px-4 sm:px-6">
         <Link href="/" className="flex items-center gap-2.5">
           <Logo className="h-8 w-8" />
-          <span className="text-lg font-bold tracking-tight text-white">
-            Trace<span className="text-brand-400">Fund</span>
-          </span>
+          <span className="text-lg font-bold tracking-tight text-white">Covenant</span>
         </Link>
 
         <nav className="hidden items-center gap-1 md:flex">

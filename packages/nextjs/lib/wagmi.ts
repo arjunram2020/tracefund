@@ -7,9 +7,9 @@ import { defaultChainId } from "./contract";
 // A placeholder is fine for local development with an injected wallet (MetaMask).
 // Set NEXT_PUBLIC_WALLETCONNECT_PROJECT_ID to enable WalletConnect / mobile wallets
 // (required for a second phone/laptop to connect to a hosted demo).
-const projectId = process.env.NEXT_PUBLIC_WALLETCONNECT_PROJECT_ID || "tracefund_local_demo";
+const projectId = process.env.NEXT_PUBLIC_WALLETCONNECT_PROJECT_ID || "covenant_local_demo";
 
-// Every network TraceFund can target. The actual default is chosen below.
+// Every network Covenant can target. The actual default is chosen below.
 const ALL_CHAINS: Chain[] = [base, baseSepolia, mainnet, hardhat];
 
 // Per-chain RPC overrides. The built-in public RPCs (e.g. https://mainnet.base.org)
@@ -31,7 +31,7 @@ const ordered = [
 const transports = Object.fromEntries(ALL_CHAINS.map((c) => [c.id, http(RPC_OVERRIDES[c.id])]));
 
 export const config = getDefaultConfig({
-  appName: "TraceFund",
+  appName: "Covenant",
   projectId,
   chains: ordered,
   transports,

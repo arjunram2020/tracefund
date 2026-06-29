@@ -9,17 +9,17 @@ import {
   useWriteContract,
 } from "wagmi";
 import { useQueryClient } from "@tanstack/react-query";
-import { getTraceFund, resolveReadChainId, traceFundAbi } from "../lib/contract";
+import { getCovenant, resolveReadChainId, covenantAbi } from "../lib/contract";
 import type { Campaign, CreatorStats, Milestone } from "../lib/types";
 
 export function useReadChain() {
   const connectedChainId = useChainId();
   const chainId = resolveReadChainId(connectedChainId);
-  const deployment = getTraceFund(chainId);
+  const deployment = getCovenant(chainId);
   return {
     chainId,
     address: deployment?.address,
-    abi: traceFundAbi,
+    abi: covenantAbi,
     deployed: !!deployment,
     connectedChainId,
   };
@@ -148,14 +148,14 @@ export function useHasApproved(id?: bigint, milestoneIndex?: bigint, donor?: `0x
   return { ...q, hasApproved: (q.data as boolean | undefined) ?? false };
 }
 
-export type TraceFundFn =
+export type CovenantFn =
   | "createCampaign"
   | "donate"
   | "submitEvidence"
   | "approveMilestone"
   | "releaseMilestoneFunds";
 
-export function useTraceFundWrite() {
+export function useCovenantWrite() {
   const { address, abi, chainId } = useReadChain();
   const connectedChainId = useChainId();
   const { switchChainAsync } = useSwitchChain();
@@ -168,8 +168,8 @@ export function useTraceFundWrite() {
   } = useWaitForTransactionReceipt({ hash, chainId });
 
   const execute = useCallback(
-    async (functionName: TraceFundFn, args: unknown[], value?: bigint) => {
-      if (!address) throw new Error("TraceFund is not deployed on this network.");
+    async (functionName: CovenantFn, args: unknown[], value?: bigint) => {
+      if (!address) throw new Error("Covenant is not deployed on this network.");
       if (connectedChainId !== chainId) {
         await switchChainAsync({ chainId });
       }

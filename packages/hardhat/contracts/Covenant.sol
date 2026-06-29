@@ -4,7 +4,7 @@ pragma solidity ^0.8.20;
 import "@openzeppelin/contracts/utils/ReentrancyGuard.sol";
 
 /**
- * @title TraceFund
+ * @title Covenant
  * @notice Milestone-based crowdfunding with donor-weighted approval gates.
  *
  * Flow per milestone:
@@ -15,7 +15,7 @@ import "@openzeppelin/contracts/utils/ReentrancyGuard.sol";
  *      releaseMilestoneFunds() to transfer that tranche to the creator.
  *   5. currentMilestone advances; repeat from step 2.
  */
-contract TraceFund is ReentrancyGuard {
+contract Covenant is ReentrancyGuard {
     uint256 public constant MAX_MILESTONES = 5;
     uint256 public constant APPROVAL_THRESHOLD_BPS = 5000; // 50%
     uint256 public constant BPS_DENOMINATOR = 10000;

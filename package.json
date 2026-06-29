@@ -1,21 +1,21 @@
 {
-  "name": "tracefund",
+  "name": "covenant",
   "version": "0.1.0",
   "private": true,
-  "description": "TraceFund — milestone-based crowdfunding with enforced accountability on Ethereum (Base).",
+  "description": "Covenant — milestone-based crowdfunding with enforced accountability on Ethereum (Base).",
   "workspaces": [
     "packages/*"
   ],
   "scripts": {
-    "chain": "yarn workspace @tracefund/hardhat chain",
-    "compile": "yarn workspace @tracefund/hardhat compile",
-    "test": "yarn workspace @tracefund/hardhat test",
-    "deploy": "yarn workspace @tracefund/hardhat deploy",
-    "deploy:baseSepolia": "yarn workspace @tracefund/hardhat deploy:baseSepolia",
-    "deploy:base": "yarn workspace @tracefund/hardhat deploy:base",
-    "seed": "yarn workspace @tracefund/hardhat seed",
-    "start": "yarn workspace @tracefund/nextjs dev",
-    "frontend": "yarn workspace @tracefund/nextjs dev"
+    "chain": "yarn workspace @covenant/hardhat chain",
+    "compile": "yarn workspace @covenant/hardhat compile",
+    "test": "yarn workspace @covenant/hardhat test",
+    "deploy": "yarn workspace @covenant/hardhat deploy",
+    "deploy:baseSepolia": "yarn workspace @covenant/hardhat deploy:baseSepolia",
+    "deploy:base": "yarn workspace @covenant/hardhat deploy:base",
+    "seed": "yarn workspace @covenant/hardhat seed",
+    "start": "yarn workspace @covenant/nextjs dev",
+    "frontend": "yarn workspace @covenant/nextjs dev"
   },
   "packageManager": "yarn@1.22.22"
 }
