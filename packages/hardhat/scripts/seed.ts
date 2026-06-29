@@ -24,8 +24,13 @@ import * as path from "path";
 
 // ETH amounts — tiny on purpose for real-money networks.
 const MILESTONE_AMOUNTS = ["0.0002", "0.0001", "0.0001"]; // goal = 0.0004 ETH
-const DONATION_A = "0.0002";
-const DONATION_B = "0.0002";
+// Each donation must stay strictly BELOW the current milestone amount (milestone
+// one = 0.0002) and the running total may never exceed the 0.0004 goal. Donor A
+// donates twice so the campaign still reaches the full goal (and A ends up with a
+// majority weight, enough to cross the 50% approval threshold for the demo).
+const DONATION_A1 = "0.00015"; // donor A, first donation (< 0.0002)
+const DONATION_B = "0.00015"; //  donor B (< 0.0002)
+const DONATION_A2 = "0.0001"; //  donor A, second donation — brings total to the 0.0004 goal
 
 async function main() {
   const net = await ethers.provider.getNetwork();
@@ -90,11 +95,14 @@ async function main() {
   const campaignId = created ? created.args[0] : 0n;
   console.log(`Created campaign #${campaignId} (goal ${goal} ETH)`);
 
-  await (await traceFund.connect(donorA).donate(campaignId, { value: ethers.parseEther(DONATION_A) })).wait();
-  console.log(`Donor A donated ${DONATION_A} ETH`);
+  await (await traceFund.connect(donorA).donate(campaignId, { value: ethers.parseEther(DONATION_A1) })).wait();
+  console.log(`Donor A donated ${DONATION_A1} ETH`);
 
   await (await traceFund.connect(donorB).donate(campaignId, { value: ethers.parseEther(DONATION_B) })).wait();
   console.log(`Donor B donated ${DONATION_B} ETH`);
+
+  await (await traceFund.connect(donorA).donate(campaignId, { value: ethers.parseEther(DONATION_A2) })).wait();
+  console.log(`Donor A donated ${DONATION_A2} ETH (total now at the ${goal} ETH goal)`);
 
   console.log(`\nDemo ready: milestone one is funded and waiting for evidence.`);
 }

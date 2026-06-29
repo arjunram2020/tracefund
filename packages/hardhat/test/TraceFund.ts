@@ -37,13 +37,19 @@ describe("TraceFund", function () {
   }
 
   // A fixture with a created campaign and two donors funded into escrow.
+  // Each individual donation must stay strictly below the current milestone
+  // amount (M1 = 0.02) and the running total may not exceed the goal, so the
+  // per-donor totals (0.02 for donorA, 0.03 for donorB) are reached across
+  // multiple sub-cap donations.
   async function fundedFixture() {
     const base = await deployFixture();
     const { traceFund, creator, donorA, donorB } = base;
     const id = await createDemoCampaign(traceFund, creator);
-    await traceFund.connect(donorA).donate(id, { value: ethers.parseEther("0.02") });
-    await traceFund.connect(donorB).donate(id, { value: ethers.parseEther("0.03") });
-    // totalRaised = 0.05, 50% threshold = 0.025
+    await traceFund.connect(donorA).donate(id, { value: ethers.parseEther("0.01") });
+    await traceFund.connect(donorA).donate(id, { value: ethers.parseEther("0.01") }); // donorA total 0.02
+    await traceFund.connect(donorB).donate(id, { value: ethers.parseEther("0.019") });
+    await traceFund.connect(donorB).donate(id, { value: ethers.parseEther("0.011") }); // donorB total 0.03
+    // totalRaised = 0.05 (= goal), 50% threshold = 0.025
     return { ...base, id };
   }
 
@@ -137,24 +143,28 @@ describe("TraceFund", function () {
   });
 
   describe("donate", function () {
+    // Sub-cap donation amounts (each strictly below the current milestone M1 = 0.02).
+    const DA = ethers.parseEther("0.01");
+    const DB = ethers.parseEther("0.015");
+
     it("accepts donations, tracks donor and raised totals, and locks ETH in escrow", async function () {
       const { traceFund, creator, donorA, donorB } = await loadFixture(deployFixture);
       const id = await createDemoCampaign(traceFund, creator);
 
-      await expect(traceFund.connect(donorA).donate(id, { value: M1 }))
+      await expect(traceFund.connect(donorA).donate(id, { value: DA }))
         .to.emit(traceFund, "DonationReceived")
-        .withArgs(id, donorA.address, M1, M1);
+        .withArgs(id, donorA.address, DA, DA);
 
       // ETH is held by the contract (escrow), not forwarded to the creator.
-      expect(await ethers.provider.getBalance(await traceFund.getAddress())).to.equal(M1);
+      expect(await ethers.provider.getBalance(await traceFund.getAddress())).to.equal(DA);
 
-      await traceFund.connect(donorB).donate(id, { value: M2 });
+      await traceFund.connect(donorB).donate(id, { value: DB });
 
       const c = await traceFund.getCampaign(id);
-      expect(c.totalRaised).to.equal(M1 + M2);
+      expect(c.totalRaised).to.equal(DA + DB);
       expect(c.donorCount).to.equal(2n);
 
-      expect(await traceFund.getDonation(id, donorA.address)).to.equal(M1);
+      expect(await traceFund.getDonation(id, donorA.address)).to.equal(DA);
       const donors = await traceFund.getDonors(id);
       expect(donors).to.deep.equal([donorA.address, donorB.address]);
     });
@@ -163,12 +173,12 @@ describe("TraceFund", function () {
       const { traceFund, creator, donorA } = await loadFixture(deployFixture);
       const id = await createDemoCampaign(traceFund, creator);
 
-      await traceFund.connect(donorA).donate(id, { value: M1 });
-      await traceFund.connect(donorA).donate(id, { value: M2 });
+      await traceFund.connect(donorA).donate(id, { value: DA });
+      await traceFund.connect(donorA).donate(id, { value: DB });
 
       const c = await traceFund.getCampaign(id);
       expect(c.donorCount).to.equal(1n);
-      expect(await traceFund.getDonation(id, donorA.address)).to.equal(M1 + M2);
+      expect(await traceFund.getDonation(id, donorA.address)).to.equal(DA + DB);
     });
 
     it("reverts on a zero-value donation", async function () {
@@ -177,6 +187,41 @@ describe("TraceFund", function () {
       await expect(
         traceFund.connect(donorA).donate(id, { value: 0 }),
       ).to.be.revertedWith("Donation must be > 0");
+    });
+
+    it("reverts when a single donation equals the current milestone amount", async function () {
+      const { traceFund, creator, donorA } = await loadFixture(deployFixture);
+      const id = await createDemoCampaign(traceFund, creator);
+      // M1 is the current milestone amount; the donation must be strictly below it.
+      await expect(
+        traceFund.connect(donorA).donate(id, { value: M1 }),
+      ).to.be.revertedWith("Donation must be below milestone amount");
+    });
+
+    it("reverts when a single donation exceeds the current milestone amount", async function () {
+      const { traceFund, creator, donorA } = await loadFixture(deployFixture);
+      const id = await createDemoCampaign(traceFund, creator);
+      await expect(
+        traceFund.connect(donorA).donate(id, { value: M1 + 1n }),
+      ).to.be.revertedWith("Donation must be below milestone amount");
+    });
+
+    it("allows reaching exactly the goal but reverts a donation that would exceed it", async function () {
+      const { traceFund, creator, donorA, donorB } = await loadFixture(deployFixture);
+      const id = await createDemoCampaign(traceFund, creator);
+
+      // Fund up to exactly the goal (0.05) with sub-cap donations.
+      await traceFund.connect(donorA).donate(id, { value: ethers.parseEther("0.019") });
+      await traceFund.connect(donorA).donate(id, { value: ethers.parseEther("0.019") });
+      await traceFund.connect(donorB).donate(id, { value: ethers.parseEther("0.012") });
+
+      const c = await traceFund.getCampaign(id);
+      expect(c.totalRaised).to.equal(GOAL);
+
+      // Any further donation pushes total above the goal and must revert.
+      await expect(
+        traceFund.connect(donorB).donate(id, { value: ethers.parseEther("0.0001") }),
+      ).to.be.revertedWith("Donation exceeds campaign goal");
     });
 
     it("reverts when the campaign does not exist", async function () {
