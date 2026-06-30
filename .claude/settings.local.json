@@ -5,7 +5,8 @@
       "Bash(yarn --version)",
       "Bash(git --version)",
       "Bash(find app *)",
-      "Bash(ls *.ts *.json)"
+      "Bash(ls *.ts *.json)",
+      "Bash(ls -d */)"
     ]
   }
 }

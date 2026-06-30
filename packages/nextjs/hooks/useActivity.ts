@@ -73,6 +73,37 @@ const EVENT_NAMES: ActivityType[] = [
   "CampaignCompleted",
 ];
 
+// Base URL of our off-chain indexer running on EC2 (e.g. http://1.2.3.4/api).
+// When set, history loads from the indexer in one fast request instead of
+// scanning the whole chain. Empty = fall back to direct on-chain scanning.
+const INDEXER_URL = (process.env.NEXT_PUBLIC_INDEXER_URL || "").replace(/\/$/, "");
+
+// Pull a campaign's full audit trail from the indexer API. Returns null on any
+// failure so the caller can transparently fall back to on-chain scanning.
+async function fetchFromIndexer(campaignId: bigint): Promise<ActivityItem[] | null> {
+  if (!INDEXER_URL) return null;
+  try {
+    const res = await fetch(`${INDEXER_URL}/campaigns/${campaignId.toString()}`);
+    if (!res.ok) return null;
+    const rows = (await res.json()) as Array<{
+      event_name: ActivityType;
+      block_number: number;
+      tx_hash: `0x${string}`;
+      log_index: number;
+      args: Record<string, unknown>;
+    }>;
+    return rows.map((r) => ({
+      type: r.event_name,
+      blockNumber: BigInt(r.block_number),
+      logIndex: Number(r.log_index),
+      txHash: r.tx_hash,
+      args: r.args ?? {},
+    }));
+  } catch {
+    return null;
+  }
+}
+
 /** Newest first; within a block, newest log first. */
 function sortItems(items: ActivityItem[]): ActivityItem[] {
   return [...items].sort((a, b) => {
@@ -164,30 +195,40 @@ export function useCampaignActivity(campaignId?: bigint) {
     queryFn: async () => {
       if (!address || campaignId === undefined) return [];
 
-      const fromBlock = getDeployBlock(chainId);
-      const latestBlock = await logClient.getBlockNumber();
+      // Fast path: one request to the EC2 indexer. If it's configured and up,
+      // this replaces the expensive multi-chunk on-chain scan below entirely.
+      const indexed = await fetchFromIndexer(campaignId);
 
-      const batches = await Promise.all(
-        EVENT_NAMES.map(async (eventName) => {
-          const logs = await fetchEventChunked(
-            abi as Abi,
-            address as `0x${string}`,
-            eventName,
-            campaignId,
-            fromBlock,
-            latestBlock,
-          );
-          return logs.map((log: any) => ({
-            type: eventName,
-            blockNumber: log.blockNumber as bigint,
-            logIndex: Number(log.logIndex ?? 0),
-            txHash: log.transactionHash as `0x${string}`,
-            args: (log.args ?? {}) as Record<string, unknown>,
-          }));
-        }),
-      );
+      let items: ActivityItem[];
+      if (indexed) {
+        items = indexed;
+      } else {
+        // Fallback path: scan the chain directly (slow, but works with no indexer).
+        const fromBlock = getDeployBlock(chainId);
+        const latestBlock = await logClient.getBlockNumber();
 
-      const items = batches.flat() as ActivityItem[];
+        const batches = await Promise.all(
+          EVENT_NAMES.map(async (eventName) => {
+            const logs = await fetchEventChunked(
+              abi as Abi,
+              address as `0x${string}`,
+              eventName,
+              campaignId,
+              fromBlock,
+              latestBlock,
+            );
+            return logs.map((log: any) => ({
+              type: eventName,
+              blockNumber: log.blockNumber as bigint,
+              logIndex: Number(log.logIndex ?? 0),
+              txHash: log.transactionHash as `0x${string}`,
+              args: (log.args ?? {}) as Record<string, unknown>,
+            }));
+          }),
+        );
+
+        items = batches.flat() as ActivityItem[];
+      }
 
       // Fetch block timestamps using the wagmi client (single-block calls are fine on Alchemy)
       const blockClient = wagmiClient ?? logClient;

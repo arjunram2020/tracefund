@@ -32,7 +32,8 @@ The rest stays locked for future milestones.
 | Frontend | Next.js + TypeScript |
 | Wallet connection | RainbowKit + wagmi + viem |
 | Network | Base Mainnet (Ethereum L2) |
-| Deployment | Vercel |
+| Off-chain indexer | Node.js + Express + SQLite |
+| Deployment | AWS EC2 + Nginx + PM2 |
 | Base framework | Scaffold-ETH 2 |
 
 ---
@@ -48,6 +49,7 @@ covenant/
 │   │   ├── scripts/
 │   │   │   └── seed.ts
 │   │   └── test/
+│   ├── indexer/              # Base event indexer, SQLite cache, HTTP API
 │   └── nextjs/               # Frontend app
 │       ├── app/              # Next.js pages
 │       ├── components/       # UI components
@@ -80,6 +82,18 @@ Open [http://localhost:3000](http://localhost:3000) and connect MetaMask to `loc
 
 ---
 
+## Learn and Deploy on AWS
+
+- Start with [Learning AWS by deploying Covenant](docs/AWS_FOR_BEGINNERS.md) to
+  understand what AWS hosts, what remains on Base, and why each service exists.
+- Then follow [Deploying Covenant on AWS EC2](docs/AWS_DEPLOYMENT.md) for the
+  exact EC2, PM2, Nginx, DNS, HTTPS, update, and troubleshooting steps.
+
+The learning architecture runs the frontend and read-only event indexer on one
+EC2 instance. Covenant's contract and escrowed funds remain on Base Mainnet.
+
+---
+
 ## Deploy to Base Mainnet
 
 1. Create `packages/hardhat/.env`:
@@ -95,7 +109,8 @@ BASE_RPC_URL=https://base-mainnet.g.alchemy.com/v2/<your_key>
 yarn deploy:base
 ```
 
-3. Commit the updated `deployedContracts.json` and push — Vercel builds from the repo.
+3. Commit the updated `deployedContracts.json` and push. The EC2 deployment
+   pulls committed code from this repository.
 
 ```bash
 git add packages/nextjs/contracts/deployedContracts.json
@@ -105,13 +120,16 @@ git push
 
 ---
 
-## Environment Variables (Vercel)
+## Environment Variables (Hosted Frontend)
 
 | Variable | Value |
 |---|---|
 | `NEXT_PUBLIC_DEFAULT_CHAIN_ID` | `8453` |
 | `NEXT_PUBLIC_WALLETCONNECT_PROJECT_ID` | from [cloud.walletconnect.com](https://cloud.walletconnect.com) |
 | `NEXT_PUBLIC_BASE_RPC_URL` | your dedicated Base RPC URL |
+
+For AWS, create these in `packages/nextjs/.env.local` **before** building the
+frontend, as shown in [AWS deployment Stage 7](docs/AWS_DEPLOYMENT.md#stage-7--configure-build-and-start-nextjs).
 
 ---
 
