@@ -1,0 +1,19 @@
+{
+  "name": "@covenant/indexer",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "description": "Off-chain indexer + API for Covenant. Listens to on-chain events, caches them in SQLite, and serves fast history over HTTP.",
+  "main": "src/index.js",
+  "scripts": {
+    "start": "node src/index.js",
+    "dev": "node --watch src/index.js"
+  },
+  "dependencies": {
+    "better-sqlite3": "^11.3.0",
+    "cors": "^2.8.5",
+    "dotenv": "^16.4.5",
+    "express": "^4.21.0",
+    "viem": "^2.21.0"
+  }
+}
