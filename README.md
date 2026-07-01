@@ -5,10 +5,9 @@ Milestone-based crowdfunding with enforced accountability on Ethereum.
 Donations stay locked in a smart contract escrow until campaign creators post public milestone evidence on-chain. Every donation, evidence update, and fund release is part of a permanent public record on-chain.
 
 **Live app:** Update this link after assigning the Covenant deployment domain.
-**Contract on Base Mainnet:** redeploy pending — the previous deployment
-(`0x000f8e23a416396184Cd97fF9dD750F3753F4C0c`) runs an outdated approval-based
-contract and is retired. Run `yarn deploy:base` and update this line with the
-new address.
+**Contract on Base Mainnet:** [`0x9CA2E453462b87584f5A4D15f5962a4f2174BCE9`](https://basescan.org/address/0x9CA2E453462b87584f5A4D15f5962a4f2174BCE9)
+(deployed at block 48079282; the earlier approval-based deployment at
+`0x000f8e23a416396184Cd97fF9dD750F3753F4C0c` is retired)
 
 ---
 
