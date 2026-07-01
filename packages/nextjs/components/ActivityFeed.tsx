@@ -13,7 +13,6 @@ const ICON: Record<ActivityType, { glyph: string; ring: string }> = {
   CampaignCreated: { glyph: "✦", ring: "bg-white/5 text-gray-300" },
   DonationReceived: { glyph: "↓", ring: "bg-brand-500/15 text-brand-300" },
   EvidenceSubmitted: { glyph: "▣", ring: "bg-sky-500/15 text-sky-300" },
-  MilestoneApproved: { glyph: "✓", ring: "bg-violet-500/15 text-violet-300" },
   MilestoneReleased: { glyph: "↑", ring: "bg-emerald-500/15 text-emerald-300" },
   CampaignCompleted: { glyph: "★", ring: "bg-brand-500/20 text-brand-200" },
 };
@@ -26,7 +25,6 @@ const FLOW: Record<ActivityType, FlowTag> = {
     cls: "text-brand-400 bg-brand-500/10 ring-1 ring-brand-500/20",
   },
   EvidenceSubmitted: null,
-  MilestoneApproved: null,
   MilestoneReleased: {
     label: "escrow → creator wallet",
     cls: "text-emerald-400 bg-emerald-500/10 ring-1 ring-emerald-500/20",
@@ -43,8 +41,8 @@ function describe(item: ActivityItem): React.ReactNode {
         <>
           Campaign launched with a{" "}
           <span className="font-mono text-gray-200">{formatEth(a.goalAmount)} ETH</span> goal —
-          all donor contributions will be locked in the escrow contract until each milestone is
-          approved
+          all donor contributions will be locked in the escrow contract until the creator proves
+          each milestone
         </>
       );
     case "DonationReceived":
@@ -59,17 +57,8 @@ function describe(item: ActivityItem): React.ReactNode {
     case "EvidenceSubmitted":
       return (
         <>
-          Creator posted on-chain proof for {ms} — donors can now vote to approve the release
-        </>
-      );
-    case "MilestoneApproved":
-      return (
-        <>
-          <span className="font-mono">{shortenAddress(a.donor)}</span> voted to approve {ms}{" "}
-          <span className="text-violet-300">
-            ({formatEth(a.weight)} ETH weight · {formatEth(a.totalApprovalWeight)} ETH total
-            approved)
-          </span>
+          Creator posted on-chain proof for {ms} — this milestone&apos;s funds release to the
+          creator in the same transaction
         </>
       );
     case "MilestoneReleased":
@@ -81,7 +70,7 @@ function describe(item: ActivityItem): React.ReactNode {
         </>
       );
     case "CampaignCompleted":
-      return <>All milestones approved and released — campaign complete</>;
+      return <>All milestones proven and released — campaign complete</>;
     default:
       return item.type;
   }

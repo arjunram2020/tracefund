@@ -364,8 +364,8 @@
 
 ⏺ Write(packages/indexer/.env)
   ⎿  Wrote 7 lines to packages/indexer/.env
-      1 BASE_RPC_URL=https://base-mainnet.g.alchemy.com/v2/ra9iT20aBzKjLv
-        NKinutm
+      1 BASE_RPC_URL=https://base-mainnet.g.alchemy.com/v2/<REDACTED_ALCHEMY_KEY>
+        
       2 CONTRACT_ADDRESS=0x000f8e23a416396184Cd97fF9dD750F3753F4C0c
       3 DEPLOY_BLOCK=47303001
       4 PORT=4000
@@ -486,8 +486,8 @@
 
 ⏺ Update(packages/indexer/.env)
   ⎿  Added 2 lines, removed 2 lines
-      1 -BASE_RPC_URL=https://base-mainnet.g.alchemy.com/v2/ra9iT20aBzKjL
-        -vNKinutm                                                        
+      1 -BASE_RPC_URL=https://base-mainnet.g.alchemy.com/v2/<REDACTED_ALCHEMY_KEY>
+        -v                                                        
       1 +BASE_RPC_URL=https://mainnet.base.org                           
       2  CONTRACT_ADDRESS=0x000f8e23a416396184Cd97fF9dD750F3753F4C0c
       3  DEPLOY_BLOCK=47303001

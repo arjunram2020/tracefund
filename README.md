@@ -2,10 +2,12 @@
 
 Milestone-based crowdfunding with enforced accountability on Ethereum.
 
-Donations stay locked in a smart contract escrow until campaign creators submit evidence and donors approve each milestone. Every donation, evidence update, approval, and fund release is part of a permanent public record on-chain.
+Donations stay locked in a smart contract escrow until campaign creators post public milestone evidence on-chain. Every donation, evidence update, and fund release is part of a permanent public record on-chain.
 
 **Live app:** Update this link after assigning the Covenant deployment domain.
-**Contract on Base Mainnet:** `0x000f8e23a416396184Cd97fF9dD750F3753F4C0c`
+**Contract on Base Mainnet:** [`0x9CA2E453462b87584f5A4D15f5962a4f2174BCE9`](https://basescan.org/address/0x9CA2E453462b87584f5A4D15f5962a4f2174BCE9)
+(deployed at block 48079282; the earlier approval-based deployment at
+`0x000f8e23a416396184Cd97fF9dD750F3753F4C0c` is retired)
 
 ---
 
@@ -16,11 +18,12 @@ Traditional crowdfunding platforms like GoFundMe rely on trust. Once money moves
 Covenant changes the money flow:
 
 1. **Donate** — ETH goes into smart contract escrow, not the creator's wallet
-2. **Evidence** — Creator submits proof for the current milestone (URL, IPFS link, or text)
-3. **Approve** — Donors vote to approve the milestone, weighted by donation amount
-4. **Release** — Once 50% approval is reached, the exact milestone amount is released to the creator
+2. **Evidence** — Once donations cover the current milestone, the creator submits proof for it (URL, IPFS link, or text)
+3. **Release** — Posting proof releases exactly that milestone's amount to the creator, in the same transaction
 
-The rest stays locked for future milestones.
+The rest stays locked for future milestones. A milestone can only release once the
+campaign's own donations cover it, so no campaign can ever be paid out of another
+campaign's escrow.
 
 ---
 
@@ -148,9 +151,7 @@ The `Covenant.sol` contract stores everything on-chain:
 |---|---|---|
 | `createCampaign` | Creator | Creates a campaign with milestones |
 | `donate` | Donor | Sends ETH into escrow |
-| `submitEvidence` | Creator | Submits proof for current milestone |
-| `approveMilestone` | Donor | Approves milestone (weighted by donation) |
-| `releaseMilestoneFunds` | Anyone | Releases funds once 50% approval is reached |
+| `submitEvidence` | Creator | Submits proof for the current (funded) milestone and releases its funds |
 
 ---
 

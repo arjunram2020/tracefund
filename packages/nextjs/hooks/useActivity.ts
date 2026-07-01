@@ -3,8 +3,8 @@
 import { useEffect } from "react";
 import { usePublicClient } from "wagmi";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
-import { createPublicClient, http, type Abi } from "viem";
-import { base } from "wagmi/chains";
+import { createPublicClient, http, type Abi, type Chain, type PublicClient } from "viem";
+import { base, baseSepolia, hardhat, mainnet } from "wagmi/chains";
 import { getDeployBlock } from "../lib/contract";
 import { useReadChain } from "./useCovenant";
 
@@ -12,12 +12,32 @@ import { useReadChain } from "./useCovenant";
 // The public Base RPC supports up to 10,000 blocks per call, so we use a
 // dedicated client for log scanning and stay safely under that limit.
 const LOG_CHUNK = 9999n;
-const logClient = createPublicClient({
-  chain: base,
-  transport: http("https://mainnet.base.org"),
-});
+
+// Log-scan client for whichever chain the UI is reading from. Base gets the
+// public RPC (generous getLogs range); the other chains use their default RPC
+// (e.g. localhost:8545 for the local Hardhat node).
+const SCAN_CHAINS: Record<number, Chain> = {
+  [base.id]: base,
+  [baseSepolia.id]: baseSepolia,
+  [mainnet.id]: mainnet,
+  [hardhat.id]: hardhat,
+};
+const SCAN_RPC: Record<number, string | undefined> = {
+  [base.id]: "https://mainnet.base.org",
+};
+const logClients = new Map<number, PublicClient>();
+function getLogClient(chainId: number): PublicClient {
+  let client = logClients.get(chainId);
+  if (!client) {
+    const chain = SCAN_CHAINS[chainId] ?? base;
+    client = createPublicClient({ chain, transport: http(SCAN_RPC[chainId]) });
+    logClients.set(chainId, client);
+  }
+  return client;
+}
 
 async function fetchEventChunked(
+  logClient: PublicClient,
   abi: Abi,
   address: `0x${string}`,
   eventName: string,
@@ -51,7 +71,6 @@ export type ActivityType =
   | "CampaignCreated"
   | "DonationReceived"
   | "EvidenceSubmitted"
-  | "MilestoneApproved"
   | "MilestoneReleased"
   | "CampaignCompleted";
 
@@ -68,7 +87,6 @@ const EVENT_NAMES: ActivityType[] = [
   "CampaignCreated",
   "DonationReceived",
   "EvidenceSubmitted",
-  "MilestoneApproved",
   "MilestoneReleased",
   "CampaignCompleted",
 ];
@@ -125,6 +143,7 @@ const activityQueryKey = (chainId: number, address?: string, campaignId?: bigint
 
 export function useCampaignActivity(campaignId?: bigint) {
   const { address, abi, chainId } = useReadChain();
+  const logClient = getLogClient(chainId);
   // Used only for getBlock timestamp lookups (single-block requests, no range issue)
   const wagmiClient = usePublicClient({ chainId });
   const queryClient = useQueryClient();
@@ -185,7 +204,7 @@ export function useCampaignActivity(campaignId?: bigint) {
 
     return () => unwatch();
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [address, chainId, campaignId?.toString()]);
+  }, [address, chainId, logClient, campaignId?.toString()]);
 
   return useQuery<ActivityItem[]>({
     queryKey,
@@ -197,7 +216,9 @@ export function useCampaignActivity(campaignId?: bigint) {
 
       // Fast path: one request to the EC2 indexer. If it's configured and up,
       // this replaces the expensive multi-chunk on-chain scan below entirely.
-      const indexed = await fetchFromIndexer(campaignId);
+      // The indexer only follows Base Mainnet, so skip it for other chains
+      // (campaign ids would otherwise collide with Base's history).
+      const indexed = chainId === base.id ? await fetchFromIndexer(campaignId) : null;
 
       let items: ActivityItem[];
       if (indexed) {
@@ -210,6 +231,7 @@ export function useCampaignActivity(campaignId?: bigint) {
         const batches = await Promise.all(
           EVENT_NAMES.map(async (eventName) => {
             const logs = await fetchEventChunked(
+              logClient,
               abi as Abi,
               address as `0x${string}`,
               eventName,
