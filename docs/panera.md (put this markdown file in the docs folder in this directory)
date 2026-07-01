@@ -2277,12 +2277,12 @@
 
   1. The RPC URL is broken
 
-  NEXT_PUBLIC_BASE_RPC_URL=ra9iT20aBzKjLvNKinutm
+  NEXT_PUBLIC_BASE_RPC_URL=<REDACTED_ALCHEMY_KEY>
 
   That's just the API key fragment — it's missing the full Alchemy URL. It
   should be:
 
-  NEXT_PUBLIC_BASE_RPC_URL=https://base-mainnet.g.alchemy.com/v2/ra9iT20aBzKjLvN
+  NEXT_PUBLIC_BASE_RPC_URL=https://base-mainnet.g.alchemy.com/v2/<REDACTED_ALCHEMY_KEY>N
   Kinutm
 
   2. The .env file is gitignored — the .env.local is what Next.js prefers
@@ -2300,7 +2300,7 @@
         223c
       4 
       5 NEXT_PUBLIC_BASE_RPC_URL=https://base-mainnet.g.alchemy.com/v2/ra
-        9iT20aBzKjLvNKinutm
+        9iT20aBzKjLv
 
 ⏺ Done. Here's the summary:
 
@@ -2311,7 +2311,7 @@
 
   The old .env file (packages/nextjs/.env) can stay or be deleted — .env.local
   takes precedence and is the right place for secrets. The Alchemy API key
-  (ra9iT20aBzKjLvNKinutm) was already valid, it just needed the full URL prefix.
+  (<REDACTED_ALCHEMY_KEY>) was already valid, it just needed the full URL prefix.
 
   You can now run yarn workspace @covenant/nextjs build and the build will pick
   up all three variables correctly.
@@ -2337,15 +2337,15 @@
 
   The value sitting in your .env was:
 
-  NEXT_PUBLIC_BASE_RPC_URL=ra9iT20aBzKjLvNKinutm
+  NEXT_PUBLIC_BASE_RPC_URL=<REDACTED_ALCHEMY_KEY>
 
   That's not a URL — a URL has to start with https://. That string by itself is
-  just the API key. The app can't make an HTTP request to ra9iT20aBzKjLvNKinutm
+  just the API key. The app can't make an HTTP request to <REDACTED_ALCHEMY_KEY>
   — there's no address there.
 
   The full URL Alchemy gives you looks like:
 
-  https://base-mainnet.g.alchemy.com/v2/ra9iT20aBzKjLvNKinutm
+  https://base-mainnet.g.alchemy.com/v2/<REDACTED_ALCHEMY_KEY>
 
   The key is the last part after /v2/. Someone had saved just the key fragment
   into the .env.local.example instead of the whole thing.

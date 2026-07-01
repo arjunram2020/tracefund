@@ -13,8 +13,8 @@ const STEPS = [
   },
   {
     n: "03",
-    title: "Donors approve & funds unlock",
-    body: "Donors approve, weighted by what they gave. Past 50%, anyone can release exactly that milestone's amount.",
+    title: "Proof unlocks the funds",
+    body: "Once donations cover the milestone and proof is posted, the contract releases exactly that milestone's amount — automatically, permanently on the record.",
   },
 ];
 
@@ -34,8 +34,8 @@ export default function HomePage() {
             </span>
           </h1>
           <p className="mx-auto mt-5 max-w-2xl text-lg text-gray-400">
-            Donations stay locked until campaign creators submit milestone evidence and donors
-            approve each release. The money follows the proof.
+            Donations stay locked in escrow until campaign creators post public milestone evidence
+            on-chain. The money follows the proof.
           </p>
           <div className="mt-8 flex flex-wrap items-center justify-center gap-3">
             <Link href="/campaigns" className="btn-primary px-6 py-3 text-base">
@@ -79,12 +79,12 @@ export default function HomePage() {
             The Covenant model
           </h3>
           <p className="mt-3 text-2xl font-semibold text-white">
-            Donate into escrow. Proof &amp; approval unlock it.
+            Donate into escrow. Proof unlocks it.
           </p>
           <ul className="mt-4 space-y-2 text-sm text-gray-400">
             <li>• Funds are held by a smart contract, released milestone by milestone.</li>
-            <li>• Evidence and approvals are enforced before any release.</li>
-            <li>• Every donation, proof, approval and release is public and tamper-resistant.</li>
+            <li>• On-chain evidence is enforced before any release.</li>
+            <li>• Every donation, proof and release is public and tamper-resistant.</li>
           </ul>
         </div>
       </section>
@@ -101,7 +101,7 @@ export default function HomePage() {
             "Escrow balances",
             "Milestone definitions",
             "Evidence submissions",
-            "Donor approvals",
+            "Campaign completions",
             "Fund releases",
             "Creator reputation",
             "Full activity trail",

@@ -1,4 +1,4 @@
-// The six events emitted by Covenant.sol. The indexer only needs the EVENT
+// The five events emitted by Covenant.sol. The indexer only needs the EVENT
 // fragments of the ABI — it never calls functions, it only listens.
 // These signatures match contracts/Covenant.sol exactly.
 export const COVENANT_EVENTS = [
@@ -30,17 +30,6 @@ export const COVENANT_EVENTS = [
       { name: "campaignId", type: "uint256", indexed: true },
       { name: "milestoneIndex", type: "uint256", indexed: true },
       { name: "evidence", type: "string", indexed: false },
-    ],
-  },
-  {
-    type: "event",
-    name: "MilestoneApproved",
-    inputs: [
-      { name: "campaignId", type: "uint256", indexed: true },
-      { name: "milestoneIndex", type: "uint256", indexed: true },
-      { name: "donor", type: "address", indexed: true },
-      { name: "weight", type: "uint256", indexed: false },
-      { name: "totalApprovalWeight", type: "uint256", indexed: false },
     ],
   },
   {

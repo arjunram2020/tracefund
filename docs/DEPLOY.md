@@ -99,14 +99,14 @@ A root `vercel.json` is already committed with the monorepo build settings
 1. Both devices open the Vercel URL.
 2. Each connects its own wallet (MetaMask extension, or MetaMask mobile / any
    WalletConnect wallet on a phone). Each wallet needs a little Base ETH to send
-   transactions (donate / approve / release / submit evidence cost gas).
+   transactions (donate / submit evidence cost gas).
 3. Both must be on **Base Mainnet**. If a wallet is on the wrong network, the
    app now prompts it to switch to Base automatically when it tries to write
    (see `useCovenantWrite` → `switchChainAsync`), and the connect button shows
    a "wrong network" switcher.
-4. Device A creates/donates; Device B sees the same campaign and can donate,
-   approve, or release. Every action is shared on-chain, so both stay in sync
-   (reads auto-refresh after each confirmed transaction).
+4. Device A creates/donates; Device B sees the same campaign and can donate or
+   (as the creator) post milestone proof. Every action is shared on-chain, so
+   both stay in sync (reads auto-refresh after each confirmed transaction).
 
 That's the whole point: there's no shared server holding campaign state — the
 chain is the shared state, so any number of devices editing the same Base

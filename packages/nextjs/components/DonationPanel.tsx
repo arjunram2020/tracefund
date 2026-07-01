@@ -4,7 +4,7 @@ import { useEffect, useState } from "react";
 import { parseEther } from "viem";
 import { useAccount } from "wagmi";
 import { ConnectButton } from "@rainbow-me/rainbowkit";
-import type { Campaign, Milestone } from "../lib/types";
+import type { Campaign } from "../lib/types";
 import { formatEth } from "../lib/format";
 import { useCovenantWrite } from "../hooks/useCovenant";
 import { TxFeedback } from "./TxFeedback";
@@ -14,11 +14,9 @@ const QUICK = ["0.0001", "0.0002", "0.0005"];
 
 export function DonationPanel({
   campaign,
-  milestones,
   onSuccess,
 }: {
   campaign: Campaign;
-  milestones: Milestone[];
   onSuccess?: () => void;
 }) {
   const { isConnected } = useAccount();
@@ -35,11 +33,8 @@ export function DonationPanel({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [isConfirmed]);
 
-  // On-chain donation caps (mirror Covenant.donate):
-  //  1. a single donation must be strictly BELOW the current milestone's amount;
-  //  2. the total raised may never exceed the campaign goal.
-  const mi = Number(campaign.currentMilestone);
-  const milestoneAmount = milestones[mi]?.amount; // bigint | undefined while loading
+  // On-chain donation cap (mirrors Covenant.donate): the total raised may
+  // never exceed the campaign goal.
   const remaining =
     campaign.goalAmount > campaign.totalRaised
       ? campaign.goalAmount - campaign.totalRaised
@@ -58,34 +53,18 @@ export function DonationPanel({
   if (parsed !== null && parsed > 0n) {
     if (goalReached) {
       capError = "This campaign has already reached its goal.";
-    } else if (milestoneAmount !== undefined && parsed >= milestoneAmount) {
-      capError = `Donation must be below the current milestone amount (${formatEth(
-        milestoneAmount,
-      )} ETH).`;
     } else if (parsed > remaining) {
       capError = `Only ${formatEth(remaining)} ETH left before the goal is reached.`;
     }
   }
 
-  const valid =
-    parsed !== null &&
-    parsed > 0n &&
-    !goalReached &&
-    milestoneAmount !== undefined &&
-    parsed < milestoneAmount &&
-    parsed <= remaining;
+  const valid = parsed !== null && parsed > 0n && !goalReached && parsed <= remaining;
 
-  // Quick-pick presets that actually satisfy both caps.
+  // Quick-pick presets that actually satisfy the goal cap.
   const quickOptions = QUICK.filter((q) => {
     try {
       const v = parseEther(q);
-      return (
-        v > 0n &&
-        !goalReached &&
-        milestoneAmount !== undefined &&
-        v < milestoneAmount &&
-        v <= remaining
-      );
+      return v > 0n && !goalReached && v <= remaining;
     } catch {
       return false;
     }
@@ -149,13 +128,8 @@ export function DonationPanel({
             />
           </div>
 
-          {/* The two on-chain limits, shown up front so users don't hit a revert. */}
+          {/* The on-chain limit, shown up front so users don't hit a revert. */}
           <p className="mt-2 text-xs text-gray-500">
-            Must be{" "}
-            <span className="text-gray-400">
-              below {milestoneAmount !== undefined ? formatEth(milestoneAmount) : "…"} ETH
-            </span>{" "}
-            (current milestone) ·{" "}
             <span className="text-gray-400">{formatEth(remaining)} ETH</span> left to goal.
           </p>
 
@@ -198,7 +172,7 @@ export function DonationPanel({
 
           <p className="mt-2 text-xs text-gray-500">
             Funds are held by the Covenant contract and only released to the creator milestone by
-            milestone, after evidence and donor approval.
+            milestone, once each milestone is funded and its on-chain proof is posted.
           </p>
         </>
       )}

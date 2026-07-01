@@ -13,8 +13,14 @@ export function getCovenant(chainId?: number): Entry | undefined {
   return data[String(chainId)]?.Covenant;
 }
 
-/** ABI is identical across networks — grab whichever deployment exists first. */
-export const covenantAbi: Abi = (Object.values(data)[0]?.Covenant.abi as Abi) ?? [];
+/**
+ * ABI for a given chain's deployment. Deployments can lag behind each other
+ * (e.g. mainnet running an older contract than localhost), so never assume the
+ * ABI is identical across networks — always resolve it per chain.
+ */
+export function getCovenantAbi(chainId?: number): Abi {
+  return getCovenant(chainId)?.abi ?? [];
+}
 
 /** Block the contract was deployed at, so event scans don't start from genesis. */
 export function getDeployBlock(chainId?: number): bigint {
