@@ -12,7 +12,7 @@ const GOAL = M1 + M2 + M3; // 0.05 ETH
 
 const TITLE = "Community Medical Relief Fund";
 const DESCRIPTION =
-  "A transparent emergency fundraiser where donations unlock only after milestone proof is submitted.";
+  "A transparent emergency fundraiser where each milestone's funds unlock only after the creator posts on-chain proof.";
 const MILESTONE_DESCRIPTIONS = [
   "Hospital deposit receipt",
   "Medication purchase receipt",
@@ -36,11 +36,7 @@ describe("Covenant", function () {
     return 0n; // first campaign id
   }
 
-  // A fixture with a created campaign and two donors funded into escrow.
-  // Each individual donation must stay strictly below the current milestone
-  // amount (M1 = 0.02) and the running total may not exceed the goal, so the
-  // per-donor totals (0.02 for donorA, 0.03 for donorB) are reached across
-  // multiple sub-cap donations.
+  // A fixture with a created campaign fully funded into escrow by two donors.
   async function fundedFixture() {
     const base = await deployFixture();
     const { covenant, creator, donorA, donorB } = base;
@@ -142,7 +138,6 @@ describe("Covenant", function () {
   });
 
   describe("donate", function () {
-    // Sub-cap donation amounts (each strictly below the current milestone M1 = 0.02).
     const DA = ethers.parseEther("0.01");
     const DB = ethers.parseEther("0.015");
 
@@ -188,31 +183,12 @@ describe("Covenant", function () {
       ).to.be.revertedWith("Donation must be > 0");
     });
 
-    it("reverts when a single donation equals the current milestone amount", async function () {
-      const { covenant, creator, donorA } = await loadFixture(deployFixture);
-      const id = await createDemoCampaign(covenant, creator);
-      // M1 is the current milestone amount; the donation must be strictly below it.
-      await expect(
-        covenant.connect(donorA).donate(id, { value: M1 }),
-      ).to.be.revertedWith("Donation must be below milestone amount");
-    });
-
-    it("reverts when a single donation exceeds the current milestone amount", async function () {
-      const { covenant, creator, donorA } = await loadFixture(deployFixture);
-      const id = await createDemoCampaign(covenant, creator);
-      await expect(
-        covenant.connect(donorA).donate(id, { value: M1 + 1n }),
-      ).to.be.revertedWith("Donation must be below milestone amount");
-    });
-
     it("allows reaching exactly the goal but reverts a donation that would exceed it", async function () {
       const { covenant, creator, donorA, donorB } = await loadFixture(deployFixture);
       const id = await createDemoCampaign(covenant, creator);
 
-      // Fund up to exactly the goal (0.05) with sub-cap donations.
-      await covenant.connect(donorA).donate(id, { value: ethers.parseEther("0.019") });
-      await covenant.connect(donorA).donate(id, { value: ethers.parseEther("0.019") });
-      await covenant.connect(donorB).donate(id, { value: ethers.parseEther("0.012") });
+      await covenant.connect(donorA).donate(id, { value: ethers.parseEther("0.02") });
+      await covenant.connect(donorB).donate(id, { value: ethers.parseEther("0.03") });
 
       const c = await covenant.getCampaign(id);
       expect(c.totalRaised).to.equal(GOAL);
@@ -229,16 +205,27 @@ describe("Covenant", function () {
         covenant.connect(donorA).donate(99, { value: M1 }),
       ).to.be.revertedWith("Campaign does not exist");
     });
+
+    it("reverts once the campaign is completed (no longer active)", async function () {
+      const { covenant, creator, donorA, id } = await loadFixture(fundedFixture);
+      for (let i = 0; i < 3; i++) {
+        await covenant.connect(creator).submitEvidence(id, `ipfs://receipt-${i + 1}`);
+      }
+      await expect(
+        covenant.connect(donorA).donate(id, { value: DA }),
+      ).to.be.revertedWith("Campaign not active");
+    });
   });
 
-  describe("submitEvidence", function () {
-    it("submits evidence and auto-releases exactly the milestone amount to the creator", async function () {
+  describe("submitEvidence (auto-release)", function () {
+    it("records evidence and releases exactly the milestone amount to the creator", async function () {
       const { covenant, creator, id } = await loadFixture(fundedFixture);
 
       const tx = covenant.connect(creator).submitEvidence(id, "ipfs://receipt-1");
-      await expect(tx).to.emit(covenant, "EvidenceSubmitted").withArgs(id, 0n, "ipfs://receipt-1");
       await expect(tx)
-        .to.emit(covenant, "MilestoneReleased")
+        .to.emit(covenant, "EvidenceSubmitted")
+        .withArgs(id, 0n, "ipfs://receipt-1")
+        .and.to.emit(covenant, "MilestoneReleased")
         .withArgs(id, 0n, M1, creator.address);
       await expect(tx).to.changeEtherBalances([creator, covenant], [M1, -M1]);
 
@@ -249,16 +236,79 @@ describe("Covenant", function () {
 
       const c = await covenant.getCampaign(id);
       expect(c.totalReleased).to.equal(M1);
-      expect(c.currentMilestone).to.equal(1n); // advanced to next milestone
+      expect(c.currentMilestone).to.equal(1n); // advanced to the next milestone
       expect(c.completed).to.equal(false);
-
-      const stats = await covenant.getCreatorStats(creator.address);
-      expect(stats.evidenceUpdates).to.equal(1n);
-      expect(stats.totalReleased).to.equal(M1);
-      expect(stats.milestonesCompleted).to.equal(1n);
 
       // Remaining funds stay locked for future milestones.
       expect(await ethers.provider.getBalance(await covenant.getAddress())).to.equal(GOAL - M1);
+
+      const stats = await covenant.getCreatorStats(creator.address);
+      expect(stats.evidenceUpdates).to.equal(1n);
+      expect(stats.milestonesCompleted).to.equal(1n);
+      expect(stats.totalReleased).to.equal(M1);
+    });
+
+    it("reverts when the milestone is not yet funded", async function () {
+      const { covenant, creator, donorA } = await loadFixture(deployFixture);
+      const id = await createDemoCampaign(covenant, creator);
+
+      // Nothing donated at all.
+      await expect(
+        covenant.connect(creator).submitEvidence(id, "ipfs://receipt-1"),
+      ).to.be.revertedWith("Milestone not funded");
+
+      // Partially funded (below M1 = 0.02) is still not enough.
+      await covenant.connect(donorA).donate(id, { value: ethers.parseEther("0.01") });
+      await expect(
+        covenant.connect(creator).submitEvidence(id, "ipfs://receipt-1"),
+      ).to.be.revertedWith("Milestone not funded");
+
+      // Topping up to cover milestone one unlocks the release.
+      await covenant.connect(donorA).donate(id, { value: ethers.parseEther("0.01") });
+      await expect(covenant.connect(creator).submitEvidence(id, "ipfs://receipt-1"))
+        .to.emit(covenant, "MilestoneReleased")
+        .withArgs(id, 0n, M1, creator.address);
+    });
+
+    it("cannot pay one campaign's milestone out of another campaign's escrow", async function () {
+      const { covenant, creator, donorA, outsider } = await loadFixture(deployFixture);
+
+      // Campaign 0 holds real donations in escrow.
+      const funded = await createDemoCampaign(covenant, creator);
+      await covenant.connect(donorA).donate(funded, { value: ethers.parseEther("0.02") });
+
+      // The attacker creates their own campaign with zero donations and tries
+      // to cash out its first milestone from the shared contract balance.
+      await covenant
+        .connect(outsider)
+        .createCampaign("Attack", "drain", ["m"], [ethers.parseEther("0.02")]);
+      await expect(
+        covenant.connect(outsider).submitEvidence(1, "fake proof"),
+      ).to.be.revertedWith("Milestone not funded");
+
+      // Campaign 0's escrow is untouched.
+      expect(await ethers.provider.getBalance(await covenant.getAddress())).to.equal(
+        ethers.parseEther("0.02"),
+      );
+    });
+
+    it("gates each subsequent milestone on cumulative funding", async function () {
+      const { covenant, creator, donorA } = await loadFixture(deployFixture);
+      const id = await createDemoCampaign(covenant, creator);
+
+      // Fund only milestone one (0.02) and release it.
+      await covenant.connect(donorA).donate(id, { value: M1 });
+      await covenant.connect(creator).submitEvidence(id, "ipfs://receipt-1");
+
+      // Milestone two (0.015) has no backing donations yet.
+      await expect(
+        covenant.connect(creator).submitEvidence(id, "ipfs://receipt-2"),
+      ).to.be.revertedWith("Milestone not funded");
+
+      await covenant.connect(donorA).donate(id, { value: M2 });
+      await expect(covenant.connect(creator).submitEvidence(id, "ipfs://receipt-2"))
+        .to.emit(covenant, "MilestoneReleased")
+        .withArgs(id, 1n, M2, creator.address);
     });
 
     it("reverts when a non-creator submits evidence", async function () {
@@ -283,6 +333,11 @@ describe("Covenant", function () {
       await expect(
         covenant.connect(creator).submitEvidence(id, "late"),
       ).to.be.revertedWith("Campaign not active");
+    it("reverts when the campaign does not exist", async function () {
+      const { covenant, creator } = await loadFixture(deployFixture);
+      await expect(
+        covenant.connect(creator).submitEvidence(99, "ipfs://receipt-1"),
+      ).to.be.revertedWith("Campaign does not exist");
     });
   });
 
@@ -308,15 +363,12 @@ describe("Covenant", function () {
       expect(stats.milestonesCompleted).to.equal(3n);
     });
 
-    it("emits CampaignCompleted on the final milestone release", async function () {
+    it("emits CampaignCompleted on the final milestone and blocks further evidence", async function () {
       const { covenant, creator, id } = await loadFixture(fundedFixture);
 
-      // First two milestones.
-      for (let i = 0; i < 2; i++) {
-        await covenant.connect(creator).submitEvidence(id, `ipfs://receipt-${i + 1}`);
-      }
+      await covenant.connect(creator).submitEvidence(id, "ipfs://receipt-1");
+      await covenant.connect(creator).submitEvidence(id, "ipfs://receipt-2");
 
-      // Final milestone.
       await expect(covenant.connect(creator).submitEvidence(id, "ipfs://receipt-3"))
         .to.emit(covenant, "MilestoneReleased")
         .and.to.emit(covenant, "CampaignCompleted")
@@ -341,9 +393,8 @@ describe("Covenant", function () {
       expect(await covenant.trustScore(creator.address)).to.equal(25n);
 
       // Complete the remaining two milestones and the campaign.
-      for (let i = 1; i < 3; i++) {
-        await covenant.connect(creator).submitEvidence(id, `ipfs://receipt-${i + 1}`);
-      }
+      await covenant.connect(creator).submitEvidence(id, "ipfs://receipt-2");
+      await covenant.connect(creator).submitEvidence(id, "ipfs://receipt-3");
 
       // 10 base + 3*12 milestones + 1*15 campaign + min(3*3,15)=9 evidence = 70 (Proven Creator).
       expect(await covenant.trustScore(creator.address)).to.equal(70n);

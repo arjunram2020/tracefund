@@ -9,7 +9,7 @@ import { BlockchainBg } from "../components/BlockchainBg";
 export const metadata: Metadata = {
   title: "Covenant — Crowdfunding with enforced accountability",
   description:
-    "Donations stay locked in smart-contract escrow until campaign creators submit milestone evidence, which releases funds automatically.",
+    "Donations stay locked in smart-contract escrow until campaign creators post public milestone evidence on-chain. The money follows the proof.",
 };
 
 export default function RootLayout({ children }: { children: ReactNode }) {

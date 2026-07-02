@@ -24,12 +24,10 @@ import * as path from "path";
 
 // ETH amounts — tiny on purpose for real-money networks.
 const MILESTONE_AMOUNTS = ["0.0002", "0.0001", "0.0001"]; // goal = 0.0004 ETH
-// Each donation must stay strictly BELOW the current milestone amount (milestone
-// one = 0.0002) and the running total may never exceed the 0.0004 goal. Donor A
-// donates twice so the campaign still reaches the full goal (and A ends up with a
-// majority weight, enough to cross the 50% approval threshold for the demo).
-const DONATION_A1 = "0.00015"; // donor A, first donation (< 0.0002)
-const DONATION_B = "0.00015"; //  donor B (< 0.0002)
+// The running total may never exceed the 0.0004 goal. Donor A donates twice so
+// the campaign still reaches the full goal from two distinct donor addresses.
+const DONATION_A1 = "0.00015"; // donor A, first donation
+const DONATION_B = "0.00015"; //  donor B
 const DONATION_A2 = "0.0001"; //  donor A, second donation — brings total to the 0.0004 goal
 
 async function main() {
@@ -72,7 +70,7 @@ async function main() {
     .connect(creator)
     .createCampaign(
       "Community Medical Relief Fund",
-      "A transparent emergency fundraiser where donations unlock only after milestone proof is submitted and donors approve the release.",
+      "A transparent emergency fundraiser where each milestone's funds unlock only after the creator posts on-chain proof.",
       [
         "Hospital deposit receipt",
         "Medication purchase receipt",

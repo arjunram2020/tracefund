@@ -7,8 +7,7 @@ const TONES: Record<Tone, string> = {
 };
 
 /**
- * A horizontal progress bar. Optionally renders a dashed threshold marker
- * (used to visualise the 50% approval line).
+ * A horizontal progress bar. Optionally renders a dashed threshold marker.
  */
 export function ProgressBar({
   value,

@@ -1,8 +1,8 @@
 {
   "8453": {
     "Covenant": {
-      "address": "0x000f8e23a416396184Cd97fF9dD750F3753F4C0c",
-      "deployBlock": 47303001,
+      "address": "0x9CA2E453462b87584f5A4D15f5962a4f2174BCE9",
+      "deployBlock": 48079282,
       "abi": [
         {
           "inputs": [],
@@ -131,43 +131,6 @@
               "type": "uint256"
             },
             {
-              "indexed": true,
-              "internalType": "address",
-              "name": "donor",
-              "type": "address"
-            },
-            {
-              "indexed": false,
-              "internalType": "uint256",
-              "name": "weight",
-              "type": "uint256"
-            },
-            {
-              "indexed": false,
-              "internalType": "uint256",
-              "name": "totalApprovalWeight",
-              "type": "uint256"
-            }
-          ],
-          "name": "MilestoneApproved",
-          "type": "event"
-        },
-        {
-          "anonymous": false,
-          "inputs": [
-            {
-              "indexed": true,
-              "internalType": "uint256",
-              "name": "campaignId",
-              "type": "uint256"
-            },
-            {
-              "indexed": true,
-              "internalType": "uint256",
-              "name": "milestoneIndex",
-              "type": "uint256"
-            },
-            {
               "indexed": false,
               "internalType": "uint256",
               "name": "amount",
@@ -185,80 +148,12 @@
         },
         {
           "inputs": [],
-          "name": "APPROVAL_THRESHOLD_BPS",
-          "outputs": [
-            {
-              "internalType": "uint256",
-              "name": "",
-              "type": "uint256"
-            }
-          ],
-          "stateMutability": "view",
-          "type": "function"
-        },
-        {
-          "inputs": [],
-          "name": "BPS_DENOMINATOR",
-          "outputs": [
-            {
-              "internalType": "uint256",
-              "name": "",
-              "type": "uint256"
-            }
-          ],
-          "stateMutability": "view",
-          "type": "function"
-        },
-        {
-          "inputs": [],
           "name": "MAX_MILESTONES",
           "outputs": [
             {
               "internalType": "uint256",
               "name": "",
               "type": "uint256"
-            }
-          ],
-          "stateMutability": "view",
-          "type": "function"
-        },
-        {
-          "inputs": [
-            {
-              "internalType": "uint256",
-              "name": "campaignId",
-              "type": "uint256"
-            }
-          ],
-          "name": "approveMilestone",
-          "outputs": [],
-          "stateMutability": "nonpayable",
-          "type": "function"
-        },
-        {
-          "inputs": [
-            {
-              "internalType": "uint256",
-              "name": "",
-              "type": "uint256"
-            },
-            {
-              "internalType": "uint256",
-              "name": "",
-              "type": "uint256"
-            },
-            {
-              "internalType": "address",
-              "name": "",
-              "type": "address"
-            }
-          ],
-          "name": "approved",
-          "outputs": [
-            {
-              "internalType": "bool",
-              "name": "",
-              "type": "bool"
             }
           ],
           "stateMutability": "view",
@@ -423,35 +318,6 @@
               "internalType": "struct Covenant.Campaign[]",
               "name": "list",
               "type": "tuple[]"
-            }
-          ],
-          "stateMutability": "view",
-          "type": "function"
-        },
-        {
-          "inputs": [
-            {
-              "internalType": "uint256",
-              "name": "campaignId",
-              "type": "uint256"
-            }
-          ],
-          "name": "getApprovalProgress",
-          "outputs": [
-            {
-              "internalType": "uint256",
-              "name": "approvalWeight",
-              "type": "uint256"
-            },
-            {
-              "internalType": "uint256",
-              "name": "totalRaised",
-              "type": "uint256"
-            },
-            {
-              "internalType": "bool",
-              "name": "thresholdReached",
-              "type": "bool"
             }
           ],
           "stateMutability": "view",
@@ -675,16 +541,6 @@
                   "type": "bool"
                 },
                 {
-                  "internalType": "uint256",
-                  "name": "approvalWeight",
-                  "type": "uint256"
-                },
-                {
-                  "internalType": "uint256",
-                  "name": "approvalBase",
-                  "type": "uint256"
-                },
-                {
                   "internalType": "bool",
                   "name": "released",
                   "type": "bool"
@@ -731,16 +587,6 @@
                   "type": "bool"
                 },
                 {
-                  "internalType": "uint256",
-                  "name": "approvalWeight",
-                  "type": "uint256"
-                },
-                {
-                  "internalType": "uint256",
-                  "name": "approvalBase",
-                  "type": "uint256"
-                },
-                {
                   "internalType": "bool",
                   "name": "released",
                   "type": "bool"
@@ -752,67 +598,6 @@
             }
           ],
           "stateMutability": "view",
-          "type": "function"
-        },
-        {
-          "inputs": [
-            {
-              "internalType": "uint256",
-              "name": "campaignId",
-              "type": "uint256"
-            },
-            {
-              "internalType": "uint256",
-              "name": "milestoneIndex",
-              "type": "uint256"
-            },
-            {
-              "internalType": "address",
-              "name": "donor",
-              "type": "address"
-            }
-          ],
-          "name": "hasApproved",
-          "outputs": [
-            {
-              "internalType": "bool",
-              "name": "",
-              "type": "bool"
-            }
-          ],
-          "stateMutability": "view",
-          "type": "function"
-        },
-        {
-          "inputs": [
-            {
-              "internalType": "uint256",
-              "name": "campaignId",
-              "type": "uint256"
-            }
-          ],
-          "name": "isThresholdReached",
-          "outputs": [
-            {
-              "internalType": "bool",
-              "name": "",
-              "type": "bool"
-            }
-          ],
-          "stateMutability": "view",
-          "type": "function"
-        },
-        {
-          "inputs": [
-            {
-              "internalType": "uint256",
-              "name": "campaignId",
-              "type": "uint256"
-            }
-          ],
-          "name": "releaseMilestoneFunds",
-          "outputs": [],
-          "stateMutability": "nonpayable",
           "type": "function"
         },
         {
@@ -857,8 +642,8 @@
   },
   "31337": {
     "Covenant": {
-      "address": "0x5FbDB2315678afecb367f032d93F642f64180aa3",
-      "deployBlock": 1,
+      "address": "0xe7f1725E7734CE288F8367e1Bb143E90bb3F0512",
+      "deployBlock": 5,
       "abi": [
         {
           "inputs": [],

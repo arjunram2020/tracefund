@@ -24,9 +24,8 @@ const STEPS = [
   },
   {
     n: "03",
-    Icon: CheckCircle2,
-    title: "Funds auto-release",
-    body: "Once evidence is submitted, that milestone's funds release to the creator instantly — no vote needed.",
+    title: "Proof unlocks the funds",
+    body: "Once donations cover the milestone and proof is posted, the contract releases exactly that milestone's amount — automatically, permanently on the record.",
   },
   {
     n: "04",

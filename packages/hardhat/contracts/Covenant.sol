@@ -9,8 +9,13 @@ import "@openzeppelin/contracts/utils/ReentrancyGuard.sol";
  *
  * Flow per milestone:
  *   1. Donors send ETH into escrow via donate().
- *   2. Creator posts on-chain proof via submitEvidence() for the current milestone.
+ *   2. Once donations cover the milestone, the creator posts on-chain proof via
+ *      submitEvidence() for the current milestone.
  *   3. Funds are automatically released to the creator and the next milestone begins.
+ *
+ * A milestone can only release once this campaign's own donations cover it
+ * (totalReleased + amount <= totalRaised), so one campaign can never be paid
+ * out of another campaign's escrow.
  */
 contract Covenant is ReentrancyGuard {
     uint256 public constant MAX_MILESTONES = 5;
@@ -174,6 +179,9 @@ contract Covenant is ReentrancyGuard {
 
         Milestone storage m = _milestones[campaignId][mi];
         require(!m.released, "Already released");
+        // Release only what this campaign's own donations cover — otherwise the
+        // transfer below would be paid out of other campaigns' escrow.
+        require(c.totalReleased + m.amount <= c.totalRaised, "Milestone not funded");
 
         m.evidence = evidence;
         m.evidenceSubmitted = true;

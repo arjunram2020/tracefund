@@ -31,7 +31,7 @@ export function EvidencePanel({
   }, [isConfirmed]);
 
   // Evidence always targets the current active milestone. Submitting evidence
-  // auto-releases that milestone's funds to the creator.
+  // releases that milestone's funds in the same transaction (once it's funded).
   const current = Number(campaign.currentMilestone);
   const evidenceIndex = campaign.completed
     ? milestones.length - 1

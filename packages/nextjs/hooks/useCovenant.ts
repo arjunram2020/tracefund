@@ -9,7 +9,7 @@ import {
   useWriteContract,
 } from "wagmi";
 import { useQueryClient } from "@tanstack/react-query";
-import { getCovenant, resolveReadChainId, covenantAbi } from "../lib/contract";
+import { getCovenant, getCovenantAbi, resolveReadChainId } from "../lib/contract";
 import type { Campaign, CreatorStats, Milestone } from "../lib/types";
 
 export function useReadChain() {
@@ -19,7 +19,7 @@ export function useReadChain() {
   return {
     chainId,
     address: deployment?.address,
-    abi: covenantAbi,
+    abi: getCovenantAbi(chainId),
     deployed: !!deployment,
     connectedChainId,
   };

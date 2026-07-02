@@ -57,7 +57,8 @@ function describe(item: ActivityItem): React.ReactNode {
     case "EvidenceSubmitted":
       return (
         <>
-          Creator posted on-chain proof for {ms} — funds released automatically
+          Creator posted on-chain proof for {ms} — this milestone&apos;s funds release to the
+          creator in the same transaction
         </>
       );
     case "MilestoneReleased":
@@ -69,7 +70,7 @@ function describe(item: ActivityItem): React.ReactNode {
         </>
       );
     case "CampaignCompleted":
-      return <>All milestones released — campaign complete</>;
+      return <>All milestones proven and released — campaign complete</>;
     default:
       return item.type;
   }
