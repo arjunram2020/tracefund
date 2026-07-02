@@ -24,6 +24,7 @@ const STEPS = [
   },
   {
     n: "03",
+    Icon: CheckCircle2,
     title: "Proof unlocks the funds",
     body: "Once donations cover the milestone and proof is posted, the contract releases exactly that milestone's amount — automatically, permanently on the record.",
   },
