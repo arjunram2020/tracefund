@@ -34,8 +34,8 @@ export function CreatorReleasePanel({
   if (campaign.completed) {
     return (
       <div className="card p-5">
-        <h3 className="mb-2 font-semibold text-white">Milestone release</h3>
-        <p className="rounded-xl bg-brand-500/10 px-4 py-3 text-sm text-brand-200">
+        <h3 className="mb-2 font-semibold text-[var(--text-primary)]">Milestone release</h3>
+        <p className="rounded-xl bg-[var(--brand-primary)]/10 px-4 py-3 text-sm text-[var(--brand-primary)]">
           All milestones withdrawn and proven. The escrow is empty.
         </p>
       </div>
@@ -67,19 +67,19 @@ export function CreatorReleasePanel({
   return (
     <div className="card p-5">
       <div className="mb-4 flex items-center justify-between">
-        <h3 className="font-semibold text-white">Milestone release</h3>
-        <span className="pill bg-white/5 text-gray-400">Milestone {mi + 1}</span>
+        <h3 className="font-semibold text-[var(--text-primary)]">Milestone release</h3>
+        <span className="pill bg-[var(--bg-subtle)] text-[var(--text-secondary)]">Milestone {mi + 1}</span>
       </div>
 
       {/* Funding progress toward this milestone's cumulative threshold */}
       <div className="mb-1 flex items-center justify-between text-sm">
-        <span className="text-gray-400">Funds in escrow</span>
-        <span className="font-mono text-gray-200">
+        <span className="text-[var(--text-secondary)]">Funds in escrow</span>
+        <span className="font-mono text-[var(--text-primary)]">
           {formatEth(campaign.totalRaised)} / {formatEth(cumulativeTarget)} ETH
         </span>
       </div>
       <ProgressBar value={fundingPct} />
-      <p className="mt-1.5 text-xs text-gray-500">
+      <p className="mt-1.5 text-xs text-[var(--text-tertiary)]">
         {fundingMet
           ? `Funding threshold reached — ${formatEth(activeMilestone.amount)} ETH ready to withdraw.`
           : `${formatEth(cumulativeTarget - campaign.totalRaised)} ETH more needed to unlock this tranche.`}
@@ -87,18 +87,18 @@ export function CreatorReleasePanel({
 
       {/* Proof gate status */}
       {mi > 0 && (
-        <div className="mt-4 rounded-xl bg-white/[0.03] px-4 py-3 text-sm">
+        <div className="mt-4 rounded-xl bg-[var(--bg-faint)] px-4 py-3 text-sm">
           <div className="flex items-center gap-2">
             <span
               className={
                 proofGateMet
-                  ? "text-brand-300"
-                  : "text-amber-300"
+                  ? "text-[var(--brand-primary)]"
+                  : "text-[var(--text-warning)]"
               }
             >
               {proofGateMet ? "✓" : "○"}
             </span>
-            <span className="text-gray-300">
+            <span className="text-[var(--text-secondary)]">
               {proofGateMet
                 ? `Proof for milestone ${mi} submitted — this tranche is unlocked.`
                 : `Waiting for on-chain proof of milestone ${mi} before this tranche opens.`}
@@ -108,7 +108,7 @@ export function CreatorReleasePanel({
       )}
 
       {/* Release button — creator only */}
-      <div className="mt-4 border-t border-canvas-border/60 pt-4">
+      <div className="mt-4 border-t border-[var(--border-primary)] pt-4">
         {!isConnected ? (
           <ConnectButton.Custom>
             {({ openConnectModal }) => (
@@ -118,7 +118,7 @@ export function CreatorReleasePanel({
             )}
           </ConnectButton.Custom>
         ) : !isCreator ? (
-          <p className="rounded-xl bg-white/[0.03] px-4 py-3 text-sm text-gray-400">
+          <p className="rounded-xl bg-[var(--bg-faint)] px-4 py-3 text-sm text-[var(--text-secondary)]">
             Only the campaign creator can withdraw milestone funds.
           </p>
         ) : (
@@ -147,7 +147,7 @@ export function CreatorReleasePanel({
           />
         </div>
         {isCreator && canRelease && (
-          <p className="mt-1 text-xs text-gray-500">
+          <p className="mt-1 text-xs text-[var(--text-tertiary)]">
             After withdrawing, post on-chain proof to unlock the next milestone.
           </p>
         )}

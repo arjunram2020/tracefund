@@ -42,7 +42,7 @@ export function TxFeedback({
       // Surface the human-readable revert reason when present.
       (error as any)?.shortMessage || error.message || "Transaction failed.";
     return (
-      <p className="flex items-start gap-2 text-sm text-red-400">
+      <p className="flex items-start gap-2 text-sm text-[var(--text-danger)]">
         <span aria-hidden>✕</span>
         <span className="break-words">{msg}</span>
       </p>
@@ -51,7 +51,7 @@ export function TxFeedback({
 
   if (isPending) {
     return (
-      <p className="flex items-center gap-2 text-sm text-amber-300">
+      <p className="flex items-center gap-2 text-sm text-[var(--text-warning)]">
         <Spinner /> Confirm in your wallet…
       </p>
     );
@@ -59,7 +59,7 @@ export function TxFeedback({
 
   if (isConfirming) {
     return (
-      <p className="flex items-center gap-2 text-sm text-sky-300">
+      <p className="flex items-center gap-2 text-sm text-sky-700">
         <Spinner /> Waiting for confirmation…
       </p>
     );
@@ -67,14 +67,14 @@ export function TxFeedback({
 
   if (isConfirmed) {
     return (
-      <p className="flex flex-wrap items-center gap-2 text-sm text-brand-300">
+      <p className="flex flex-wrap items-center gap-2 text-sm text-[var(--brand-primary)]">
         <span aria-hidden>✓</span> {successText}
         {hash && explorer && (
           <a
             href={`${explorer}/tx/${hash}`}
             target="_blank"
             rel="noreferrer"
-            className="font-mono text-xs text-gray-400 underline hover:text-gray-200"
+            className="font-mono text-xs text-[var(--text-secondary)] underline hover:text-[var(--text-primary)]"
           >
             {shortenAddress(hash, 6)}
           </a>

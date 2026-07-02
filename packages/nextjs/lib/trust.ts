@@ -12,31 +12,31 @@ export function trustTier(score: number): TrustTier {
   if (score >= 80) {
     return {
       label: "Trusted Creator",
-      badge: "bg-brand-500/15 text-brand-300",
-      ring: "ring-1 ring-brand-500/40",
-      text: "text-brand-300",
+      badge: "bg-[var(--brand-secondary)] text-[var(--brand-primary)]",
+      ring: "ring-1 ring-[var(--brand-primary)]/40",
+      text: "text-[var(--brand-primary)]",
     };
   }
   if (score >= 50) {
     return {
       label: "Proven Creator",
-      badge: "bg-sky-500/15 text-sky-300",
-      ring: "ring-1 ring-sky-500/40",
-      text: "text-sky-300",
+      badge: "bg-sky-600/10 text-sky-700",
+      ring: "ring-1 ring-sky-600/30",
+      text: "text-sky-700",
     };
   }
   if (score >= 20) {
     return {
       label: "Early Creator",
-      badge: "bg-amber-500/15 text-amber-300",
-      ring: "ring-1 ring-amber-500/40",
-      text: "text-amber-300",
+      badge: "bg-amber-600/10 text-amber-700",
+      ring: "ring-1 ring-amber-600/30",
+      text: "text-amber-700",
     };
   }
   return {
     label: "New Creator",
-    badge: "bg-zinc-500/15 text-zinc-300",
-    ring: "ring-1 ring-zinc-500/30",
-    text: "text-zinc-300",
+    badge: "bg-[var(--bg-subtle)] text-[var(--text-tertiary)]",
+    ring: "ring-1 ring-[var(--border-primary)]",
+    text: "text-[var(--text-tertiary)]",
   };
 }

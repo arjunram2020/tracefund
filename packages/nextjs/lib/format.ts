@@ -59,37 +59,37 @@ export function milestoneStatusMeta(status: MilestoneStatus): StatusMeta {
     case "released":
       return {
         label: "Released",
-        pill: "bg-brand-500/15 text-brand-300 ring-1 ring-brand-500/30",
-        dot: "bg-brand-400",
+        pill: "bg-[var(--brand-secondary)] text-[var(--brand-primary)] ring-1 ring-[var(--brand-primary)]/25",
+        dot: "bg-[var(--brand-primary)]",
       };
     case "awaiting-evidence":
       return {
         label: "Awaiting proof",
-        pill: "bg-amber-500/15 text-amber-300 ring-1 ring-amber-500/30",
-        dot: "bg-amber-400 animate-pulse",
+        pill: "bg-amber-600/10 text-amber-700 ring-1 ring-amber-600/25",
+        dot: "bg-amber-600 animate-pulse",
       };
     case "funding":
       return {
         label: "Collecting funds",
-        pill: "bg-sky-500/15 text-sky-300 ring-1 ring-sky-500/30",
-        dot: "bg-sky-400",
+        pill: "bg-sky-600/10 text-sky-700 ring-1 ring-sky-600/25",
+        dot: "bg-sky-600",
       };
     case "locked":
     default:
       return {
         label: "Locked",
-        pill: "bg-zinc-500/10 text-zinc-400 ring-1 ring-zinc-500/20",
-        dot: "bg-zinc-500",
+        pill: "bg-[var(--bg-subtle)] text-[var(--text-tertiary)] ring-1 ring-[var(--border-primary)]",
+        dot: "bg-[var(--text-tertiary)]",
       };
   }
 }
 
 export function campaignStatus(campaign: Campaign): { label: string; pill: string } {
   if (campaign.completed) {
-    return { label: "Completed", pill: "bg-brand-500/15 text-brand-300 ring-1 ring-brand-500/30" };
+    return { label: "Completed", pill: "bg-[var(--brand-secondary)] text-[var(--brand-primary)] ring-1 ring-[var(--brand-primary)]/25" };
   }
   if (campaign.active) {
-    return { label: "Active", pill: "bg-sky-500/15 text-sky-300 ring-1 ring-sky-500/30" };
+    return { label: "Active", pill: "bg-sky-600/10 text-sky-700 ring-1 ring-sky-600/25" };
   }
-  return { label: "Closed", pill: "bg-zinc-500/10 text-zinc-400 ring-1 ring-zinc-500/20" };
+  return { label: "Closed", pill: "bg-[var(--bg-subtle)] text-[var(--text-tertiary)] ring-1 ring-[var(--border-primary)]" };
 }

@@ -1,52 +1,113 @@
+@import url("https://fonts.googleapis.com/css2?family=Instrument+Sans:ital,wght@0,400..700;1,400..700&display=swap");
+@import url("https://fonts.googleapis.com/css2?family=Geist+Mono:wght@300..700&display=swap");
+
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
 
 :root {
-  color-scheme: dark;
+  color-scheme: light;
+
+  /* ── Brand ─────────────────────────────────────────────────────── */
+  --brand-primary: #1c4433;
+  --brand-hover: #153428;
+  --brand-dark: #0e2820;
+  --brand-secondary: rgba(28, 68, 51, 0.1);
+  --brand-tertiary: #f5f7f5;
+  --brand-muted: rgba(28, 68, 51, 0.06);
+
+  /* ── Surfaces ──────────────────────────────────────────────────── */
+  --surface-bg: #ffffff;
+  --surface-secondary-bg: #f9faf9;
+  --surface-hover: rgba(0, 0, 0, 0.04);
+
+  /* ── Text ──────────────────────────────────────────────────────── */
+  --text-primary: #0d1117;
+  --text-secondary: #4b5563;
+  --text-tertiary: #9ca3af;
+
+  /* ── Borders ───────────────────────────────────────────────────── */
+  --border-primary: rgba(0, 0, 0, 0.09);
+  --border-secondary: rgba(0, 0, 0, 0.05);
+
+  /* ── Background tints ─────────────────────────────────────────── */
+  --bg-faint: rgba(0, 0, 0, 0.025);
+  --bg-subtle: rgba(0, 0, 0, 0.04);
+  --bg-hover: rgba(0, 0, 0, 0.05);
+
+  /* ── On-color ──────────────────────────────────────────────────── */
+  --on-brand: #ffffff;
+
+  /* ── Status ────────────────────────────────────────────────────── */
+  --success: #16a34a;
+  --warning: #d97706;
+  --danger: #dc2626;
+  --text-success: #15803d;
+  --text-warning: #b45309;
+  --text-danger: #b91c1c;
+
+  /* ── Network / blockchain background ──────────────────────────── */
+  --network-node: #0891b2;
+  --network-hub: #34d399;
+  --network-blob-a: #0e7490;
+  --network-blob-b: #059669;
+
+  /* ── Typography ────────────────────────────────────────────────── */
+  --font-sans-stack: "Instrument Sans", system-ui, sans-serif;
+  --font-mono-stack: "Geist Mono", "JetBrains Mono", ui-monospace, monospace;
 }
 
 html,
 body {
-  background-color: #0a0e14;
-  color: #e5e7eb;
+  background-color: var(--brand-tertiary);
+  color: var(--text-primary);
 }
 
 body {
-  /* Subtle layered glow so the dark canvas isn't flat. */
+  font-family: var(--font-sans-stack);
+  -webkit-font-smoothing: antialiased;
   background-image:
-    radial-gradient(60rem 60rem at 80% -10%, rgba(16, 185, 129, 0.08), transparent 60%),
-    radial-gradient(50rem 50rem at -10% 10%, rgba(56, 189, 248, 0.06), transparent 55%);
+    radial-gradient(60rem 60rem at 80% -10%, rgba(28, 68, 51, 0.05), transparent 60%),
+    radial-gradient(50rem 50rem at -10% 10%, rgba(8, 145, 178, 0.04), transparent 55%);
   background-attachment: fixed;
 }
 
 @layer components {
   .card {
-    @apply rounded-2xl border border-canvas-border bg-canvas-card/80 backdrop-blur-sm;
+    @apply rounded-2xl border border-[var(--border-primary)] bg-[var(--surface-bg)];
+    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.06), 0 1px 2px rgba(0, 0, 0, 0.04);
   }
 
   .btn {
-    @apply inline-flex items-center justify-center gap-2 rounded-xl px-4 py-2.5 text-sm font-semibold transition-all disabled:cursor-not-allowed disabled:opacity-50;
+    @apply inline-flex items-center justify-center gap-2 rounded-full px-4 py-2.5 text-sm font-semibold transition-all disabled:cursor-not-allowed disabled:opacity-50;
   }
 
   .btn-primary {
-    @apply btn bg-brand-500 text-canvas hover:bg-brand-400 active:scale-[0.98] shadow-glow;
+    @apply btn bg-[var(--brand-primary)] text-[var(--on-brand)] hover:bg-[var(--brand-hover)] active:scale-[0.98];
   }
 
   .btn-secondary {
-    @apply btn border border-canvas-border bg-canvas-soft text-gray-200 hover:border-brand-500/40 hover:text-white;
+    @apply btn border border-[var(--border-primary)] bg-[var(--surface-bg)] text-[var(--text-primary)];
+    transition: border-color 0.15s;
+  }
+  .btn-secondary:hover {
+    border-color: var(--brand-primary);
   }
 
   .btn-ghost {
-    @apply btn text-gray-300 hover:bg-white/5 hover:text-white;
+    @apply btn text-[var(--text-secondary)] hover:bg-[var(--bg-subtle)] hover:text-[var(--text-primary)];
   }
 
   .input {
-    @apply w-full rounded-xl border border-canvas-border bg-canvas/60 px-4 py-2.5 text-sm text-gray-100 placeholder:text-gray-500 outline-none transition focus:border-brand-500/50 focus:ring-2 focus:ring-brand-500/20;
+    @apply w-full rounded-xl border border-[var(--border-primary)] bg-[var(--surface-bg)] px-4 py-2.5 text-sm text-[var(--text-primary)] placeholder:text-[var(--text-tertiary)] outline-none transition;
+  }
+  .input:focus {
+    border-color: var(--brand-primary);
+    box-shadow: 0 0 0 2px rgba(28, 68, 51, 0.15);
   }
 
   .label {
-    @apply mb-1.5 block text-xs font-medium uppercase tracking-wide text-gray-400;
+    @apply mb-1.5 block text-xs font-medium uppercase tracking-wide text-[var(--text-secondary)];
   }
 
   .pill {
@@ -54,7 +115,7 @@ body {
   }
 
   .stat-value {
-    @apply font-mono text-lg font-semibold text-white;
+    @apply font-mono text-lg font-semibold text-[var(--text-primary)];
   }
 }
 
@@ -64,9 +125,9 @@ body {
   height: 10px;
 }
 ::-webkit-scrollbar-thumb {
-  background: #1f2937;
+  background: var(--border-primary);
   border-radius: 9999px;
 }
 ::-webkit-scrollbar-thumb:hover {
-  background: #374151;
+  background: var(--text-tertiary);
 }

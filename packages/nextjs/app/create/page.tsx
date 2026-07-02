@@ -173,8 +173,8 @@ export default function CreateCampaignPage() {
     <div className="mx-auto max-w-3xl px-4 py-10 sm:px-6">
       <div className="mb-6 flex items-center justify-between">
         <div>
-          <h1 className="text-2xl font-bold text-white">Create a campaign</h1>
-          <p className="mt-1 text-sm text-gray-400">
+          <h1 className="text-2xl font-bold text-[var(--text-primary)]">Create a campaign</h1>
+          <p className="mt-1 text-sm text-[var(--text-secondary)]">
             Set milestone amounts — funds unlock in tranches as each milestone is proven.
           </p>
         </div>
@@ -218,8 +218,8 @@ export default function CreateCampaignPage() {
               type="button"
               className={`flex-1 rounded-xl border px-4 py-2 text-sm font-medium transition ${
                 mode === "even"
-                  ? "border-brand-500/60 bg-brand-500/10 text-brand-300"
-                  : "border-canvas-border bg-white/[0.03] text-gray-400 hover:text-white"
+                  ? "border-[var(--brand-primary)]/60 bg-[var(--brand-primary)]/10 text-[var(--brand-primary)]"
+                  : "border-[var(--border-primary)] bg-[var(--bg-faint)] text-[var(--text-secondary)] hover:text-[var(--text-primary)]"
               }`}
               onClick={() => setMode("even")}
             >
@@ -229,8 +229,8 @@ export default function CreateCampaignPage() {
               type="button"
               className={`flex-1 rounded-xl border px-4 py-2 text-sm font-medium transition ${
                 mode === "manual"
-                  ? "border-brand-500/60 bg-brand-500/10 text-brand-300"
-                  : "border-canvas-border bg-white/[0.03] text-gray-400 hover:text-white"
+                  ? "border-[var(--brand-primary)]/60 bg-[var(--brand-primary)]/10 text-[var(--brand-primary)]"
+                  : "border-[var(--border-primary)] bg-[var(--bg-faint)] text-[var(--text-secondary)] hover:text-[var(--text-primary)]"
               }`}
               onClick={() => {
                 setMode("manual");
@@ -275,9 +275,9 @@ export default function CreateCampaignPage() {
 
         {/* Even split preview */}
         {mode === "even" && amountEach !== null && amountEach > 0n && (
-          <div className="flex items-center justify-between rounded-xl bg-white/[0.03] px-4 py-3">
-            <span className="text-sm text-gray-400">Each milestone unlocks</span>
-            <span className="font-mono text-lg font-semibold text-brand-300">
+          <div className="flex items-center justify-between rounded-xl bg-[var(--bg-faint)] px-4 py-3">
+            <span className="text-sm text-[var(--text-secondary)]">Each milestone unlocks</span>
+            <span className="font-mono text-lg font-semibold text-[var(--brand-primary)]">
               {formatEth(amountEach)} ETH
             </span>
           </div>
@@ -285,9 +285,9 @@ export default function CreateCampaignPage() {
 
         {/* Manual total preview */}
         {mode === "manual" && manualTotal !== null && (
-          <div className="flex items-center justify-between rounded-xl bg-white/[0.03] px-4 py-3">
-            <span className="text-sm text-gray-400">Total goal</span>
-            <span className="font-mono text-lg font-semibold text-brand-300">
+          <div className="flex items-center justify-between rounded-xl bg-[var(--bg-faint)] px-4 py-3">
+            <span className="text-sm text-[var(--text-secondary)]">Total goal</span>
+            <span className="font-mono text-lg font-semibold text-[var(--brand-primary)]">
               {formatEth(manualTotal)} ETH
             </span>
           </div>
@@ -296,13 +296,13 @@ export default function CreateCampaignPage() {
         {/* Milestone rows */}
         <div>
           <label className="label">Milestones</label>
-          <p className="mb-3 text-xs text-gray-500">
+          <p className="mb-3 text-xs text-[var(--text-tertiary)]">
             To unlock milestone N, the creator must first post on-chain proof for milestone N−1.
           </p>
           <div className="space-y-2">
             {descriptions.map((d, i) => (
               <div key={i} className="flex items-center gap-2">
-                <div className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-white/5 text-xs font-bold text-gray-400">
+                <div className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-[var(--bg-subtle)] text-xs font-bold text-[var(--text-secondary)]">
                   {i + 1}
                 </div>
                 <input
@@ -328,13 +328,13 @@ export default function CreateCampaignPage() {
                     }}
                   />
                 )}
-                <span className="w-24 shrink-0 text-right font-mono text-xs text-gray-500">
+                <span className="w-24 shrink-0 text-right font-mono text-xs text-[var(--text-tertiary)]">
                   at {cumulativeTargets[i]} ETH
                 </span>
                 {mode === "manual" && descriptions.length > MIN_MILESTONES && (
                   <button
                     type="button"
-                    className="shrink-0 text-gray-600 hover:text-red-400"
+                    className="shrink-0 text-[var(--text-tertiary)] hover:text-[var(--text-danger)]"
                     onClick={() => removeMilestone(i)}
                     title="Remove milestone"
                   >
@@ -387,7 +387,7 @@ export default function CreateCampaignPage() {
 
         {!formValid &&
           (title || description || totalGoal || descriptions.some((d) => d)) && (
-            <p className="text-xs text-gray-500">
+            <p className="text-xs text-[var(--text-tertiary)]">
               Provide a title, description,{" "}
               {mode === "even" ? "total goal and milestone count" : "an ETH amount for every milestone"},{" "}
               and a description for every milestone.

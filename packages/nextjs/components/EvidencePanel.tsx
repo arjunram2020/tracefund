@@ -51,21 +51,21 @@ export function EvidencePanel({
   return (
     <div className="card p-5">
       <div className="mb-4 flex items-center justify-between">
-        <h3 className="font-semibold text-white">
+        <h3 className="font-semibold text-[var(--text-primary)]">
           {isCreator && targetMilestone ? "Submit proof" : "Milestone proof"}
         </h3>
         {targetMilestone && (
-          <span className="pill bg-white/5 text-gray-400">Milestone {evidenceIndex + 1}</span>
+          <span className="pill bg-[var(--bg-subtle)] text-[var(--text-secondary)]">Milestone {evidenceIndex + 1}</span>
         )}
       </div>
 
       {campaign.completed ? (
-        <p className="rounded-xl bg-white/5 px-4 py-3 text-sm text-gray-400">
+        <p className="rounded-xl bg-[var(--bg-subtle)] px-4 py-3 text-sm text-[var(--text-secondary)]">
           All milestones completed and proven. 🎉
         </p>
       ) : targetMilestone?.evidenceSubmitted ? (
-        <div className="rounded-xl bg-white/[0.03] px-4 py-3">
-          <p className="mb-1 text-xs uppercase tracking-wide text-gray-500">
+        <div className="rounded-xl bg-[var(--bg-faint)] px-4 py-3">
+          <p className="mb-1 text-xs uppercase tracking-wide text-[var(--text-tertiary)]">
             Proof for "{targetMilestone.description}"
           </p>
           <EvidenceLink evidence={targetMilestone.evidence} />
@@ -74,20 +74,20 @@ export function EvidencePanel({
             milestones[current - 1]?.released &&
             !milestones[current - 1]?.evidenceSubmitted &&
             evidenceIndex !== current - 1 && (
-              <p className="mt-2 text-xs text-amber-300">
+              <p className="mt-2 text-xs text-[var(--text-warning)]">
                 Milestone {current} needs proof to unlock the next tranche.
               </p>
             )}
         </div>
       ) : (
-        <p className="rounded-xl bg-white/[0.03] px-4 py-3 text-sm text-gray-400">
+        <p className="rounded-xl bg-[var(--bg-faint)] px-4 py-3 text-sm text-[var(--text-secondary)]">
           No proof submitted yet for &ldquo;{targetMilestone?.description}&rdquo;. Once the creator
           posts proof, funds are automatically released to them.
         </p>
       )}
 
       {isCreator && targetMilestone && (
-        <div className="mt-4 border-t border-canvas-border/60 pt-4">
+        <div className="mt-4 border-t border-[var(--border-primary)] pt-4">
           <label className="label">
             {targetMilestone.evidenceSubmitted ? "Update proof" : "Proof"}
           </label>
@@ -114,7 +114,7 @@ export function EvidencePanel({
               successText="Proof recorded on-chain."
             />
           </div>
-          <p className="mt-1 text-xs text-gray-500">
+          <p className="mt-1 text-xs text-[var(--text-tertiary)]">
             Stored permanently on-chain. Submitting proof automatically releases this milestone&apos;s
             funds to you.
           </p>
