@@ -15,23 +15,38 @@ export function Header() {
   const pathname = usePathname();
 
   return (
-    <header className="sticky top-0 z-40 border-b border-canvas-border/70 bg-canvas/80 backdrop-blur-md">
-      <div className="mx-auto flex h-16 max-w-6xl items-center justify-between gap-4 px-4 sm:px-6">
-        <Link href="/" className="flex items-center gap-2.5">
-          <Logo className="h-8 w-8" />
-          <span className="text-lg font-bold tracking-tight text-white">Covenant</span>
+    <header
+      className="sticky top-0 z-40 border-b backdrop-blur-md"
+      style={{ background: "rgba(245,247,245,0.92)", borderColor: "var(--border-primary)" }}
+    >
+      <div className="mx-auto flex h-[60px] max-w-6xl items-center justify-between gap-4 px-4 sm:px-6">
+        <Link href="/" className="flex items-center gap-2">
+          <span
+            className="flex h-7 w-7 items-center justify-center rounded-full"
+            style={{ background: "var(--brand-primary)" }}
+          >
+            <Logo className="h-4 w-4" />
+          </span>
+          <span
+            className="text-[17px] font-bold tracking-tight text-[var(--text-primary)]"
+            style={{ fontFamily: "var(--font-sans-stack)" }}
+          >
+            covenant<span style={{ color: "var(--brand-primary)" }}>.</span>
+          </span>
         </Link>
 
-        <nav className="hidden items-center gap-1 md:flex">
+        <nav className="hidden items-center gap-6 md:flex">
           {NAV.map((item) => {
             const active = pathname === item.href || pathname.startsWith(item.href + "/");
             return (
               <Link
                 key={item.href}
                 href={item.href}
-                className={`rounded-lg px-3 py-2 text-sm font-medium transition ${
-                  active ? "bg-white/5 text-white" : "text-gray-400 hover:text-white"
-                }`}
+                className="text-sm transition-colors"
+                style={{
+                  color: active ? "var(--brand-primary)" : "var(--text-secondary)",
+                  fontWeight: active ? 600 : 400,
+                }}
               >
                 {item.label}
               </Link>

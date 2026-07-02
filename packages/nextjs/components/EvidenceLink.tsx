@@ -18,12 +18,12 @@ export function EvidenceLink({ evidence }: { evidence: string }) {
         href={href}
         target="_blank"
         rel="noreferrer"
-        className="break-all font-medium text-brand-300 underline decoration-brand-500/40 underline-offset-2 hover:text-brand-200"
+        className="break-all font-medium text-[var(--brand-primary)] underline decoration-[var(--brand-primary)]/40 underline-offset-2 hover:text-[var(--brand-primary)]"
       >
         {v}
       </a>
     );
   }
 
-  return <p className="whitespace-pre-wrap break-words text-gray-200">{v}</p>;
+  return <p className="whitespace-pre-wrap break-words text-[var(--text-primary)]">{v}</p>;
 }

@@ -23,11 +23,11 @@ export function ContractNotice() {
     .join(", ");
 
   return (
-    <div className="card border-amber-500/30 bg-amber-500/[0.06] p-4 text-sm text-amber-200">
+    <div className="card border-amber-600/30 bg-amber-600/[0.06] p-4 text-sm text-amber-200">
       <p className="font-medium">
         Covenant isn&apos;t deployed on {CHAIN_NAMES[chainId] ?? `chain ${chainId}`}.
       </p>
-      <p className="mt-1 text-amber-200/80">
+      <p className="mt-1 text-amber-700/90">
         Switch your wallet to a supported network: <strong>{supported}</strong>.
       </p>
     </div>

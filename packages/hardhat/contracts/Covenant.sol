@@ -5,7 +5,7 @@ import "@openzeppelin/contracts/utils/ReentrancyGuard.sol";
 
 /**
  * @title Covenant
- * @notice Milestone-based crowdfunding with donor-weighted approval gates.
+ * @notice Milestone-based crowdfunding with on-chain evidence gates.
  *
  * Flow per milestone:
  *   1. Donors send ETH into escrow via donate().

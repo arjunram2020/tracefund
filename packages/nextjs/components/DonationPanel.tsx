@@ -82,17 +82,17 @@ export function DonationPanel({
   return (
     <div className="card p-5">
       <div className="mb-4 flex items-center justify-between">
-        <h3 className="font-semibold text-white">Donate into escrow</h3>
-        <span className="pill bg-brand-500/10 text-brand-300">ETH locked on-chain</span>
+        <h3 className="font-semibold text-[var(--text-primary)]">Donate into escrow</h3>
+        <span className="pill bg-[var(--brand-primary)]/10 text-[var(--brand-primary)]">ETH locked on-chain</span>
       </div>
 
       {!campaign.active ? (
-        <p className="rounded-xl bg-white/5 px-4 py-3 text-sm text-gray-400">
+        <p className="rounded-xl bg-[var(--bg-subtle)] px-4 py-3 text-sm text-[var(--text-secondary)]">
           This campaign is {campaign.completed ? "completed" : "closed"} and no longer accepting
           donations.
         </p>
       ) : goalReached ? (
-        <p className="rounded-xl bg-white/5 px-4 py-3 text-sm text-gray-400">
+        <p className="rounded-xl bg-[var(--bg-subtle)] px-4 py-3 text-sm text-[var(--text-secondary)]">
           This campaign has reached its {formatEth(campaign.goalAmount)} ETH goal and is no longer
           accepting donations.
         </p>
@@ -107,8 +107,8 @@ export function DonationPanel({
                   onClick={() => setAmount(q)}
                   className={`flex-1 rounded-lg border px-2 py-1.5 text-xs font-medium transition ${
                     amount === q
-                      ? "border-brand-500/50 bg-brand-500/10 text-brand-300"
-                      : "border-canvas-border text-gray-400 hover:text-white"
+                      ? "border-[var(--brand-primary)]/50 bg-[var(--brand-primary)]/10 text-[var(--brand-primary)]"
+                      : "border-[var(--border-primary)] text-[var(--text-secondary)] hover:text-[var(--text-primary)]"
                   }`}
                 >
                   {q}
@@ -128,12 +128,17 @@ export function DonationPanel({
             />
           </div>
 
-          {/* The on-chain limit, shown up front so users don't hit a revert. */}
-          <p className="mt-2 text-xs text-gray-500">
-            <span className="text-gray-400">{formatEth(remaining)} ETH</span> left to goal.
+          {/* The two on-chain limits, shown up front so users don't hit a revert. */}
+          <p className="mt-2 text-xs text-[var(--text-tertiary)]">
+            Must be{" "}
+            <span className="text-[var(--text-secondary)]">
+              below {milestoneAmount !== undefined ? formatEth(milestoneAmount) : "…"} ETH
+            </span>{" "}
+            (current milestone) ·{" "}
+            <span className="text-[var(--text-secondary)]">{formatEth(remaining)} ETH</span> left to goal.
           </p>
 
-          {capError && <p className="mt-1 text-xs text-amber-400">{capError}</p>}
+          {capError && <p className="mt-1 text-xs text-[var(--text-warning)]">{capError}</p>}
 
           <div className="mt-4">
             {isConnected ? (
@@ -170,7 +175,7 @@ export function DonationPanel({
             />
           </div>
 
-          <p className="mt-2 text-xs text-gray-500">
+          <p className="mt-2 text-xs text-[var(--text-tertiary)]">
             Funds are held by the Covenant contract and only released to the creator milestone by
             milestone, once each milestone is funded and its on-chain proof is posted.
           </p>

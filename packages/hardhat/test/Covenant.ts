@@ -41,8 +41,10 @@ describe("Covenant", function () {
     const base = await deployFixture();
     const { covenant, creator, donorA, donorB } = base;
     const id = await createDemoCampaign(covenant, creator);
-    await covenant.connect(donorA).donate(id, { value: ethers.parseEther("0.02") });
-    await covenant.connect(donorB).donate(id, { value: ethers.parseEther("0.03") });
+    await covenant.connect(donorA).donate(id, { value: ethers.parseEther("0.01") });
+    await covenant.connect(donorA).donate(id, { value: ethers.parseEther("0.01") }); // donorA total 0.02
+    await covenant.connect(donorB).donate(id, { value: ethers.parseEther("0.019") });
+    await covenant.connect(donorB).donate(id, { value: ethers.parseEther("0.011") }); // donorB total 0.03
     // totalRaised = 0.05 (= goal)
     return { ...base, id };
   }
@@ -323,6 +325,14 @@ describe("Covenant", function () {
       ).to.be.revertedWith("Evidence required");
     });
 
+    it("reverts once the campaign is already completed", async function () {
+      const { covenant, creator, id } = await loadFixture(fundedFixture);
+      for (let i = 0; i < 3; i++) {
+        await covenant.connect(creator).submitEvidence(id, `ipfs://receipt-${i + 1}`);
+      }
+      await expect(
+        covenant.connect(creator).submitEvidence(id, "late"),
+      ).to.be.revertedWith("Campaign not active");
     it("reverts when the campaign does not exist", async function () {
       const { covenant, creator } = await loadFixture(deployFixture);
       await expect(

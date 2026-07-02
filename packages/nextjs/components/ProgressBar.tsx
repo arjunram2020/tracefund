@@ -1,9 +1,9 @@
 type Tone = "brand" | "violet" | "sky";
 
 const TONES: Record<Tone, string> = {
-  brand: "from-brand-500 to-brand-400",
-  violet: "from-violet-500 to-violet-400",
-  sky: "from-sky-500 to-sky-400",
+  brand: "var(--brand-primary)",
+  violet: "#7c3aed",
+  sky: "#0284c7",
 };
 
 /**
@@ -22,15 +22,15 @@ export function ProgressBar({
 }) {
   const clamped = Math.max(0, Math.min(100, value));
   return (
-    <div className={`relative h-2.5 w-full overflow-hidden rounded-full bg-white/5 ${className}`}>
+    <div className={`relative h-[3px] w-full overflow-hidden rounded-full bg-[var(--border-primary)] ${className}`}>
       <div
-        className={`h-full rounded-full bg-gradient-to-r ${TONES[tone]} transition-all duration-500`}
-        style={{ width: `${clamped}%` }}
+        className="h-full rounded-full transition-all duration-500"
+        style={{ width: `${clamped}%`, background: TONES[tone] }}
       />
       {marker !== undefined && (
         <div
-          className="absolute top-0 h-full border-l-2 border-dashed border-white/40"
-          style={{ left: `${Math.max(0, Math.min(100, marker))}%` }}
+          className="absolute top-0 h-full border-l-2 border-dashed"
+          style={{ left: `${Math.max(0, Math.min(100, marker))}%`, borderColor: "var(--text-tertiary)" }}
           title={`${marker}% threshold`}
         />
       )}

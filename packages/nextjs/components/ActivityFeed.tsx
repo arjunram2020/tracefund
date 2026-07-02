@@ -10,11 +10,11 @@ function explorerTxUrl(chainId: number, txHash: string): string {
 }
 
 const ICON: Record<ActivityType, { glyph: string; ring: string }> = {
-  CampaignCreated: { glyph: "✦", ring: "bg-white/5 text-gray-300" },
-  DonationReceived: { glyph: "↓", ring: "bg-brand-500/15 text-brand-300" },
-  EvidenceSubmitted: { glyph: "▣", ring: "bg-sky-500/15 text-sky-300" },
-  MilestoneReleased: { glyph: "↑", ring: "bg-emerald-500/15 text-emerald-300" },
-  CampaignCompleted: { glyph: "★", ring: "bg-brand-500/20 text-brand-200" },
+  CampaignCreated: { glyph: "✦", ring: "bg-[var(--bg-subtle)] text-[var(--text-secondary)]" },
+  DonationReceived: { glyph: "↓", ring: "bg-[var(--brand-primary)]/15 text-[var(--brand-primary)]" },
+  EvidenceSubmitted: { glyph: "▣", ring: "bg-sky-600/10 text-sky-700" },
+  MilestoneReleased: { glyph: "↑", ring: "bg-emerald-600/10 text-emerald-700" },
+  CampaignCompleted: { glyph: "★", ring: "bg-[var(--brand-primary)]/20 text-[var(--brand-primary)]" },
 };
 
 type FlowTag = { label: string; cls: string } | null;
@@ -22,12 +22,12 @@ const FLOW: Record<ActivityType, FlowTag> = {
   CampaignCreated: null,
   DonationReceived: {
     label: "wallet → escrow",
-    cls: "text-brand-400 bg-brand-500/10 ring-1 ring-brand-500/20",
+    cls: "text-[var(--brand-primary)] bg-[var(--brand-primary)]/10 ring-1 ring-[var(--brand-primary)]/20",
   },
   EvidenceSubmitted: null,
   MilestoneReleased: {
     label: "escrow → creator wallet",
-    cls: "text-emerald-400 bg-emerald-500/10 ring-1 ring-emerald-500/20",
+    cls: "text-emerald-700 bg-emerald-600/10 ring-1 ring-emerald-600/20",
   },
   CampaignCompleted: null,
 };
@@ -40,18 +40,18 @@ function describe(item: ActivityItem): React.ReactNode {
       return (
         <>
           Campaign launched with a{" "}
-          <span className="font-mono text-gray-200">{formatEth(a.goalAmount)} ETH</span> goal —
-          all donor contributions will be locked in the escrow contract until the creator proves
-          each milestone
+          <span className="font-mono text-[var(--text-primary)]">{formatEth(a.goalAmount)} ETH</span> goal —
+          all donor contributions will be locked in the escrow contract until each milestone's
+          evidence is submitted
         </>
       );
     case "DonationReceived":
       return (
         <>
           <span className="font-mono">{shortenAddress(a.donor)}</span> sent{" "}
-          <span className="font-mono text-brand-300">{formatEth(a.amount)} ETH</span> — now locked
+          <span className="font-mono text-[var(--brand-primary)]">{formatEth(a.amount)} ETH</span> — now locked
           in escrow on-chain &nbsp;·&nbsp; total raised{" "}
-          <span className="font-mono text-gray-200">{formatEth(a.totalRaised)} ETH</span>
+          <span className="font-mono text-[var(--text-primary)]">{formatEth(a.totalRaised)} ETH</span>
         </>
       );
     case "EvidenceSubmitted":
@@ -64,7 +64,7 @@ function describe(item: ActivityItem): React.ReactNode {
     case "MilestoneReleased":
       return (
         <>
-          <span className="font-mono text-emerald-300">{formatEth(a.amount)} ETH</span> transferred
+          <span className="font-mono text-emerald-700">{formatEth(a.amount)} ETH</span> transferred
           from escrow to creator{" "}
           <span className="font-mono">{shortenAddress(a.creator)}</span> for {ms}
         </>
@@ -84,22 +84,22 @@ export function ActivityFeed({ campaignId }: { campaignId: bigint }) {
   return (
     <div className="card p-5">
       <div className="mb-4 flex items-center justify-between">
-        <h3 className="font-semibold text-white">Public activity</h3>
-        <span className="pill flex items-center gap-1.5 bg-white/5 text-gray-400">
+        <h3 className="font-semibold text-[var(--text-primary)]">Public activity</h3>
+        <span className="pill flex items-center gap-1.5 bg-[var(--bg-subtle)] text-[var(--text-secondary)]">
           <span className="relative flex h-2 w-2">
-            <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-emerald-400 opacity-75" />
-            <span className="relative inline-flex h-2 w-2 rounded-full bg-emerald-400" />
+            <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-[var(--brand-primary)] opacity-75" />
+            <span className="relative inline-flex h-2 w-2 rounded-full bg-[var(--brand-primary)]" />
           </span>
           live · on-chain
         </span>
       </div>
 
       {isLoading && items.length === 0 ? (
-        <p className="text-sm text-gray-500">Loading on-chain history…</p>
+        <p className="text-sm text-[var(--text-tertiary)]">Loading on-chain history…</p>
       ) : items.length === 0 ? (
-        <p className="text-sm text-gray-500">No activity yet.</p>
+        <p className="text-sm text-[var(--text-tertiary)]">No activity yet.</p>
       ) : (
-        <ol className="relative space-y-4 before:absolute before:left-[15px] before:top-1 before:h-[calc(100%-1rem)] before:w-px before:bg-canvas-border">
+        <ol className="relative space-y-4 before:absolute before:left-[15px] before:top-1 before:h-[calc(100%-1rem)] before:w-px before:bg-[var(--border-primary)]">
           {items.map((item, idx) => {
             const meta = ICON[item.type];
             const flow = FLOW[item.type];
@@ -107,12 +107,12 @@ export function ActivityFeed({ campaignId }: { campaignId: bigint }) {
             return (
               <li key={`${item.txHash}-${item.logIndex}-${idx}`} className="relative flex gap-3">
                 <span
-                  className={`z-10 flex h-8 w-8 shrink-0 items-center justify-center rounded-full text-sm ${meta.ring} ring-4 ring-canvas-card`}
+                  className={`z-10 flex h-8 w-8 shrink-0 items-center justify-center rounded-full text-sm ${meta.ring} ring-4 ring-[var(--surface-bg)]`}
                 >
                   {meta.glyph}
                 </span>
                 <div className="min-w-0 flex-1 pt-1">
-                  <p className="text-sm text-gray-300">{describe(item)}</p>
+                  <p className="text-sm text-[var(--text-secondary)]">{describe(item)}</p>
                   <div className="mt-1.5 flex flex-wrap items-center gap-2">
                     {flow && (
                       <span className={`rounded px-1.5 py-0.5 font-mono text-xs ${flow.cls}`}>
@@ -120,13 +120,13 @@ export function ActivityFeed({ campaignId }: { campaignId: bigint }) {
                       </span>
                     )}
                     {item.timestamp && (
-                      <span className="text-xs text-gray-600">{timeAgo(item.timestamp)}</span>
+                      <span className="text-xs text-[var(--text-tertiary)]">{timeAgo(item.timestamp)}</span>
                     )}
                     <a
                       href={explorerUrl}
                       target="_blank"
                       rel="noopener noreferrer"
-                      className="text-xs text-gray-600 hover:text-gray-400"
+                      className="text-xs text-[var(--text-tertiary)] hover:text-[var(--text-secondary)]"
                     >
                       view on Basescan ↗
                     </a>

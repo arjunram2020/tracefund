@@ -30,7 +30,7 @@ export function MilestoneTimeline({
           <li
             key={i}
             className={`card relative p-4 transition ${
-              isActive ? "border-brand-500/40 shadow-glow" : ""
+              isActive ? "border-[var(--brand-primary)]/40 shadow-[0_1px_3px_rgba(0,0,0,0.06),0_1px_2px_rgba(0,0,0,0.04)]" : ""
             }`}
           >
             <div className="flex items-start gap-3">
@@ -38,10 +38,10 @@ export function MilestoneTimeline({
               <span
                 className={`flex h-7 w-7 shrink-0 items-center justify-center rounded-full text-xs font-bold ${
                   status === "released"
-                    ? "bg-brand-500 text-canvas"
+                    ? "bg-[var(--brand-primary)] text-[var(--on-brand)]"
                     : isActive
-                      ? "bg-brand-500/20 text-brand-300 ring-1 ring-brand-500/40"
-                      : "bg-white/5 text-gray-500"
+                      ? "bg-[var(--brand-primary)]/20 text-[var(--brand-primary)] ring-1 ring-[var(--brand-primary)]/40"
+                      : "bg-[var(--bg-subtle)] text-[var(--text-tertiary)]"
                 }`}
               >
                 {status === "released" ? "✓" : i + 1}
@@ -49,10 +49,10 @@ export function MilestoneTimeline({
 
               <div className="min-w-0 flex-1">
                 <div className="flex flex-wrap items-center justify-between gap-2">
-                  <p className="font-medium text-white">{m.description}</p>
+                  <p className="font-medium text-[var(--text-primary)]">{m.description}</p>
                   <div className="flex items-center gap-2">
-                    <span className="text-xs text-gray-500">at {formatEth(cumTarget)} ETH</span>
-                    <span className="font-mono text-sm font-semibold text-brand-300">
+                    <span className="text-xs text-[var(--text-tertiary)]">at {formatEth(cumTarget)} ETH</span>
+                    <span className="font-mono text-sm font-semibold text-[var(--brand-primary)]">
                       +{formatEth(m.amount)} ETH
                     </span>
                   </div>
@@ -66,15 +66,15 @@ export function MilestoneTimeline({
                 </div>
 
                 {isActive && status === "awaiting-evidence" && (
-                  <p className="mt-2 text-xs text-amber-300">
+                  <p className="mt-2 text-xs text-[var(--text-warning)]">
                     Waiting for the creator to submit proof — funds release automatically on submission.
                   </p>
                 )}
 
                 {/* On-chain proof */}
                 {m.evidenceSubmitted && (
-                  <div className="mt-2 rounded-lg bg-white/[0.03] px-3 py-2 text-sm">
-                    <p className="mb-0.5 text-xs uppercase tracking-wide text-gray-500">
+                  <div className="mt-2 rounded-lg bg-[var(--bg-faint)] px-3 py-2 text-sm">
+                    <p className="mb-0.5 text-xs uppercase tracking-wide text-[var(--text-tertiary)]">
                       On-chain proof
                     </p>
                     <EvidenceLink evidence={m.evidence} />

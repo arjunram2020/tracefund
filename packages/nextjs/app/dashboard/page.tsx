@@ -28,8 +28,8 @@ export default function DashboardPage() {
   return (
     <div className="mx-auto max-w-6xl px-4 py-10 sm:px-6">
       <div className="mb-6">
-        <h1 className="text-2xl font-bold text-white">Creator dashboard</h1>
-        <p className="mt-1 text-sm text-gray-400">
+        <h1 className="text-2xl font-bold text-[var(--text-primary)]">Creator dashboard</h1>
+        <p className="mt-1 text-sm text-[var(--text-secondary)]">
           Your reputation and campaigns. Most actions happen on each campaign&apos;s page.
         </p>
       </div>
@@ -40,8 +40,8 @@ export default function DashboardPage() {
 
       {!isConnected ? (
         <div className="card flex flex-col items-center gap-3 p-12 text-center">
-          <p className="text-lg font-medium text-white">Connect your wallet</p>
-          <p className="max-w-sm text-sm text-gray-400">
+          <p className="text-lg font-medium text-[var(--text-primary)]">Connect your wallet</p>
+          <p className="max-w-sm text-sm text-[var(--text-secondary)]">
             Connect to see your creator reputation and the campaigns you&apos;ve launched.
           </p>
           <div className="mt-2">
@@ -54,10 +54,10 @@ export default function DashboardPage() {
           <div className="card mb-6 p-6">
             <div className="flex flex-wrap items-center justify-between gap-4">
               <div>
-                <p className="text-sm text-gray-400">
-                  Wallet <Address address={address} className="text-gray-200" />
+                <p className="text-sm text-[var(--text-secondary)]">
+                  Wallet <Address address={address} className="text-[var(--text-primary)]" />
                 </p>
-                <p className="mt-1 text-xs text-gray-500">
+                <p className="mt-1 text-xs text-[var(--text-tertiary)]">
                   Reputation grows as you complete proof-backed milestones.
                 </p>
               </div>
@@ -76,7 +76,7 @@ export default function DashboardPage() {
 
           {/* Campaigns */}
           <div className="mb-4 flex items-center justify-between">
-            <h2 className="text-lg font-semibold text-white">Your campaigns</h2>
+            <h2 className="text-lg font-semibold text-[var(--text-primary)]">Your campaigns</h2>
             <Link href="/create" className="btn-secondary text-sm">
               + New campaign
             </Link>
@@ -84,8 +84,8 @@ export default function DashboardPage() {
 
           {mine.length === 0 ? (
             <div className="card flex flex-col items-center gap-3 p-12 text-center">
-              <p className="text-lg font-medium text-white">No campaigns yet</p>
-              <p className="max-w-sm text-sm text-gray-400">
+              <p className="text-lg font-medium text-[var(--text-primary)]">No campaigns yet</p>
+              <p className="max-w-sm text-sm text-[var(--text-secondary)]">
                 Launch your first accountable fundraiser to start building reputation.
               </p>
               <Link href="/create" className="btn-primary mt-2">

@@ -141,7 +141,7 @@ frontend, as shown in [AWS deployment Stage 7](docs/AWS_DEPLOYMENT.md#stage-7--c
 The `Covenant.sol` contract stores everything on-chain:
 
 - **Campaigns** — title, description, goal, raised amount, milestone list, creator address
-- **Milestones** — description, amount, evidence string, approval weight, release status
+- **Milestones** — description, amount, evidence string, release status
 - **Donations** — how much each donor gave to each campaign
 - **Reputation** — each creator's history: campaigns completed, funds raised, milestones delivered
 
