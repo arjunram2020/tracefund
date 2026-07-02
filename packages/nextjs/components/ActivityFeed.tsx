@@ -1,7 +1,7 @@
 "use client";
 
 import { useCampaignActivity, type ActivityItem, type ActivityType } from "../hooks/useActivity";
-import { formatEth, shortenAddress, timeAgo } from "../lib/format";
+import { formatUsdc, shortenAddress, timeAgo } from "../lib/format";
 import { useReadChain } from "../hooks/useCovenant";
 
 function explorerTxUrl(chainId: number, txHash: string): string {
@@ -40,7 +40,7 @@ function describe(item: ActivityItem): React.ReactNode {
       return (
         <>
           Campaign launched with a{" "}
-          <span className="font-mono text-[var(--text-primary)]">{formatEth(a.goalAmount)} ETH</span> goal —
+          <span className="font-mono text-[var(--text-primary)]">{formatUsdc(a.goalAmount)} USDC</span> goal —
           all donor contributions will be locked in the escrow contract until each milestone's
           evidence is submitted
         </>
@@ -49,9 +49,9 @@ function describe(item: ActivityItem): React.ReactNode {
       return (
         <>
           <span className="font-mono">{shortenAddress(a.donor)}</span> sent{" "}
-          <span className="font-mono text-[var(--brand-primary)]">{formatEth(a.amount)} ETH</span> — now locked
+          <span className="font-mono text-[var(--brand-primary)]">{formatUsdc(a.amount)} USDC</span> — now locked
           in escrow on-chain &nbsp;·&nbsp; total raised{" "}
-          <span className="font-mono text-[var(--text-primary)]">{formatEth(a.totalRaised)} ETH</span>
+          <span className="font-mono text-[var(--text-primary)]">{formatUsdc(a.totalRaised)} USDC</span>
         </>
       );
     case "EvidenceSubmitted":
@@ -64,7 +64,7 @@ function describe(item: ActivityItem): React.ReactNode {
     case "MilestoneReleased":
       return (
         <>
-          <span className="font-mono text-emerald-700">{formatEth(a.amount)} ETH</span> transferred
+          <span className="font-mono text-emerald-700">{formatUsdc(a.amount)} USDC</span> transferred
           from escrow to creator{" "}
           <span className="font-mono">{shortenAddress(a.creator)}</span> for {ms}
         </>

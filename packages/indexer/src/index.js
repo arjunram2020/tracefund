@@ -123,16 +123,28 @@ function startApi() {
     res.json({ ok: true, lastIndexedBlock: last });
   });
 
+  // Parse a query/path value as a bounded non-negative integer, or null.
+  // better-sqlite3 throws on binding NaN/Infinity, which would 500 the API
+  // on any malformed request — reject bad input up front instead.
+  const asInt = (value, max = Number.MAX_SAFE_INTEGER) => {
+    const n = Number(value);
+    return Number.isInteger(n) && n >= 0 && n <= max ? n : null;
+  };
+
   // All events, newest first. Filter by ?type= and ?campaignId=, cap with ?limit=.
   app.get("/events", (req, res) => {
     const { type, campaignId } = req.query;
-    const limit = Math.min(Number(req.query.limit || 100), 1000);
+    const limit = req.query.limit === undefined ? 100 : asInt(req.query.limit, 1000);
+    if (limit === null) return res.status(400).json({ error: "invalid limit" });
     let sql = "SELECT * FROM events";
     const where = [];
     const params = [];
-    if (type) (where.push("event_name = ?"), params.push(type));
-    if (campaignId !== undefined)
-      (where.push("campaign_id = ?"), params.push(Number(campaignId)));
+    if (type) (where.push("event_name = ?"), params.push(String(type)));
+    if (campaignId !== undefined) {
+      const cid = asInt(campaignId);
+      if (cid === null) return res.status(400).json({ error: "invalid campaignId" });
+      (where.push("campaign_id = ?"), params.push(cid));
+    }
     if (where.length) sql += " WHERE " + where.join(" AND ");
     sql += " ORDER BY block_number DESC, log_index DESC LIMIT ?";
     params.push(limit);
@@ -142,11 +154,13 @@ function startApi() {
 
   // Everything that ever happened to one campaign — its full audit trail.
   app.get("/campaigns/:id", (req, res) => {
+    const id = asInt(req.params.id);
+    if (id === null) return res.status(400).json({ error: "invalid campaign id" });
     const rows = db
       .prepare(
         "SELECT * FROM events WHERE campaign_id = ? ORDER BY block_number ASC, log_index ASC",
       )
-      .all(Number(req.params.id));
+      .all(id);
     res.json(rows.map((r) => ({ ...r, args: JSON.parse(r.args) })));
   });
 

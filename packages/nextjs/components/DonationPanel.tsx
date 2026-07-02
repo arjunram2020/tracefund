@@ -1,16 +1,16 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { parseEther } from "viem";
+import { parseUnits } from "viem";
 import { useAccount } from "wagmi";
 import { ConnectButton } from "@rainbow-me/rainbowkit";
 import type { Campaign } from "../lib/types";
-import { formatEth } from "../lib/format";
-import { useCovenantWrite } from "../hooks/useCovenant";
+import { USDC_DECIMALS, formatUsdc } from "../lib/format";
+import { useCovenantWrite, useUsdc } from "../hooks/useCovenant";
 import { TxFeedback } from "./TxFeedback";
 
-// Safe demo values from PRD §9 — tiny real-ETH amounts.
-const QUICK = ["0.0001", "0.0002", "0.0005"];
+// Safe demo values from PRD §9 — tiny real-USDC amounts.
+const QUICK = ["0.05", "0.1", "0.25"];
 
 export function DonationPanel({
   campaign,
@@ -19,10 +19,18 @@ export function DonationPanel({
   campaign: Campaign;
   onSuccess?: () => void;
 }) {
-  const { isConnected } = useAccount();
+  const { isConnected, address: account } = useAccount();
   const [amount, setAmount] = useState("");
   const { execute, refresh, isPending, isConfirming, isConfirmed, error, hash } =
     useCovenantWrite();
+  const {
+    allowance,
+    balance,
+    approve,
+    isApprovePending,
+    isApproveConfirming,
+    approveError,
+  } = useUsdc(account);
 
   useEffect(() => {
     if (isConfirmed) {
@@ -41,9 +49,13 @@ export function DonationPanel({
       : 0n;
   const goalReached = remaining === 0n;
 
+  // Mirrors the on-chain rule: creators cannot donate to their own campaign.
+  const isCreator =
+    !!account && account.toLowerCase() === campaign.creator.toLowerCase();
+
   let parsed: bigint | null = null;
   try {
-    parsed = amount ? parseEther(amount) : null;
+    parsed = amount ? parseUnits(amount, USDC_DECIMALS) : null;
   } catch {
     parsed = null;
   }
@@ -54,16 +66,29 @@ export function DonationPanel({
     if (goalReached) {
       capError = "This campaign has already reached its goal.";
     } else if (parsed > remaining) {
-      capError = `Only ${formatEth(remaining)} ETH left before the goal is reached.`;
+      capError = `Only ${formatUsdc(remaining)} USDC left before the goal is reached.`;
+    } else if (balance !== undefined && parsed > balance) {
+      capError = `You only hold ${formatUsdc(balance)} USDC on this network.`;
     }
   }
 
-  const valid = parsed !== null && parsed > 0n && !goalReached && parsed <= remaining;
+  const valid =
+    parsed !== null &&
+    parsed > 0n &&
+    !goalReached &&
+    parsed <= remaining &&
+    (balance === undefined || parsed <= balance);
+
+  // USDC is an ERC-20, so the escrow can only pull funds the donor has
+  // approved. When the current allowance doesn't cover the amount, the button
+  // becomes an approve step first.
+  const needsApproval = valid && allowance !== undefined && allowance < parsed!;
+  const approving = isApprovePending || isApproveConfirming;
 
   // Quick-pick presets that actually satisfy the goal cap.
   const quickOptions = QUICK.filter((q) => {
     try {
-      const v = parseEther(q);
+      const v = parseUnits(q, USDC_DECIMALS);
       return v > 0n && !goalReached && v <= remaining;
     } catch {
       return false;
@@ -73,7 +98,11 @@ export function DonationPanel({
   const donate = async () => {
     if (!valid || parsed === null) return;
     try {
-      await execute("donate", [campaign.id], parsed);
+      if (needsApproval) {
+        await approve(parsed);
+        return; // allowance refetches on confirmation; button flips to Donate
+      }
+      await execute("donate", [campaign.id, parsed]);
     } catch {
       /* error surfaced via TxFeedback */
     }
@@ -83,7 +112,7 @@ export function DonationPanel({
     <div className="card p-5">
       <div className="mb-4 flex items-center justify-between">
         <h3 className="font-semibold text-[var(--text-primary)]">Donate into escrow</h3>
-        <span className="pill bg-[var(--brand-primary)]/10 text-[var(--brand-primary)]">ETH locked on-chain</span>
+        <span className="pill bg-[var(--brand-primary)]/10 text-[var(--brand-primary)]">USDC locked on-chain</span>
       </div>
 
       {!campaign.active ? (
@@ -93,8 +122,13 @@ export function DonationPanel({
         </p>
       ) : goalReached ? (
         <p className="rounded-xl bg-[var(--bg-subtle)] px-4 py-3 text-sm text-[var(--text-secondary)]">
-          This campaign has reached its {formatEth(campaign.goalAmount)} ETH goal and is no longer
+          This campaign has reached its {formatUsdc(campaign.goalAmount)} USDC goal and is no longer
           accepting donations.
+        </p>
+      ) : isCreator ? (
+        <p className="rounded-xl bg-[var(--bg-subtle)] px-4 py-3 text-sm text-[var(--text-secondary)]">
+          You cannot donate USDC to your own campaign. Self-donations are blocked on-chain so
+          creator reputation only reflects real donor support.
         </p>
       ) : (
         <>
@@ -117,25 +151,20 @@ export function DonationPanel({
             </div>
           )}
 
-          <label className="label">Amount (ETH)</label>
+          <label className="label">Amount (USDC)</label>
           <div className="flex gap-2">
             <input
               className="input"
               inputMode="decimal"
-              placeholder="0.0001"
+              placeholder="0.10"
               value={amount}
               onChange={(e) => setAmount(e.target.value.replace(/[^0-9.]/g, ""))}
             />
           </div>
 
-          {/* The two on-chain limits, shown up front so users don't hit a revert. */}
+          {/* The on-chain goal cap, shown up front so users don't hit a revert. */}
           <p className="mt-2 text-xs text-[var(--text-tertiary)]">
-            Must be{" "}
-            <span className="text-[var(--text-secondary)]">
-              below {milestoneAmount !== undefined ? formatEth(milestoneAmount) : "…"} ETH
-            </span>{" "}
-            (current milestone) ·{" "}
-            <span className="text-[var(--text-secondary)]">{formatEth(remaining)} ETH</span> left to goal.
+            <span className="text-[var(--text-secondary)]">{formatUsdc(remaining)} USDC</span> left to goal.
           </p>
 
           {capError && <p className="mt-1 text-xs text-[var(--text-warning)]">{capError}</p>}
@@ -145,13 +174,17 @@ export function DonationPanel({
               <button
                 className="btn-primary w-full"
                 onClick={donate}
-                disabled={!valid || isPending || isConfirming}
+                disabled={!valid || isPending || isConfirming || approving}
               >
-                {isPending || isConfirming
-                  ? "Donating…"
-                  : valid
-                    ? `Donate ${formatEth(parsed!)} ETH`
-                    : "Enter an amount"}
+                {approving
+                  ? "Approving USDC…"
+                  : isPending || isConfirming
+                    ? "Donating…"
+                    : !valid
+                      ? "Enter an amount"
+                      : needsApproval
+                        ? `Approve ${formatUsdc(parsed!)} USDC`
+                        : `Donate ${formatUsdc(parsed!)} USDC`}
               </button>
             ) : (
               <ConnectButton.Custom>
@@ -164,12 +197,18 @@ export function DonationPanel({
             )}
           </div>
 
+          {needsApproval && !approving && (
+            <p className="mt-2 text-xs text-[var(--text-tertiary)]">
+              Step 1 of 2: approve the escrow to pull your USDC, then confirm the donation.
+            </p>
+          )}
+
           <div className="mt-3 min-h-[1.25rem]">
             <TxFeedback
               isPending={isPending}
               isConfirming={isConfirming}
               isConfirmed={isConfirmed}
-              error={error}
+              error={error ?? approveError}
               hash={hash}
               successText="Donation locked in escrow."
             />

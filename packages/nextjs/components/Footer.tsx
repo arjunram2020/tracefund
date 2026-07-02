@@ -14,7 +14,7 @@ export function Footer() {
           <Link href="/create" className="hover:text-[var(--text-secondary)]">
             Create
           </Link>
-          <span className="text-[var(--text-tertiary)]">Demo · use tiny ETH amounts</span>
+          <span className="text-[var(--text-tertiary)]">Demo · use tiny USDC amounts</span>
         </div>
       </div>
     </footer>

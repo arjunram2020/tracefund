@@ -1,14 +1,21 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.20;
 
+import "@openzeppelin/contracts/access/Ownable.sol";
 import "@openzeppelin/contracts/utils/ReentrancyGuard.sol";
+import "@openzeppelin/contracts/token/ERC20/IERC20.sol";
+import "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
 
 /**
  * @title Covenant
  * @notice Milestone-based crowdfunding with on-chain evidence gates.
  *
+ * All value flows in USDC (an ERC-20 with 6 decimals); every amount in this
+ * contract is denominated in USDC base units. Donors must approve() this
+ * contract before donating.
+ *
  * Flow per milestone:
- *   1. Donors send ETH into escrow via donate().
+ *   1. Donors send USDC into escrow via donate() (after approving it).
  *   2. Once donations cover the milestone, the creator posts on-chain proof via
  *      submitEvidence() for the current milestone.
  *   3. Funds are automatically released to the creator and the next milestone begins.
@@ -17,8 +24,26 @@ import "@openzeppelin/contracts/utils/ReentrancyGuard.sol";
  * (totalReleased + amount <= totalRaised), so one campaign can never be paid
  * out of another campaign's escrow.
  */
-contract Covenant is ReentrancyGuard {
+contract Covenant is ReentrancyGuard, Ownable {
+    using SafeERC20 for IERC20;
+
     uint256 public constant MAX_MILESTONES = 5;
+
+    // Anti-spam limits. Campaign creation is nearly free on an L2, so an
+    // unapproved address gets a small lifetime allowance and a cooldown;
+    // beyond that the platform owner must approve the creator. NOTE: these
+    // limits are per-address, not per-person — a determined spammer can rotate
+    // wallets. They raise friction; curation/identity is the full answer.
+    uint256 public constant FREE_CAMPAIGNS = 2;
+    uint256 public constant CREATION_COOLDOWN = 1 days;
+
+    /// @notice Creators vetted by the platform — exempt from the limits above.
+    mapping(address => bool) public approvedCreators;
+    /// @notice Last createCampaign timestamp per creator, for the cooldown.
+    mapping(address => uint256) public lastCampaignAt;
+
+    /// @notice The ERC-20 token (USDC) all donations and releases are settled in.
+    IERC20 public immutable usdc;
 
     struct Milestone {
         string description;
@@ -86,10 +111,22 @@ contract Covenant is ReentrancyGuard {
         address creator
     );
     event CampaignCompleted(uint256 indexed campaignId);
+    event CreatorApprovalChanged(address indexed creator, bool approved);
 
     modifier campaignExists(uint256 campaignId) {
         require(campaignId < campaignCount, "Campaign does not exist");
         _;
+    }
+
+    constructor(IERC20 usdc_) Ownable(msg.sender) {
+        require(address(usdc_) != address(0), "USDC address required");
+        usdc = usdc_;
+    }
+
+    /// @notice Vet (or un-vet) a creator, lifting the per-address spam limits.
+    function setCreatorApproval(address creator, bool approved) external onlyOwner {
+        approvedCreators[creator] = approved;
+        emit CreatorApprovalChanged(creator, approved);
     }
 
     // -------------------------------------------------------------------------
@@ -102,6 +139,18 @@ contract Covenant is ReentrancyGuard {
         string[] calldata milestoneDescriptions,
         uint256[] calldata milestoneAmounts
     ) external returns (uint256 campaignId) {
+        if (!approvedCreators[msg.sender]) {
+            require(
+                _creatorStats[msg.sender].campaignsCreated < FREE_CAMPAIGNS,
+                "Campaign limit reached - request creator approval"
+            );
+            require(
+                block.timestamp >= lastCampaignAt[msg.sender] + CREATION_COOLDOWN,
+                "One campaign per day - try again later"
+            );
+        }
+        lastCampaignAt[msg.sender] = block.timestamp;
+
         require(bytes(title).length > 0, "Title required");
         require(bytes(description).length > 0, "Description required");
         uint256 n = milestoneDescriptions.length;
@@ -144,21 +193,32 @@ contract Covenant is ReentrancyGuard {
         emit CampaignCreated(campaignId, msg.sender, title, totalGoal, n);
     }
 
-    function donate(uint256 campaignId) external payable campaignExists(campaignId) {
+    /**
+     * @notice Donate USDC into this campaign's escrow.
+     * @param amount USDC base units; the donor must have approve()d at least
+     *        this much to the contract beforehand.
+     */
+    function donate(uint256 campaignId, uint256 amount) external campaignExists(campaignId) {
         Campaign storage c = _campaigns[campaignId];
         require(c.active, "Campaign not active");
-        require(msg.value > 0, "Donation must be > 0");
-        require(c.totalRaised + msg.value <= c.goalAmount, "Donation exceeds campaign goal");
+        // Creators can't fund their own campaign: self-donations would let them
+        // farm trust score for free (donate -> junk evidence -> auto-release
+        // back to themselves) and inflate totalRaised with wash donations.
+        require(msg.sender != c.creator, "Creator cannot donate to own campaign");
+        require(amount > 0, "Donation must be > 0");
+        require(c.totalRaised + amount <= c.goalAmount, "Donation exceeds campaign goal");
 
         if (donations[campaignId][msg.sender] == 0) {
             _donors[campaignId].push(msg.sender);
             c.donorCount += 1;
         }
-        donations[campaignId][msg.sender] += msg.value;
-        c.totalRaised += msg.value;
-        _creatorStats[c.creator].totalRaised += msg.value;
+        donations[campaignId][msg.sender] += amount;
+        c.totalRaised += amount;
+        _creatorStats[c.creator].totalRaised += amount;
 
-        emit DonationReceived(campaignId, msg.sender, msg.value, c.totalRaised);
+        usdc.safeTransferFrom(msg.sender, address(this), amount);
+
+        emit DonationReceived(campaignId, msg.sender, amount, c.totalRaised);
     }
 
     /**
@@ -205,8 +265,7 @@ contract Covenant is ReentrancyGuard {
             s.campaignsCompleted += 1;
         }
 
-        (bool ok, ) = payable(c.creator).call{value: m.amount}("");
-        require(ok, "Transfer failed");
+        usdc.safeTransfer(c.creator, m.amount);
 
         emit MilestoneReleased(campaignId, mi, m.amount, c.creator);
         if (completed) emit CampaignCompleted(campaignId);

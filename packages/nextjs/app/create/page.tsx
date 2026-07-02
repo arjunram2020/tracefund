@@ -2,23 +2,29 @@
 
 import { useEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
-import { parseEther, formatEther } from "viem";
+import { parseUnits } from "viem";
 import { useAccount } from "wagmi";
 import { ConnectButton } from "@rainbow-me/rainbowkit";
-import { useCampaignCount, useCovenantWrite } from "../../hooks/useCovenant";
+import {
+  useCampaignCount,
+  useCovenantWrite,
+  useCreatorAccess,
+  useCreatorStats,
+} from "../../hooks/useCovenant";
 import { TxFeedback } from "../../components/TxFeedback";
 import { ContractNotice } from "../../components/ContractNotice";
-import { formatEth } from "../../lib/format";
+import { USDC_DECIMALS, formatUsdc } from "../../lib/format";
 
 const MIN_MILESTONES = 3;
-const MAX_MILESTONES = 20;
+// Must match Covenant.sol MAX_MILESTONES — the contract reverts above this.
+const MAX_MILESTONES = 5;
 
 const DEMO = {
   title: "Community Medical Relief Fund",
   description:
     "A transparent emergency fundraiser where donations unlock in equal tranches. Each withdrawal requires on-chain proof of how the previous funds were used.",
   mode: "even" as "even" | "manual",
-  totalGoal: "0.05",
+  totalGoal: "0.5",
   milestoneCount: 3,
   descriptions: [
     "Hospital deposit — receipt posted on-chain",
@@ -30,17 +36,33 @@ const DEMO = {
 
 function safeParse(amount: string): bigint | null {
   try {
-    return amount ? parseEther(amount) : null;
+    return amount ? parseUnits(amount, USDC_DECIMALS) : null;
   } catch {
     return null;
   }
 }
 
+// Mirrors Covenant.sol's anti-spam constants (FREE_CAMPAIGNS, CREATION_COOLDOWN).
+const FREE_CAMPAIGNS = 2;
+const CREATION_COOLDOWN_MS = 24 * 60 * 60 * 1000;
+
 export default function CreateCampaignPage() {
   const router = useRouter();
-  const { isConnected } = useAccount();
+  const { isConnected, address } = useAccount();
   const { count } = useCampaignCount();
   const predictedId = useRef<bigint | null>(null);
+
+  // Pre-check the on-chain creation limits so users get a clear message
+  // instead of a wallet revert. The contract is the actual enforcer.
+  const { approved, lastCampaignAt } = useCreatorAccess(address);
+  const { stats } = useCreatorStats(address);
+  const createdCount = Number(stats?.campaignsCreated ?? 0n);
+  const lastCreatedMs = Number(lastCampaignAt ?? 0n) * 1000;
+  const unapproved = approved === false;
+  const capReached = unapproved && createdCount >= FREE_CAMPAIGNS;
+  const cooldownEndsMs = lastCreatedMs + CREATION_COOLDOWN_MS;
+  const inCooldown = unapproved && lastCreatedMs > 0 && Date.now() < cooldownEndsMs;
+  const creationBlocked = capReached || inCooldown;
 
   const [title, setTitle] = useState("");
   const [description, setDescription] = useState("");
@@ -157,14 +179,14 @@ export default function CreateCampaignPage() {
         const cum = i === n - 1
           ? parsedGoal! - amountEach * BigInt(n - 1) + amountEach * BigInt(i)
           : amountEach * BigInt(i + 1);
-        return formatEth(cum);
+        return formatUsdc(cum);
       });
     } else {
       let running = 0n;
       return parsedAmounts.map((a) => {
         if (a === null) return "?";
         running += a;
-        return formatEth(running);
+        return formatUsdc(running);
       });
     }
   })();
@@ -247,7 +269,7 @@ export default function CreateCampaignPage() {
         {mode === "even" && (
           <div className="grid gap-4 sm:grid-cols-2">
             <div>
-              <label className="label">Total goal (ETH)</label>
+              <label className="label">Total goal (USDC)</label>
               <input
                 className="input font-mono"
                 inputMode="decimal"
@@ -278,7 +300,7 @@ export default function CreateCampaignPage() {
           <div className="flex items-center justify-between rounded-xl bg-[var(--bg-faint)] px-4 py-3">
             <span className="text-sm text-[var(--text-secondary)]">Each milestone unlocks</span>
             <span className="font-mono text-lg font-semibold text-[var(--brand-primary)]">
-              {formatEth(amountEach)} ETH
+              {formatUsdc(amountEach)} USDC
             </span>
           </div>
         )}
@@ -288,7 +310,7 @@ export default function CreateCampaignPage() {
           <div className="flex items-center justify-between rounded-xl bg-[var(--bg-faint)] px-4 py-3">
             <span className="text-sm text-[var(--text-secondary)]">Total goal</span>
             <span className="font-mono text-lg font-semibold text-[var(--brand-primary)]">
-              {formatEth(manualTotal)} ETH
+              {formatUsdc(manualTotal)} USDC
             </span>
           </div>
         )}
@@ -319,7 +341,7 @@ export default function CreateCampaignPage() {
                   <input
                     className="input w-28 font-mono"
                     inputMode="decimal"
-                    placeholder="ETH"
+                    placeholder="USDC"
                     value={amounts[i] ?? ""}
                     onChange={(e) => {
                       const next = [...amounts];
@@ -329,7 +351,7 @@ export default function CreateCampaignPage() {
                   />
                 )}
                 <span className="w-24 shrink-0 text-right font-mono text-xs text-[var(--text-tertiary)]">
-                  at {cumulativeTargets[i]} ETH
+                  at {cumulativeTargets[i]} USDC
                 </span>
                 {mode === "manual" && descriptions.length > MIN_MILESTONES && (
                   <button
@@ -355,12 +377,26 @@ export default function CreateCampaignPage() {
           )}
         </div>
 
+        {/* On-chain creation limits, surfaced before the wallet ever opens */}
+        {isConnected && capReached && (
+          <p className="rounded-xl bg-[var(--bg-subtle)] px-4 py-3 text-sm text-[var(--text-secondary)]">
+            You&apos;ve used your {FREE_CAMPAIGNS} campaigns as a new creator. To launch more,
+            request creator approval from the Covenant team.
+          </p>
+        )}
+        {isConnected && !capReached && inCooldown && (
+          <p className="rounded-xl bg-[var(--bg-subtle)] px-4 py-3 text-sm text-[var(--text-secondary)]">
+            New creators can launch one campaign per day. You can create your next campaign{" "}
+            {new Date(cooldownEndsMs).toLocaleString()}.
+          </p>
+        )}
+
         {/* Submit */}
         {isConnected ? (
           <button
             className="btn-primary w-full"
             onClick={submit}
-            disabled={!formValid || isPending || isConfirming}
+            disabled={!formValid || creationBlocked || isPending || isConfirming}
           >
             {isPending || isConfirming ? "Creating…" : "Create campaign"}
           </button>
@@ -389,7 +425,7 @@ export default function CreateCampaignPage() {
           (title || description || totalGoal || descriptions.some((d) => d)) && (
             <p className="text-xs text-[var(--text-tertiary)]">
               Provide a title, description,{" "}
-              {mode === "even" ? "total goal and milestone count" : "an ETH amount for every milestone"},{" "}
+              {mode === "even" ? "total goal and milestone count" : "a USDC amount for every milestone"},{" "}
               and a description for every milestone.
             </p>
           )}

@@ -9,6 +9,7 @@ const NAV = [
   { href: "/campaigns", label: "Campaigns" },
   { href: "/create", label: "Create" },
   { href: "/dashboard", label: "Dashboard" },
+  { href: "/history", label: "History" },
 ];
 
 export function Header() {

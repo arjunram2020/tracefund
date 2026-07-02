@@ -13,7 +13,7 @@ import { ReputationBadge } from "../../components/ReputationBadge";
 import { Stat } from "../../components/Stat";
 import { ContractNotice } from "../../components/ContractNotice";
 import { Address } from "../../components/Address";
-import { formatEth } from "../../lib/format";
+import { formatUsdc } from "../../lib/format";
 
 export default function DashboardPage() {
   const { address, isConnected } = useAccount();
@@ -69,8 +69,8 @@ export default function DashboardPage() {
               <Stat label="Completed" value={(stats?.campaignsCompleted ?? 0n).toString()} />
               <Stat label="Milestones" value={(stats?.milestonesCompleted ?? 0n).toString()} />
               <Stat label="Evidence" value={(stats?.evidenceUpdates ?? 0n).toString()} />
-              <Stat label="Raised" value={formatEth(stats?.totalRaised)} sub="ETH" accent />
-              <Stat label="Released" value={formatEth(stats?.totalReleased)} sub="ETH" />
+              <Stat label="Raised" value={formatUsdc(stats?.totalRaised)} sub="USDC" accent />
+              <Stat label="Released" value={formatUsdc(stats?.totalReleased)} sub="USDC" />
             </div>
           </div>
 

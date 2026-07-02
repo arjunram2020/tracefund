@@ -14,7 +14,7 @@ const STEPS = [
     n: "01",
     Icon: Wallet,
     title: "Donate into escrow",
-    body: "Your ETH enters the Covenant contract — not the creator's wallet. Stays locked until milestones are proven.",
+    body: "Your USDC enters the Covenant contract — not the creator's wallet. Stays locked until milestones are proven.",
   },
   {
     n: "02",

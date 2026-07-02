@@ -1,6 +1,7 @@
 "use client";
 
-import { useCallback } from "react";
+import { useCallback, useEffect } from "react";
+import { erc20Abi } from "viem";
 import {
   useChainId,
   useReadContract,
@@ -9,7 +10,7 @@ import {
   useWriteContract,
 } from "wagmi";
 import { useQueryClient } from "@tanstack/react-query";
-import { getCovenant, getCovenantAbi, resolveReadChainId } from "../lib/contract";
+import { getCovenant, getCovenantAbi, getUsdcAddress, resolveReadChainId } from "../lib/contract";
 import type { Campaign, CreatorStats, Milestone } from "../lib/types";
 
 export function useReadChain() {
@@ -114,6 +115,36 @@ export function useMyDonation(id?: bigint, donor?: `0x${string}`) {
   return { ...q, donation: (q.data as bigint | undefined) ?? 0n };
 }
 
+/**
+ * Anti-spam state for a creator address: whether the platform has approved
+ * them (lifting limits), and when they last created a campaign (cooldown).
+ * Both read as undefined against pre-limit deployments — treat that as
+ * unrestricted in the UI; the contract is the actual enforcer.
+ */
+export function useCreatorAccess(creator?: `0x${string}`) {
+  const { address, abi, chainId } = useReadChain();
+  const approvedQ = useReadContract({
+    address,
+    abi,
+    functionName: "approvedCreators",
+    args: creator ? [creator] : undefined,
+    chainId,
+    query: { enabled: !!address && !!creator },
+  });
+  const lastQ = useReadContract({
+    address,
+    abi,
+    functionName: "lastCampaignAt",
+    args: creator ? [creator] : undefined,
+    chainId,
+    query: { enabled: !!address && !!creator },
+  });
+  return {
+    approved: approvedQ.data as boolean | undefined,
+    lastCampaignAt: lastQ.data as bigint | undefined,
+  };
+}
+
 export type CovenantFn = "createCampaign" | "donate" | "submitEvidence";
 
 export function useCovenantWrite() {
@@ -129,7 +160,7 @@ export function useCovenantWrite() {
   } = useWaitForTransactionReceipt({ hash, chainId });
 
   const execute = useCallback(
-    async (functionName: CovenantFn, args: unknown[], value?: bigint) => {
+    async (functionName: CovenantFn, args: unknown[]) => {
       if (!address) throw new Error("Covenant is not deployed on this network.");
       if (connectedChainId !== chainId) {
         await switchChainAsync({ chainId });
@@ -139,7 +170,6 @@ export function useCovenantWrite() {
         abi,
         functionName,
         args,
-        value,
         chainId,
       } as any);
       return txHash;
@@ -160,5 +190,83 @@ export function useCovenantWrite() {
     isConfirmed,
     error: error ?? receiptError,
     reset,
+  };
+}
+
+/**
+ * USDC state for a wallet: balance, allowance granted to the Covenant escrow,
+ * and an approve() writer. Donating is a two-step flow — approve, then donate.
+ */
+export function useUsdc(owner?: `0x${string}`) {
+  const { address: covenantAddress, chainId } = useReadChain();
+  const usdcAddress = getUsdcAddress(chainId);
+  const connectedChainId = useChainId();
+  const { switchChainAsync } = useSwitchChain();
+
+  const allowanceQ = useReadContract({
+    address: usdcAddress,
+    abi: erc20Abi,
+    functionName: "allowance",
+    args: owner && covenantAddress ? [owner, covenantAddress] : undefined,
+    chainId,
+    query: { enabled: !!usdcAddress && !!owner && !!covenantAddress },
+  });
+
+  const balanceQ = useReadContract({
+    address: usdcAddress,
+    abi: erc20Abi,
+    functionName: "balanceOf",
+    args: owner ? [owner] : undefined,
+    chainId,
+    query: { enabled: !!usdcAddress && !!owner },
+  });
+
+  const { writeContractAsync, data: hash, isPending, error, reset } = useWriteContract();
+  const {
+    isLoading: isConfirming,
+    isSuccess: isConfirmed,
+    error: receiptError,
+  } = useWaitForTransactionReceipt({ hash, chainId });
+
+  // Once an approval confirms, the allowance read is stale — refetch it.
+  useEffect(() => {
+    if (isConfirmed) {
+      allowanceQ.refetch();
+      balanceQ.refetch();
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [isConfirmed]);
+
+  const approve = useCallback(
+    async (amount: bigint) => {
+      if (!usdcAddress || !covenantAddress) {
+        throw new Error("USDC is not configured on this network.");
+      }
+      if (connectedChainId !== chainId) {
+        await switchChainAsync({ chainId });
+      }
+      return writeContractAsync({
+        address: usdcAddress,
+        abi: erc20Abi,
+        functionName: "approve",
+        args: [covenantAddress, amount],
+        chainId,
+      });
+    },
+    [usdcAddress, covenantAddress, chainId, connectedChainId, switchChainAsync, writeContractAsync],
+  );
+
+  return {
+    usdcAddress,
+    allowance: allowanceQ.data as bigint | undefined,
+    balance: balanceQ.data as bigint | undefined,
+    refetchAllowance: allowanceQ.refetch,
+    approve,
+    approveHash: hash,
+    isApprovePending: isPending,
+    isApproveConfirming: isConfirming,
+    isApproveConfirmed: isConfirmed,
+    approveError: error ?? receiptError,
+    resetApprove: reset,
   };
 }
