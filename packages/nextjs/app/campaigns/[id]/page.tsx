@@ -9,7 +9,7 @@ import {
   useMyDonation,
   useTrustScore,
 } from "../../../hooks/useCovenant";
-import { campaignStatus, formatEth, percent } from "../../../lib/format";
+import { campaignStatus, formatUsdc, percent } from "../../../lib/format";
 import { campaignPhoto } from "../../../lib/campaignImage";
 import { Address } from "../../../components/Address";
 import { ReputationBadge } from "../../../components/ReputationBadge";
@@ -112,10 +112,10 @@ export default function CampaignDetailPage() {
 
           {/* Stats */}
           <div className="mt-6 grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-6">
-            <Stat label="Raised" value={`${formatEth(campaign.totalRaised)}`} sub="ETH" accent />
-            <Stat label="Goal" value={`${formatEth(campaign.goalAmount)}`} sub="ETH" />
-            <Stat label="Released" value={`${formatEth(campaign.totalReleased)}`} sub="ETH" />
-            <Stat label="In escrow" value={`${formatEth(inEscrow)}`} sub="ETH locked" />
+            <Stat label="Raised" value={`${formatUsdc(campaign.totalRaised)}`} sub="USDC" accent />
+            <Stat label="Goal" value={`${formatUsdc(campaign.goalAmount)}`} sub="USDC" />
+            <Stat label="Released" value={`${formatUsdc(campaign.totalReleased)}`} sub="USDC" />
+            <Stat label="In escrow" value={`${formatUsdc(inEscrow)}`} sub="USDC locked" />
             <Stat label="Donors" value={campaign.donorCount.toString()} />
             <Stat label="Milestone" value={currentLabel} />
           </div>
@@ -134,11 +134,11 @@ export default function CampaignDetailPage() {
                 <div className="mb-1.5 flex items-center justify-between text-sm text-[var(--text-secondary)]">
                   <span>Current milestone ({mi + 1}) threshold</span>
                   <span className="font-mono">
-                    {formatEth(
+                    {formatUsdc(
                       campaign.totalRaised > currentCumulativeTarget ? currentCumulativeTarget : campaign.totalRaised,
                     )}
                     {" / "}
-                    {formatEth(currentCumulativeTarget)} ETH
+                    {formatUsdc(currentCumulativeTarget)} USDC
                   </span>
                 </div>
                 <ProgressBar value={milestoneFundingPct} tone="violet" />

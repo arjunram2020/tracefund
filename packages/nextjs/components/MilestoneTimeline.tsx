@@ -1,7 +1,7 @@
 "use client";
 
 import type { Campaign, Milestone } from "../lib/types";
-import { formatEth, milestoneStatus, milestoneStatusMeta } from "../lib/format";
+import { formatUsdc, milestoneStatus, milestoneStatusMeta } from "../lib/format";
 import { EvidenceLink } from "./EvidenceLink";
 
 export function MilestoneTimeline({
@@ -51,9 +51,9 @@ export function MilestoneTimeline({
                 <div className="flex flex-wrap items-center justify-between gap-2">
                   <p className="font-medium text-[var(--text-primary)]">{m.description}</p>
                   <div className="flex items-center gap-2">
-                    <span className="text-xs text-[var(--text-tertiary)]">at {formatEth(cumTarget)} ETH</span>
+                    <span className="text-xs text-[var(--text-tertiary)]">at {formatUsdc(cumTarget)} USDC</span>
                     <span className="font-mono text-sm font-semibold text-[var(--brand-primary)]">
-                      +{formatEth(m.amount)} ETH
+                      +{formatUsdc(m.amount)} USDC
                     </span>
                   </div>
                 </div>

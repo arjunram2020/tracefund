@@ -1,10 +1,13 @@
-import { formatEther } from "viem";
+import { formatUnits } from "viem";
 import type { Campaign, Milestone, MilestoneStatus } from "./types";
 
-/** Format wei to a trimmed ETH string, e.g. 0.05 instead of 0.050000000000000000. */
-export function formatEth(wei: bigint | undefined, maxDigits = 10): string {
-  if (wei === undefined) return "0";
-  const full = formatEther(wei);
+/** USDC uses 6 decimals — every on-chain amount is in USDC base units. */
+export const USDC_DECIMALS = 6;
+
+/** Format USDC base units to a trimmed string, e.g. 0.05 instead of 0.050000. */
+export function formatUsdc(units: bigint | undefined, maxDigits = USDC_DECIMALS): string {
+  if (units === undefined) return "0";
+  const full = formatUnits(units, USDC_DECIMALS);
   if (!full.includes(".")) return full;
   const [whole, frac] = full.split(".");
   const trimmed = frac.slice(0, maxDigits).replace(/0+$/, "");

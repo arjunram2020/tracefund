@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import type { Campaign } from "../lib/types";
-import { campaignStatus, formatEth, percent } from "../lib/format";
+import { campaignStatus, formatUsdc, percent } from "../lib/format";
 import { campaignPhoto } from "../lib/campaignImage";
 import { useTrustScore } from "../hooks/useCovenant";
 import { ProgressBar } from "./ProgressBar";
@@ -53,9 +53,9 @@ export function CampaignCard({ campaign }: { campaign: Campaign }) {
         <div className="space-y-2">
           <div className="flex items-baseline justify-between text-sm">
             <span className="font-mono font-semibold text-[var(--text-primary)]">
-              {formatEth(campaign.totalRaised)} ETH
+              {formatUsdc(campaign.totalRaised)} USDC
             </span>
-            <span className="text-[var(--text-tertiary)]">of {formatEth(campaign.goalAmount)} ETH</span>
+            <span className="text-[var(--text-tertiary)]">of {formatUsdc(campaign.goalAmount)} USDC</span>
           </div>
           <ProgressBar value={raisedPct} />
         </div>

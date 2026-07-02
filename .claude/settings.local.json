@@ -6,7 +6,26 @@
       "Bash(git --version)",
       "Bash(find app *)",
       "Bash(ls *.ts *.json)",
-      "Bash(ls -d */)"
+      "Bash(ls -d */)",
+      "Bash(yarn install *)",
+      "Bash(ssh -i ~/Downloads/covenant-key.pem -o ConnectTimeout=8 -o StrictHostKeyChecking=accept-new ubuntu@3.19.243.11 \"echo connected; pm2 ls; ls -la ~/covenant/packages/nextjs/.env.local ~/indexer/.env 2>&1\")",
+      "Bash(aws sts *)",
+      "Bash(aws ec2 *)",
+      "Bash(curl -s -o /dev/null -w \"%{http_code}\\\\n\" --connect-timeout 6 http://3.19.243.11/)",
+      "Bash(ssh -i ~/Downloads/covenant-key.pem -o ConnectTimeout=8 -o StrictHostKeyChecking=accept-new ubuntu@3.19.243.11 \"echo connected\")",
+      "Bash(ssh -i ~/Downloads/covenant-key.pem -o ConnectTimeout=8 -o StrictHostKeyChecking=accept-new ubuntu@18.219.16.173 'echo connected; pm2 ls; echo '\\\\''--- env var names in frontend .env.local ---'\\\\''; grep -oE '\\\\''^[A-Z_0-9]+='\\\\'' ~/covenant/packages/nextjs/.env.local; echo '\\\\''--- masked values ---'\\\\''; python3 -c \" *)",
+      "Bash(curl -s -o /dev/null -w \"HTTP port 80: %{http_code}\\\\n\" --connect-timeout 6 http://18.219.16.173/)",
+      "Bash(curl -s -o /dev/null -w \"indexer /api/health: %{http_code}\\\\n\" --connect-timeout 6 http://18.219.16.173/api/health)",
+      "Bash(ssh -i ~/Downloads/covenant-key.pem -o ConnectTimeout=8 -o StrictHostKeyChecking=accept-new ubuntu@18.219.16.173 'echo connected; pm2 ls; echo '\\\\''--- frontend env \\(masked\\) ---'\\\\''; python3 -c \" *)",
+      "Bash(ssh -i ~/Downloads/covenant-key.pem -o ConnectTimeout=8 ec2-user@18.219.16.173 'echo connected as ec2-user; pm2 ls; echo '\\\\''--- frontend env \\(masked\\) ---'\\\\''; python3 -c \" *)",
+      "Bash(ssh -i ~/Downloads/covenant-key.pem ec2-user@18.219.16.173 ' *)",
+      "Bash(ssh -i ~/Downloads/covenant-key.pem ec2-user@18.219.16.173 \"cd ~/covenant/packages/nextjs && NODE_OPTIONS=--max-old-space-size=2048 yarn build 2>&1 | tail -8 && pm2 restart frontend && sleep 3 && pm2 ls | grep -E 'frontend|indexer'\")",
+      "Bash(ssh -i ~/Downloads/covenant-key.pem -o ConnectTimeout=8 ec2-user@18.219.16.173 \"ps aux | grep -E 'next build|node.*build' | grep -v grep | awk '{print \\\\$3\\\\\"% cpu — \\\\\"\\\\$11,\\\\$12,\\\\$13}' | head -3; uptime\")",
+      "Bash(ssh -i ~/Downloads/covenant-key.pem ec2-user@18.219.16.173 \"cd ~/covenant/packages/nextjs && echo 'old key \\(ra9\\) occurrences in built bundle:' && grep -rl 'ra9' .next/static 2>/dev/null | wc -l && echo 'new key \\(Cg3\\) present in built bundle:' && grep -rl 'Cg3' .next/static 2>/dev/null | wc -l && rm -f .env.local.bak\")",
+      "Bash(curl -s -o /dev/null -w \"site: %{http_code}\\\\n\" http://18.219.16.173/)",
+      "Bash(curl -s http://18.219.16.173/api/health)",
+      "Bash(ssh -i ~/Downloads/covenant-key.pem ec2-user@18.219.16.173 'read -r OLDKEY; cd ~/covenant/packages/nextjs; echo \"old-key prefix length used: ${#OLDKEY}\"; echo '\\\\''files in bundle containing the actual old key:'\\\\''; grep -rl -- \"$OLDKEY\" .next 2>/dev/null | wc -l; echo '\\\\''context of the ra9 match \\(first 60 chars around it\\):'\\\\''; grep -roh -- '\\\\''ra9[A-Za-z0-9_-]*'\\\\'' .next/static 2>/dev/null | sort -u | head -3 | cut -c1-30')",
+      "Bash(node *)"
     ]
   }
 }

@@ -21,6 +21,11 @@ packages/nextjs/build
 packages/hardhat/.env
 packages/nextjs/.env.local
 
+# indexer sqlite artifacts (wherever the indexer was launched from)
+covenant.db
+covenant.db-shm
+covenant.db-wal
+
 # misc
 .DS_Store
 *.log
