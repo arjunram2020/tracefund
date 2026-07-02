@@ -25,14 +25,14 @@ const STEPS = [
   {
     n: "03",
     Icon: CheckCircle2,
-    title: "Donors approve & unlock",
-    body: "Approval is weighted by donation size. Past 50%, anyone can trigger the release — no override.",
+    title: "Funds auto-release",
+    body: "Once evidence is submitted, that milestone's funds release to the creator instantly — no vote needed.",
   },
   {
     n: "04",
     Icon: TrendingUp,
     title: "Repeat per milestone",
-    body: "The rest stays locked. Every milestone follows the same cycle: proof → approval → release.",
+    body: "The rest stays locked. Every milestone follows the same cycle: proof → release.",
   },
 ];
 
@@ -41,7 +41,6 @@ const ON_CHAIN = [
   "Escrow balances",
   "Milestone definitions",
   "Evidence submissions",
-  "Donor approvals",
   "Fund releases",
   "Creator reputation",
   "Full activity trail",
@@ -129,7 +128,7 @@ export default function HomePage() {
           style={{ color: "var(--text-secondary)", lineHeight: 1.65, marginBottom: 36 }}
         >
           Donations stay locked in smart contract escrow until campaign creators submit milestone
-          evidence and donors approve each release. Every action on-chain.
+          evidence, which releases funds automatically. Every action on-chain.
         </p>
 
         <div className="mb-16 flex flex-wrap items-center justify-center gap-3">
@@ -247,7 +246,7 @@ export default function HomePage() {
               The Covenant model
             </p>
             <div>
-              <p className="mb-1 font-bold text-white">Donate into escrow. Proof &amp; approval unlock it.</p>
+              <p className="mb-1 font-bold text-white">Donate into escrow. Proof unlocks it.</p>
               <p className="text-sm" style={{ color: "rgba(255,255,255,0.7)" }}>
                 Enforced on-chain. No middleman.
               </p>
@@ -255,7 +254,7 @@ export default function HomePage() {
             <ul className="flex flex-col gap-2">
               {[
                 "Funds held by a smart contract, released milestone by milestone",
-                "Evidence and approvals are enforced before any release",
+                "Evidence is enforced before any release",
                 "Every action is permanent, public, and tamper-resistant",
               ].map((i) => (
                 <li key={i} className="flex gap-3 text-sm" style={{ color: "rgba(255,255,255,0.85)" }}>

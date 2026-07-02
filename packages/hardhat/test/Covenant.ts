@@ -12,7 +12,7 @@ const GOAL = M1 + M2 + M3; // 0.05 ETH
 
 const TITLE = "Community Medical Relief Fund";
 const DESCRIPTION =
-  "A transparent emergency fundraiser where donations unlock only after milestone proof is submitted and donors approve the release.";
+  "A transparent emergency fundraiser where donations unlock only after milestone proof is submitted.";
 const MILESTONE_DESCRIPTIONS = [
   "Hospital deposit receipt",
   "Medication purchase receipt",
@@ -49,7 +49,7 @@ describe("Covenant", function () {
     await covenant.connect(donorA).donate(id, { value: ethers.parseEther("0.01") }); // donorA total 0.02
     await covenant.connect(donorB).donate(id, { value: ethers.parseEther("0.019") });
     await covenant.connect(donorB).donate(id, { value: ethers.parseEther("0.011") }); // donorB total 0.03
-    // totalRaised = 0.05 (= goal), 50% threshold = 0.025
+    // totalRaised = 0.05 (= goal)
     return { ...base, id };
   }
 
@@ -57,7 +57,6 @@ describe("Covenant", function () {
     it("exposes the expected constants", async function () {
       const { covenant } = await loadFixture(deployFixture);
       expect(await covenant.MAX_MILESTONES()).to.equal(5n);
-      expect(await covenant.APPROVAL_THRESHOLD_BPS()).to.equal(5000n);
       expect(await covenant.campaignCount()).to.equal(0n);
     });
   });
@@ -233,24 +232,33 @@ describe("Covenant", function () {
   });
 
   describe("submitEvidence", function () {
-    it("lets the creator submit evidence without releasing funds", async function () {
+    it("submits evidence and auto-releases exactly the milestone amount to the creator", async function () {
       const { covenant, creator, id } = await loadFixture(fundedFixture);
 
-      await expect(covenant.connect(creator).submitEvidence(id, "ipfs://receipt-1"))
-        .to.emit(covenant, "EvidenceSubmitted")
-        .withArgs(id, 0n, "ipfs://receipt-1");
+      const tx = covenant.connect(creator).submitEvidence(id, "ipfs://receipt-1");
+      await expect(tx).to.emit(covenant, "EvidenceSubmitted").withArgs(id, 0n, "ipfs://receipt-1");
+      await expect(tx)
+        .to.emit(covenant, "MilestoneReleased")
+        .withArgs(id, 0n, M1, creator.address);
+      await expect(tx).to.changeEtherBalances([creator, covenant], [M1, -M1]);
 
       const m = await covenant.getMilestone(id, 0);
       expect(m.evidenceSubmitted).to.equal(true);
       expect(m.evidence).to.equal("ipfs://receipt-1");
-      expect(m.released).to.equal(false);
+      expect(m.released).to.equal(true);
 
-      // No money moved.
       const c = await covenant.getCampaign(id);
-      expect(c.totalReleased).to.equal(0n);
+      expect(c.totalReleased).to.equal(M1);
+      expect(c.currentMilestone).to.equal(1n); // advanced to next milestone
+      expect(c.completed).to.equal(false);
 
       const stats = await covenant.getCreatorStats(creator.address);
       expect(stats.evidenceUpdates).to.equal(1n);
+      expect(stats.totalReleased).to.equal(M1);
+      expect(stats.milestonesCompleted).to.equal(1n);
+
+      // Remaining funds stay locked for future milestones.
+      expect(await ethers.provider.getBalance(await covenant.getAddress())).to.equal(GOAL - M1);
     });
 
     it("reverts when a non-creator submits evidence", async function () {
@@ -266,114 +274,24 @@ describe("Covenant", function () {
         covenant.connect(creator).submitEvidence(id, ""),
       ).to.be.revertedWith("Evidence required");
     });
-  });
 
-  describe("approveMilestone", function () {
-    it("records weighted approval from a donor", async function () {
-      const { covenant, creator, donorA, id } = await loadFixture(fundedFixture);
-      await covenant.connect(creator).submitEvidence(id, "ipfs://receipt-1");
-
-      await expect(covenant.connect(donorA).approveMilestone(id))
-        .to.emit(covenant, "MilestoneApproved")
-        .withArgs(id, 0n, donorA.address, ethers.parseEther("0.02"), ethers.parseEther("0.02"));
-
-      const m = await covenant.getMilestone(id, 0);
-      expect(m.approvalWeight).to.equal(ethers.parseEther("0.02"));
-      expect(await covenant.hasApproved(id, 0, donorA.address)).to.equal(true);
-    });
-
-    it("reverts when approving before evidence is submitted", async function () {
-      const { covenant, donorA, id } = await loadFixture(fundedFixture);
-      await expect(
-        covenant.connect(donorA).approveMilestone(id),
-      ).to.be.revertedWith("Evidence not submitted");
-    });
-
-    it("reverts when a non-donor tries to approve", async function () {
-      const { covenant, creator, outsider, id } = await loadFixture(fundedFixture);
-      await covenant.connect(creator).submitEvidence(id, "ipfs://receipt-1");
-      await expect(
-        covenant.connect(outsider).approveMilestone(id),
-      ).to.be.revertedWith("Not a donor");
-    });
-
-    it("reverts when a donor approves twice", async function () {
-      const { covenant, creator, donorA, id } = await loadFixture(fundedFixture);
-      await covenant.connect(creator).submitEvidence(id, "ipfs://receipt-1");
-      await covenant.connect(donorA).approveMilestone(id);
-      await expect(
-        covenant.connect(donorA).approveMilestone(id),
-      ).to.be.revertedWith("Already approved");
-    });
-  });
-
-  describe("releaseMilestoneFunds", function () {
-    it("reverts when no donors have approved", async function () {
+    it("reverts once the campaign is already completed", async function () {
       const { covenant, creator, id } = await loadFixture(fundedFixture);
-      await covenant.connect(creator).submitEvidence(id, "ipfs://receipt-1");
+      for (let i = 0; i < 3; i++) {
+        await covenant.connect(creator).submitEvidence(id, `ipfs://receipt-${i + 1}`);
+      }
       await expect(
-        covenant.connect(creator).releaseMilestoneFunds(id),
-      ).to.be.revertedWith("Approval threshold not reached");
-    });
-
-    it("reverts when approval weight is below the 50% threshold", async function () {
-      const { covenant, creator, donorA, id } = await loadFixture(fundedFixture);
-      await covenant.connect(creator).submitEvidence(id, "ipfs://receipt-1");
-      // donorA gave 0.02 of 0.05 (40%) — not enough on its own.
-      await covenant.connect(donorA).approveMilestone(id);
-      expect(await covenant.isThresholdReached(id)).to.equal(false);
-      await expect(
-        covenant.connect(creator).releaseMilestoneFunds(id),
-      ).to.be.revertedWith("Approval threshold not reached");
-    });
-
-    it("releases exactly the milestone amount once the weighted threshold is met", async function () {
-      const { covenant, creator, donorB, id } = await loadFixture(fundedFixture);
-      await covenant.connect(creator).submitEvidence(id, "ipfs://receipt-1");
-
-      // donorB gave 0.03 of 0.05 (60%) — crosses the 50% threshold alone.
-      await covenant.connect(donorB).approveMilestone(id);
-      expect(await covenant.isThresholdReached(id)).to.equal(true);
-
-      // Exactly M1 is transferred to the creator, no more.
-      await expect(
-        covenant.connect(donorB).releaseMilestoneFunds(id),
-      ).to.changeEtherBalances([creator, covenant], [M1, -M1]);
-
-      const c = await covenant.getCampaign(id);
-      expect(c.totalReleased).to.equal(M1);
-      expect(c.currentMilestone).to.equal(1n); // advanced to next milestone
-      expect(c.completed).to.equal(false);
-
-      const m0 = await covenant.getMilestone(id, 0);
-      expect(m0.released).to.equal(true);
-
-      // Remaining funds stay locked for future milestones.
-      expect(await ethers.provider.getBalance(await covenant.getAddress())).to.equal(GOAL - M1);
-    });
-
-    it("reverts on a second release of an already-released milestone", async function () {
-      const { covenant, creator, donorB, id } = await loadFixture(fundedFixture);
-      await covenant.connect(creator).submitEvidence(id, "ipfs://receipt-1");
-      await covenant.connect(donorB).approveMilestone(id);
-      await covenant.connect(creator).releaseMilestoneFunds(id);
-
-      // Milestone 0 is released; calling again now targets milestone 1 which has no evidence.
-      await expect(
-        covenant.connect(creator).releaseMilestoneFunds(id),
-      ).to.be.revertedWith("Evidence not submitted");
+        covenant.connect(creator).submitEvidence(id, "late"),
+      ).to.be.revertedWith("Campaign not active");
     });
   });
 
   describe("Full lifecycle & campaign completion", function () {
     it("releases all milestones, completes the campaign, and drains escrow to zero", async function () {
-      const { covenant, creator, donorA, donorB, id } = await loadFixture(fundedFixture);
+      const { covenant, creator, id } = await loadFixture(fundedFixture);
 
       for (let i = 0; i < 3; i++) {
         await covenant.connect(creator).submitEvidence(id, `ipfs://receipt-${i + 1}`);
-        await covenant.connect(donorA).approveMilestone(id);
-        await covenant.connect(donorB).approveMilestone(id); // 0.05 of 0.05 approves
-        await covenant.connect(creator).releaseMilestoneFunds(id);
       }
 
       const c = await covenant.getCampaign(id);
@@ -391,19 +309,15 @@ describe("Covenant", function () {
     });
 
     it("emits CampaignCompleted on the final milestone release", async function () {
-      const { covenant, creator, donorB, id } = await loadFixture(fundedFixture);
+      const { covenant, creator, id } = await loadFixture(fundedFixture);
 
       // First two milestones.
       for (let i = 0; i < 2; i++) {
         await covenant.connect(creator).submitEvidence(id, `ipfs://receipt-${i + 1}`);
-        await covenant.connect(donorB).approveMilestone(id);
-        await covenant.connect(creator).releaseMilestoneFunds(id);
       }
 
       // Final milestone.
-      await covenant.connect(creator).submitEvidence(id, "ipfs://receipt-3");
-      await covenant.connect(donorB).approveMilestone(id);
-      await expect(covenant.connect(creator).releaseMilestoneFunds(id))
+      await expect(covenant.connect(creator).submitEvidence(id, "ipfs://receipt-3"))
         .to.emit(covenant, "MilestoneReleased")
         .and.to.emit(covenant, "CampaignCompleted")
         .withArgs(id);
@@ -411,29 +325,24 @@ describe("Covenant", function () {
       // Cannot submit evidence on a completed campaign.
       await expect(
         covenant.connect(creator).submitEvidence(id, "late"),
-      ).to.be.revertedWith("Campaign completed");
+      ).to.be.revertedWith("Campaign not active");
     });
   });
 
   describe("Reputation / trust score", function () {
     it("starts at zero and increases as milestones are proven and the campaign completes", async function () {
-      const { covenant, creator, donorA, donorB, id } = await loadFixture(fundedFixture);
+      const { covenant, creator, id } = await loadFixture(fundedFixture);
 
       // Brand new creator with one created campaign: base score of 10 (New Creator).
       expect(await covenant.trustScore(creator.address)).to.equal(10n);
 
       // Complete milestone 1 (1 evidence + 1 milestone): 10 + 12 + 3 = 25 (Early Creator).
       await covenant.connect(creator).submitEvidence(id, "ipfs://receipt-1");
-      await covenant.connect(donorB).approveMilestone(id);
-      await covenant.connect(creator).releaseMilestoneFunds(id);
       expect(await covenant.trustScore(creator.address)).to.equal(25n);
 
       // Complete the remaining two milestones and the campaign.
       for (let i = 1; i < 3; i++) {
         await covenant.connect(creator).submitEvidence(id, `ipfs://receipt-${i + 1}`);
-        await covenant.connect(donorA).approveMilestone(id);
-        await covenant.connect(donorB).approveMilestone(id);
-        await covenant.connect(creator).releaseMilestoneFunds(id);
       }
 
       // 10 base + 3*12 milestones + 1*15 campaign + min(3*3,15)=9 evidence = 70 (Proven Creator).

@@ -2,7 +2,7 @@
 
 Milestone-based crowdfunding with enforced accountability on Ethereum.
 
-Donations stay locked in a smart contract escrow until campaign creators submit evidence and donors approve each milestone. Every donation, evidence update, approval, and fund release is part of a permanent public record on-chain.
+Donations stay locked in a smart contract escrow until campaign creators submit evidence for each milestone. Every donation, evidence update, and fund release is part of a permanent public record on-chain.
 
 **Live app:** Update this link after assigning the Covenant deployment domain.
 **Contract on Base Mainnet:** `0x000f8e23a416396184Cd97fF9dD750F3753F4C0c`
@@ -17,8 +17,7 @@ Covenant changes the money flow:
 
 1. **Donate** — ETH goes into smart contract escrow, not the creator's wallet
 2. **Evidence** — Creator submits proof for the current milestone (URL, IPFS link, or text)
-3. **Approve** — Donors vote to approve the milestone, weighted by donation amount
-4. **Release** — Once 50% approval is reached, the exact milestone amount is released to the creator
+3. **Release** — Submitting evidence automatically releases the exact milestone amount to the creator
 
 The rest stays locked for future milestones.
 
@@ -138,7 +137,7 @@ frontend, as shown in [AWS deployment Stage 7](docs/AWS_DEPLOYMENT.md#stage-7--c
 The `Covenant.sol` contract stores everything on-chain:
 
 - **Campaigns** — title, description, goal, raised amount, milestone list, creator address
-- **Milestones** — description, amount, evidence string, approval weight, release status
+- **Milestones** — description, amount, evidence string, release status
 - **Donations** — how much each donor gave to each campaign
 - **Reputation** — each creator's history: campaigns completed, funds raised, milestones delivered
 
@@ -148,9 +147,7 @@ The `Covenant.sol` contract stores everything on-chain:
 |---|---|---|
 | `createCampaign` | Creator | Creates a campaign with milestones |
 | `donate` | Donor | Sends ETH into escrow |
-| `submitEvidence` | Creator | Submits proof for current milestone |
-| `approveMilestone` | Donor | Approves milestone (weighted by donation) |
-| `releaseMilestoneFunds` | Anyone | Releases funds once 50% approval is reached |
+| `submitEvidence` | Creator | Submits proof for current milestone and auto-releases its funds |
 
 ---
 

@@ -13,7 +13,6 @@ const ICON: Record<ActivityType, { glyph: string; ring: string }> = {
   CampaignCreated: { glyph: "✦", ring: "bg-[var(--bg-subtle)] text-[var(--text-secondary)]" },
   DonationReceived: { glyph: "↓", ring: "bg-[var(--brand-primary)]/15 text-[var(--brand-primary)]" },
   EvidenceSubmitted: { glyph: "▣", ring: "bg-sky-600/10 text-sky-700" },
-  MilestoneApproved: { glyph: "✓", ring: "bg-violet-600/10 text-violet-700" },
   MilestoneReleased: { glyph: "↑", ring: "bg-emerald-600/10 text-emerald-700" },
   CampaignCompleted: { glyph: "★", ring: "bg-[var(--brand-primary)]/20 text-[var(--brand-primary)]" },
 };
@@ -26,7 +25,6 @@ const FLOW: Record<ActivityType, FlowTag> = {
     cls: "text-[var(--brand-primary)] bg-[var(--brand-primary)]/10 ring-1 ring-[var(--brand-primary)]/20",
   },
   EvidenceSubmitted: null,
-  MilestoneApproved: null,
   MilestoneReleased: {
     label: "escrow → creator wallet",
     cls: "text-emerald-700 bg-emerald-600/10 ring-1 ring-emerald-600/20",
@@ -43,8 +41,8 @@ function describe(item: ActivityItem): React.ReactNode {
         <>
           Campaign launched with a{" "}
           <span className="font-mono text-[var(--text-primary)]">{formatEth(a.goalAmount)} ETH</span> goal —
-          all donor contributions will be locked in the escrow contract until each milestone is
-          approved
+          all donor contributions will be locked in the escrow contract until each milestone's
+          evidence is submitted
         </>
       );
     case "DonationReceived":
@@ -59,17 +57,7 @@ function describe(item: ActivityItem): React.ReactNode {
     case "EvidenceSubmitted":
       return (
         <>
-          Creator posted on-chain proof for {ms} — donors can now vote to approve the release
-        </>
-      );
-    case "MilestoneApproved":
-      return (
-        <>
-          <span className="font-mono">{shortenAddress(a.donor)}</span> voted to approve {ms}{" "}
-          <span className="text-violet-700">
-            ({formatEth(a.weight)} ETH weight · {formatEth(a.totalApprovalWeight)} ETH total
-            approved)
-          </span>
+          Creator posted on-chain proof for {ms} — funds released automatically
         </>
       );
     case "MilestoneReleased":
@@ -81,7 +69,7 @@ function describe(item: ActivityItem): React.ReactNode {
         </>
       );
     case "CampaignCompleted":
-      return <>All milestones approved and released — campaign complete</>;
+      return <>All milestones released — campaign complete</>;
     default:
       return item.type;
   }

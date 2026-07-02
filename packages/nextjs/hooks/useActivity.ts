@@ -51,7 +51,6 @@ export type ActivityType =
   | "CampaignCreated"
   | "DonationReceived"
   | "EvidenceSubmitted"
-  | "MilestoneApproved"
   | "MilestoneReleased"
   | "CampaignCompleted";
 
@@ -68,7 +67,6 @@ const EVENT_NAMES: ActivityType[] = [
   "CampaignCreated",
   "DonationReceived",
   "EvidenceSubmitted",
-  "MilestoneApproved",
   "MilestoneReleased",
   "CampaignCompleted",
 ];
@@ -134,7 +132,7 @@ export function useCampaignActivity(campaignId?: bigint) {
   // Live subscription: push new on-chain events into the feed in near-real-time
   // (a few seconds) instead of waiting for the 30s history rescan below. This is
   // what makes the public activity trail update live across devices — as soon as
-  // anyone donates, posts evidence, approves, or releases, every viewer sees it.
+  // anyone donates, posts evidence, or funds release, every viewer sees it.
   // ---------------------------------------------------------------------------
   useEffect(() => {
     if (!address || campaignId === undefined) return;

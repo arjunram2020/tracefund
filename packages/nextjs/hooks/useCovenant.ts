@@ -114,12 +114,7 @@ export function useMyDonation(id?: bigint, donor?: `0x${string}`) {
   return { ...q, donation: (q.data as bigint | undefined) ?? 0n };
 }
 
-export type CovenantFn =
-  | "createCampaign"
-  | "donate"
-  | "submitEvidence"
-  | "approveMilestone"
-  | "releaseMilestoneFunds";
+export type CovenantFn = "createCampaign" | "donate" | "submitEvidence";
 
 export function useCovenantWrite() {
   const { address, abi, chainId } = useReadChain();

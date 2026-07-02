@@ -30,8 +30,8 @@ export function EvidencePanel({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [isConfirmed]);
 
-  // Evidence always targets the current active milestone. In the new contract flow,
-  // the creator posts evidence first, then donors approve, then funds release.
+  // Evidence always targets the current active milestone. Submitting evidence
+  // auto-releases that milestone's funds to the creator.
   const current = Number(campaign.currentMilestone);
   const evidenceIndex = campaign.completed
     ? milestones.length - 1

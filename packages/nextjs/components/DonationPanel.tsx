@@ -198,7 +198,7 @@ export function DonationPanel({
 
           <p className="mt-2 text-xs text-[var(--text-tertiary)]">
             Funds are held by the Covenant contract and only released to the creator milestone by
-            milestone, after evidence and donor approval.
+            milestone, once evidence is submitted.
           </p>
         </>
       )}
