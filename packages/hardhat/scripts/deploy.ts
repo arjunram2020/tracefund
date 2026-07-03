@@ -17,7 +17,7 @@ import * as path from "path";
 
 // Canonical USDC addresses per chain. Anything not listed gets a MockUSDC.
 const USDC_ADDRESSES: Record<number, string> = {
-  8453: "0x833589fCB6e61e26Ee7660cE1c83E66bC46d47c9", // Base Mainnet (native USDC)
+  8453: "0x833589fcB6E61E26EE7660cE1C83e66bc46d47c9", // Base Mainnet (native USDC)
   84532: "0x036CbD53842c5426634e7929541eC2318f3dCF7e", // Base Sepolia (Circle testnet USDC)
 };
 

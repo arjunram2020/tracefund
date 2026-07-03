@@ -10,6 +10,7 @@ import {
   useCovenantWrite,
   useCreatorAccess,
   useCreatorStats,
+  useReadChain,
 } from "../../hooks/useCovenant";
 import { TxFeedback } from "../../components/TxFeedback";
 import { ContractNotice } from "../../components/ContractNotice";
@@ -49,6 +50,7 @@ const CREATION_COOLDOWN_MS = 24 * 60 * 60 * 1000;
 export default function CreateCampaignPage() {
   const router = useRouter();
   const { isConnected, address } = useAccount();
+  const { writeEnabled } = useReadChain();
   const { count } = useCampaignCount();
   const predictedId = useRef<bigint | null>(null);
 
@@ -62,7 +64,7 @@ export default function CreateCampaignPage() {
   const capReached = unapproved && createdCount >= FREE_CAMPAIGNS;
   const cooldownEndsMs = lastCreatedMs + CREATION_COOLDOWN_MS;
   const inCooldown = unapproved && lastCreatedMs > 0 && Date.now() < cooldownEndsMs;
-  const creationBlocked = capReached || inCooldown;
+  const creationBlocked = !writeEnabled || capReached || inCooldown;
 
   const [title, setTitle] = useState("");
   const [description, setDescription] = useState("");
@@ -210,6 +212,14 @@ export default function CreateCampaignPage() {
       </div>
 
       <div className="card space-y-5 p-6">
+        {!writeEnabled && (
+          <p className="rounded-xl bg-[var(--bg-subtle)] px-4 py-3 text-sm text-[var(--text-secondary)]">
+            Campaign creation is only enabled on USDC-compatible Covenant deployments. The current
+            Base Mainnet contract is still the older ETH version, so this form stays read-only until
+            the USDC contract is redeployed and exported to the frontend.
+          </p>
+        )}
+
         {/* Title */}
         <div>
           <label className="label">Title</label>
@@ -398,7 +408,11 @@ export default function CreateCampaignPage() {
             onClick={submit}
             disabled={!formValid || creationBlocked || isPending || isConfirming}
           >
-            {isPending || isConfirming ? "Creating…" : "Create campaign"}
+            {!writeEnabled
+              ? "USDC deployment required"
+              : isPending || isConfirming
+                ? "Creating…"
+                : "Create campaign"}
           </button>
         ) : (
           <ConnectButton.Custom>

@@ -1,649 +1,8 @@
 {
   "8453": {
     "Covenant": {
-      "address": "0x9CA2E453462b87584f5A4D15f5962a4f2174BCE9",
-      "deployBlock": 48079282,
-      "abi": [
-        {
-          "inputs": [],
-          "name": "ReentrancyGuardReentrantCall",
-          "type": "error"
-        },
-        {
-          "anonymous": false,
-          "inputs": [
-            {
-              "indexed": true,
-              "internalType": "uint256",
-              "name": "campaignId",
-              "type": "uint256"
-            }
-          ],
-          "name": "CampaignCompleted",
-          "type": "event"
-        },
-        {
-          "anonymous": false,
-          "inputs": [
-            {
-              "indexed": true,
-              "internalType": "uint256",
-              "name": "campaignId",
-              "type": "uint256"
-            },
-            {
-              "indexed": true,
-              "internalType": "address",
-              "name": "creator",
-              "type": "address"
-            },
-            {
-              "indexed": false,
-              "internalType": "string",
-              "name": "title",
-              "type": "string"
-            },
-            {
-              "indexed": false,
-              "internalType": "uint256",
-              "name": "goalAmount",
-              "type": "uint256"
-            },
-            {
-              "indexed": false,
-              "internalType": "uint256",
-              "name": "milestoneCount",
-              "type": "uint256"
-            }
-          ],
-          "name": "CampaignCreated",
-          "type": "event"
-        },
-        {
-          "anonymous": false,
-          "inputs": [
-            {
-              "indexed": true,
-              "internalType": "uint256",
-              "name": "campaignId",
-              "type": "uint256"
-            },
-            {
-              "indexed": true,
-              "internalType": "address",
-              "name": "donor",
-              "type": "address"
-            },
-            {
-              "indexed": false,
-              "internalType": "uint256",
-              "name": "amount",
-              "type": "uint256"
-            },
-            {
-              "indexed": false,
-              "internalType": "uint256",
-              "name": "totalRaised",
-              "type": "uint256"
-            }
-          ],
-          "name": "DonationReceived",
-          "type": "event"
-        },
-        {
-          "anonymous": false,
-          "inputs": [
-            {
-              "indexed": true,
-              "internalType": "uint256",
-              "name": "campaignId",
-              "type": "uint256"
-            },
-            {
-              "indexed": true,
-              "internalType": "uint256",
-              "name": "milestoneIndex",
-              "type": "uint256"
-            },
-            {
-              "indexed": false,
-              "internalType": "string",
-              "name": "evidence",
-              "type": "string"
-            }
-          ],
-          "name": "EvidenceSubmitted",
-          "type": "event"
-        },
-        {
-          "anonymous": false,
-          "inputs": [
-            {
-              "indexed": true,
-              "internalType": "uint256",
-              "name": "campaignId",
-              "type": "uint256"
-            },
-            {
-              "indexed": true,
-              "internalType": "uint256",
-              "name": "milestoneIndex",
-              "type": "uint256"
-            },
-            {
-              "indexed": false,
-              "internalType": "uint256",
-              "name": "amount",
-              "type": "uint256"
-            },
-            {
-              "indexed": false,
-              "internalType": "address",
-              "name": "creator",
-              "type": "address"
-            }
-          ],
-          "name": "MilestoneReleased",
-          "type": "event"
-        },
-        {
-          "inputs": [],
-          "name": "MAX_MILESTONES",
-          "outputs": [
-            {
-              "internalType": "uint256",
-              "name": "",
-              "type": "uint256"
-            }
-          ],
-          "stateMutability": "view",
-          "type": "function"
-        },
-        {
-          "inputs": [],
-          "name": "campaignCount",
-          "outputs": [
-            {
-              "internalType": "uint256",
-              "name": "",
-              "type": "uint256"
-            }
-          ],
-          "stateMutability": "view",
-          "type": "function"
-        },
-        {
-          "inputs": [
-            {
-              "internalType": "string",
-              "name": "title",
-              "type": "string"
-            },
-            {
-              "internalType": "string",
-              "name": "description",
-              "type": "string"
-            },
-            {
-              "internalType": "string[]",
-              "name": "milestoneDescriptions",
-              "type": "string[]"
-            },
-            {
-              "internalType": "uint256[]",
-              "name": "milestoneAmounts",
-              "type": "uint256[]"
-            }
-          ],
-          "name": "createCampaign",
-          "outputs": [
-            {
-              "internalType": "uint256",
-              "name": "campaignId",
-              "type": "uint256"
-            }
-          ],
-          "stateMutability": "nonpayable",
-          "type": "function"
-        },
-        {
-          "inputs": [
-            {
-              "internalType": "uint256",
-              "name": "campaignId",
-              "type": "uint256"
-            }
-          ],
-          "name": "donate",
-          "outputs": [],
-          "stateMutability": "payable",
-          "type": "function"
-        },
-        {
-          "inputs": [
-            {
-              "internalType": "uint256",
-              "name": "",
-              "type": "uint256"
-            },
-            {
-              "internalType": "address",
-              "name": "",
-              "type": "address"
-            }
-          ],
-          "name": "donations",
-          "outputs": [
-            {
-              "internalType": "uint256",
-              "name": "",
-              "type": "uint256"
-            }
-          ],
-          "stateMutability": "view",
-          "type": "function"
-        },
-        {
-          "inputs": [],
-          "name": "getAllCampaigns",
-          "outputs": [
-            {
-              "components": [
-                {
-                  "internalType": "uint256",
-                  "name": "id",
-                  "type": "uint256"
-                },
-                {
-                  "internalType": "address",
-                  "name": "creator",
-                  "type": "address"
-                },
-                {
-                  "internalType": "string",
-                  "name": "title",
-                  "type": "string"
-                },
-                {
-                  "internalType": "string",
-                  "name": "description",
-                  "type": "string"
-                },
-                {
-                  "internalType": "uint256",
-                  "name": "goalAmount",
-                  "type": "uint256"
-                },
-                {
-                  "internalType": "uint256",
-                  "name": "totalRaised",
-                  "type": "uint256"
-                },
-                {
-                  "internalType": "uint256",
-                  "name": "totalReleased",
-                  "type": "uint256"
-                },
-                {
-                  "internalType": "bool",
-                  "name": "active",
-                  "type": "bool"
-                },
-                {
-                  "internalType": "bool",
-                  "name": "completed",
-                  "type": "bool"
-                },
-                {
-                  "internalType": "uint256",
-                  "name": "currentMilestone",
-                  "type": "uint256"
-                },
-                {
-                  "internalType": "uint256",
-                  "name": "createdAt",
-                  "type": "uint256"
-                },
-                {
-                  "internalType": "uint256",
-                  "name": "donorCount",
-                  "type": "uint256"
-                },
-                {
-                  "internalType": "uint256",
-                  "name": "milestoneCount",
-                  "type": "uint256"
-                }
-              ],
-              "internalType": "struct Covenant.Campaign[]",
-              "name": "list",
-              "type": "tuple[]"
-            }
-          ],
-          "stateMutability": "view",
-          "type": "function"
-        },
-        {
-          "inputs": [
-            {
-              "internalType": "uint256",
-              "name": "campaignId",
-              "type": "uint256"
-            }
-          ],
-          "name": "getCampaign",
-          "outputs": [
-            {
-              "components": [
-                {
-                  "internalType": "uint256",
-                  "name": "id",
-                  "type": "uint256"
-                },
-                {
-                  "internalType": "address",
-                  "name": "creator",
-                  "type": "address"
-                },
-                {
-                  "internalType": "string",
-                  "name": "title",
-                  "type": "string"
-                },
-                {
-                  "internalType": "string",
-                  "name": "description",
-                  "type": "string"
-                },
-                {
-                  "internalType": "uint256",
-                  "name": "goalAmount",
-                  "type": "uint256"
-                },
-                {
-                  "internalType": "uint256",
-                  "name": "totalRaised",
-                  "type": "uint256"
-                },
-                {
-                  "internalType": "uint256",
-                  "name": "totalReleased",
-                  "type": "uint256"
-                },
-                {
-                  "internalType": "bool",
-                  "name": "active",
-                  "type": "bool"
-                },
-                {
-                  "internalType": "bool",
-                  "name": "completed",
-                  "type": "bool"
-                },
-                {
-                  "internalType": "uint256",
-                  "name": "currentMilestone",
-                  "type": "uint256"
-                },
-                {
-                  "internalType": "uint256",
-                  "name": "createdAt",
-                  "type": "uint256"
-                },
-                {
-                  "internalType": "uint256",
-                  "name": "donorCount",
-                  "type": "uint256"
-                },
-                {
-                  "internalType": "uint256",
-                  "name": "milestoneCount",
-                  "type": "uint256"
-                }
-              ],
-              "internalType": "struct Covenant.Campaign",
-              "name": "",
-              "type": "tuple"
-            }
-          ],
-          "stateMutability": "view",
-          "type": "function"
-        },
-        {
-          "inputs": [
-            {
-              "internalType": "address",
-              "name": "creator",
-              "type": "address"
-            }
-          ],
-          "name": "getCreatorStats",
-          "outputs": [
-            {
-              "components": [
-                {
-                  "internalType": "uint256",
-                  "name": "campaignsCreated",
-                  "type": "uint256"
-                },
-                {
-                  "internalType": "uint256",
-                  "name": "campaignsCompleted",
-                  "type": "uint256"
-                },
-                {
-                  "internalType": "uint256",
-                  "name": "totalRaised",
-                  "type": "uint256"
-                },
-                {
-                  "internalType": "uint256",
-                  "name": "totalReleased",
-                  "type": "uint256"
-                },
-                {
-                  "internalType": "uint256",
-                  "name": "milestonesCompleted",
-                  "type": "uint256"
-                },
-                {
-                  "internalType": "uint256",
-                  "name": "evidenceUpdates",
-                  "type": "uint256"
-                }
-              ],
-              "internalType": "struct Covenant.CreatorStats",
-              "name": "",
-              "type": "tuple"
-            }
-          ],
-          "stateMutability": "view",
-          "type": "function"
-        },
-        {
-          "inputs": [
-            {
-              "internalType": "uint256",
-              "name": "campaignId",
-              "type": "uint256"
-            },
-            {
-              "internalType": "address",
-              "name": "donor",
-              "type": "address"
-            }
-          ],
-          "name": "getDonation",
-          "outputs": [
-            {
-              "internalType": "uint256",
-              "name": "",
-              "type": "uint256"
-            }
-          ],
-          "stateMutability": "view",
-          "type": "function"
-        },
-        {
-          "inputs": [
-            {
-              "internalType": "uint256",
-              "name": "campaignId",
-              "type": "uint256"
-            }
-          ],
-          "name": "getDonors",
-          "outputs": [
-            {
-              "internalType": "address[]",
-              "name": "",
-              "type": "address[]"
-            }
-          ],
-          "stateMutability": "view",
-          "type": "function"
-        },
-        {
-          "inputs": [
-            {
-              "internalType": "uint256",
-              "name": "campaignId",
-              "type": "uint256"
-            },
-            {
-              "internalType": "uint256",
-              "name": "index",
-              "type": "uint256"
-            }
-          ],
-          "name": "getMilestone",
-          "outputs": [
-            {
-              "components": [
-                {
-                  "internalType": "string",
-                  "name": "description",
-                  "type": "string"
-                },
-                {
-                  "internalType": "uint256",
-                  "name": "amount",
-                  "type": "uint256"
-                },
-                {
-                  "internalType": "string",
-                  "name": "evidence",
-                  "type": "string"
-                },
-                {
-                  "internalType": "bool",
-                  "name": "evidenceSubmitted",
-                  "type": "bool"
-                },
-                {
-                  "internalType": "bool",
-                  "name": "released",
-                  "type": "bool"
-                }
-              ],
-              "internalType": "struct Covenant.Milestone",
-              "name": "",
-              "type": "tuple"
-            }
-          ],
-          "stateMutability": "view",
-          "type": "function"
-        },
-        {
-          "inputs": [
-            {
-              "internalType": "uint256",
-              "name": "campaignId",
-              "type": "uint256"
-            }
-          ],
-          "name": "getMilestones",
-          "outputs": [
-            {
-              "components": [
-                {
-                  "internalType": "string",
-                  "name": "description",
-                  "type": "string"
-                },
-                {
-                  "internalType": "uint256",
-                  "name": "amount",
-                  "type": "uint256"
-                },
-                {
-                  "internalType": "string",
-                  "name": "evidence",
-                  "type": "string"
-                },
-                {
-                  "internalType": "bool",
-                  "name": "evidenceSubmitted",
-                  "type": "bool"
-                },
-                {
-                  "internalType": "bool",
-                  "name": "released",
-                  "type": "bool"
-                }
-              ],
-              "internalType": "struct Covenant.Milestone[]",
-              "name": "",
-              "type": "tuple[]"
-            }
-          ],
-          "stateMutability": "view",
-          "type": "function"
-        },
-        {
-          "inputs": [
-            {
-              "internalType": "uint256",
-              "name": "campaignId",
-              "type": "uint256"
-            },
-            {
-              "internalType": "string",
-              "name": "evidence",
-              "type": "string"
-            }
-          ],
-          "name": "submitEvidence",
-          "outputs": [],
-          "stateMutability": "nonpayable",
-          "type": "function"
-        },
-        {
-          "inputs": [
-            {
-              "internalType": "address",
-              "name": "creator",
-              "type": "address"
-            }
-          ],
-          "name": "trustScore",
-          "outputs": [
-            {
-              "internalType": "uint256",
-              "name": "",
-              "type": "uint256"
-            }
-          ],
-          "stateMutability": "view",
-          "type": "function"
-        }
-      ]
-    }
-  },
-  "31337": {
-    "Covenant": {
-      "address": "0xc6e7DF5E7b4f2A278906862b61205850344D4e7d",
-      "deployBlock": 34,
+      "address": "0xe11CE961Ff378B5D5172DE6ABfE8c16f900e10F3",
+      "deployBlock": 48139854,
       "abi": [
         {
           "inputs": [
@@ -1496,7 +855,866 @@
       ]
     },
     "USDC": {
-      "address": "0x3Aa5ebB10DC797CAC828524e59A333d0A371443c"
+      "address": "0x833589fcB6E61E26EE7660cE1C83e66bc46d47c9"
+    }
+  },
+  "31337": {
+    "Covenant": {
+      "address": "0xDc64a140Aa3E981100a9becA4E685f962f0cF6C9",
+      "deployBlock": 10,
+      "abi": [
+        {
+          "inputs": [
+            {
+              "internalType": "contract IERC20",
+              "name": "usdc_",
+              "type": "address"
+            }
+          ],
+          "stateMutability": "nonpayable",
+          "type": "constructor"
+        },
+        {
+          "inputs": [
+            {
+              "internalType": "address",
+              "name": "owner",
+              "type": "address"
+            }
+          ],
+          "name": "OwnableInvalidOwner",
+          "type": "error"
+        },
+        {
+          "inputs": [
+            {
+              "internalType": "address",
+              "name": "account",
+              "type": "address"
+            }
+          ],
+          "name": "OwnableUnauthorizedAccount",
+          "type": "error"
+        },
+        {
+          "inputs": [],
+          "name": "ReentrancyGuardReentrantCall",
+          "type": "error"
+        },
+        {
+          "inputs": [
+            {
+              "internalType": "address",
+              "name": "token",
+              "type": "address"
+            }
+          ],
+          "name": "SafeERC20FailedOperation",
+          "type": "error"
+        },
+        {
+          "anonymous": false,
+          "inputs": [
+            {
+              "indexed": true,
+              "internalType": "uint256",
+              "name": "campaignId",
+              "type": "uint256"
+            }
+          ],
+          "name": "CampaignCompleted",
+          "type": "event"
+        },
+        {
+          "anonymous": false,
+          "inputs": [
+            {
+              "indexed": true,
+              "internalType": "uint256",
+              "name": "campaignId",
+              "type": "uint256"
+            },
+            {
+              "indexed": true,
+              "internalType": "address",
+              "name": "creator",
+              "type": "address"
+            },
+            {
+              "indexed": false,
+              "internalType": "string",
+              "name": "title",
+              "type": "string"
+            },
+            {
+              "indexed": false,
+              "internalType": "uint256",
+              "name": "goalAmount",
+              "type": "uint256"
+            },
+            {
+              "indexed": false,
+              "internalType": "uint256",
+              "name": "milestoneCount",
+              "type": "uint256"
+            }
+          ],
+          "name": "CampaignCreated",
+          "type": "event"
+        },
+        {
+          "anonymous": false,
+          "inputs": [
+            {
+              "indexed": true,
+              "internalType": "address",
+              "name": "creator",
+              "type": "address"
+            },
+            {
+              "indexed": false,
+              "internalType": "bool",
+              "name": "approved",
+              "type": "bool"
+            }
+          ],
+          "name": "CreatorApprovalChanged",
+          "type": "event"
+        },
+        {
+          "anonymous": false,
+          "inputs": [
+            {
+              "indexed": true,
+              "internalType": "uint256",
+              "name": "campaignId",
+              "type": "uint256"
+            },
+            {
+              "indexed": true,
+              "internalType": "address",
+              "name": "donor",
+              "type": "address"
+            },
+            {
+              "indexed": false,
+              "internalType": "uint256",
+              "name": "amount",
+              "type": "uint256"
+            },
+            {
+              "indexed": false,
+              "internalType": "uint256",
+              "name": "totalRaised",
+              "type": "uint256"
+            }
+          ],
+          "name": "DonationReceived",
+          "type": "event"
+        },
+        {
+          "anonymous": false,
+          "inputs": [
+            {
+              "indexed": true,
+              "internalType": "uint256",
+              "name": "campaignId",
+              "type": "uint256"
+            },
+            {
+              "indexed": true,
+              "internalType": "uint256",
+              "name": "milestoneIndex",
+              "type": "uint256"
+            },
+            {
+              "indexed": false,
+              "internalType": "string",
+              "name": "evidence",
+              "type": "string"
+            }
+          ],
+          "name": "EvidenceSubmitted",
+          "type": "event"
+        },
+        {
+          "anonymous": false,
+          "inputs": [
+            {
+              "indexed": true,
+              "internalType": "uint256",
+              "name": "campaignId",
+              "type": "uint256"
+            },
+            {
+              "indexed": true,
+              "internalType": "uint256",
+              "name": "milestoneIndex",
+              "type": "uint256"
+            },
+            {
+              "indexed": false,
+              "internalType": "uint256",
+              "name": "amount",
+              "type": "uint256"
+            },
+            {
+              "indexed": false,
+              "internalType": "address",
+              "name": "creator",
+              "type": "address"
+            }
+          ],
+          "name": "MilestoneReleased",
+          "type": "event"
+        },
+        {
+          "anonymous": false,
+          "inputs": [
+            {
+              "indexed": true,
+              "internalType": "address",
+              "name": "previousOwner",
+              "type": "address"
+            },
+            {
+              "indexed": true,
+              "internalType": "address",
+              "name": "newOwner",
+              "type": "address"
+            }
+          ],
+          "name": "OwnershipTransferred",
+          "type": "event"
+        },
+        {
+          "inputs": [],
+          "name": "CREATION_COOLDOWN",
+          "outputs": [
+            {
+              "internalType": "uint256",
+              "name": "",
+              "type": "uint256"
+            }
+          ],
+          "stateMutability": "view",
+          "type": "function"
+        },
+        {
+          "inputs": [],
+          "name": "FREE_CAMPAIGNS",
+          "outputs": [
+            {
+              "internalType": "uint256",
+              "name": "",
+              "type": "uint256"
+            }
+          ],
+          "stateMutability": "view",
+          "type": "function"
+        },
+        {
+          "inputs": [],
+          "name": "MAX_MILESTONES",
+          "outputs": [
+            {
+              "internalType": "uint256",
+              "name": "",
+              "type": "uint256"
+            }
+          ],
+          "stateMutability": "view",
+          "type": "function"
+        },
+        {
+          "inputs": [
+            {
+              "internalType": "address",
+              "name": "",
+              "type": "address"
+            }
+          ],
+          "name": "approvedCreators",
+          "outputs": [
+            {
+              "internalType": "bool",
+              "name": "",
+              "type": "bool"
+            }
+          ],
+          "stateMutability": "view",
+          "type": "function"
+        },
+        {
+          "inputs": [],
+          "name": "campaignCount",
+          "outputs": [
+            {
+              "internalType": "uint256",
+              "name": "",
+              "type": "uint256"
+            }
+          ],
+          "stateMutability": "view",
+          "type": "function"
+        },
+        {
+          "inputs": [
+            {
+              "internalType": "string",
+              "name": "title",
+              "type": "string"
+            },
+            {
+              "internalType": "string",
+              "name": "description",
+              "type": "string"
+            },
+            {
+              "internalType": "string[]",
+              "name": "milestoneDescriptions",
+              "type": "string[]"
+            },
+            {
+              "internalType": "uint256[]",
+              "name": "milestoneAmounts",
+              "type": "uint256[]"
+            }
+          ],
+          "name": "createCampaign",
+          "outputs": [
+            {
+              "internalType": "uint256",
+              "name": "campaignId",
+              "type": "uint256"
+            }
+          ],
+          "stateMutability": "nonpayable",
+          "type": "function"
+        },
+        {
+          "inputs": [
+            {
+              "internalType": "uint256",
+              "name": "campaignId",
+              "type": "uint256"
+            },
+            {
+              "internalType": "uint256",
+              "name": "amount",
+              "type": "uint256"
+            }
+          ],
+          "name": "donate",
+          "outputs": [],
+          "stateMutability": "nonpayable",
+          "type": "function"
+        },
+        {
+          "inputs": [
+            {
+              "internalType": "uint256",
+              "name": "",
+              "type": "uint256"
+            },
+            {
+              "internalType": "address",
+              "name": "",
+              "type": "address"
+            }
+          ],
+          "name": "donations",
+          "outputs": [
+            {
+              "internalType": "uint256",
+              "name": "",
+              "type": "uint256"
+            }
+          ],
+          "stateMutability": "view",
+          "type": "function"
+        },
+        {
+          "inputs": [],
+          "name": "getAllCampaigns",
+          "outputs": [
+            {
+              "components": [
+                {
+                  "internalType": "uint256",
+                  "name": "id",
+                  "type": "uint256"
+                },
+                {
+                  "internalType": "address",
+                  "name": "creator",
+                  "type": "address"
+                },
+                {
+                  "internalType": "string",
+                  "name": "title",
+                  "type": "string"
+                },
+                {
+                  "internalType": "string",
+                  "name": "description",
+                  "type": "string"
+                },
+                {
+                  "internalType": "uint256",
+                  "name": "goalAmount",
+                  "type": "uint256"
+                },
+                {
+                  "internalType": "uint256",
+                  "name": "totalRaised",
+                  "type": "uint256"
+                },
+                {
+                  "internalType": "uint256",
+                  "name": "totalReleased",
+                  "type": "uint256"
+                },
+                {
+                  "internalType": "bool",
+                  "name": "active",
+                  "type": "bool"
+                },
+                {
+                  "internalType": "bool",
+                  "name": "completed",
+                  "type": "bool"
+                },
+                {
+                  "internalType": "uint256",
+                  "name": "currentMilestone",
+                  "type": "uint256"
+                },
+                {
+                  "internalType": "uint256",
+                  "name": "createdAt",
+                  "type": "uint256"
+                },
+                {
+                  "internalType": "uint256",
+                  "name": "donorCount",
+                  "type": "uint256"
+                },
+                {
+                  "internalType": "uint256",
+                  "name": "milestoneCount",
+                  "type": "uint256"
+                }
+              ],
+              "internalType": "struct Covenant.Campaign[]",
+              "name": "list",
+              "type": "tuple[]"
+            }
+          ],
+          "stateMutability": "view",
+          "type": "function"
+        },
+        {
+          "inputs": [
+            {
+              "internalType": "uint256",
+              "name": "campaignId",
+              "type": "uint256"
+            }
+          ],
+          "name": "getCampaign",
+          "outputs": [
+            {
+              "components": [
+                {
+                  "internalType": "uint256",
+                  "name": "id",
+                  "type": "uint256"
+                },
+                {
+                  "internalType": "address",
+                  "name": "creator",
+                  "type": "address"
+                },
+                {
+                  "internalType": "string",
+                  "name": "title",
+                  "type": "string"
+                },
+                {
+                  "internalType": "string",
+                  "name": "description",
+                  "type": "string"
+                },
+                {
+                  "internalType": "uint256",
+                  "name": "goalAmount",
+                  "type": "uint256"
+                },
+                {
+                  "internalType": "uint256",
+                  "name": "totalRaised",
+                  "type": "uint256"
+                },
+                {
+                  "internalType": "uint256",
+                  "name": "totalReleased",
+                  "type": "uint256"
+                },
+                {
+                  "internalType": "bool",
+                  "name": "active",
+                  "type": "bool"
+                },
+                {
+                  "internalType": "bool",
+                  "name": "completed",
+                  "type": "bool"
+                },
+                {
+                  "internalType": "uint256",
+                  "name": "currentMilestone",
+                  "type": "uint256"
+                },
+                {
+                  "internalType": "uint256",
+                  "name": "createdAt",
+                  "type": "uint256"
+                },
+                {
+                  "internalType": "uint256",
+                  "name": "donorCount",
+                  "type": "uint256"
+                },
+                {
+                  "internalType": "uint256",
+                  "name": "milestoneCount",
+                  "type": "uint256"
+                }
+              ],
+              "internalType": "struct Covenant.Campaign",
+              "name": "",
+              "type": "tuple"
+            }
+          ],
+          "stateMutability": "view",
+          "type": "function"
+        },
+        {
+          "inputs": [
+            {
+              "internalType": "address",
+              "name": "creator",
+              "type": "address"
+            }
+          ],
+          "name": "getCreatorStats",
+          "outputs": [
+            {
+              "components": [
+                {
+                  "internalType": "uint256",
+                  "name": "campaignsCreated",
+                  "type": "uint256"
+                },
+                {
+                  "internalType": "uint256",
+                  "name": "campaignsCompleted",
+                  "type": "uint256"
+                },
+                {
+                  "internalType": "uint256",
+                  "name": "totalRaised",
+                  "type": "uint256"
+                },
+                {
+                  "internalType": "uint256",
+                  "name": "totalReleased",
+                  "type": "uint256"
+                },
+                {
+                  "internalType": "uint256",
+                  "name": "milestonesCompleted",
+                  "type": "uint256"
+                },
+                {
+                  "internalType": "uint256",
+                  "name": "evidenceUpdates",
+                  "type": "uint256"
+                }
+              ],
+              "internalType": "struct Covenant.CreatorStats",
+              "name": "",
+              "type": "tuple"
+            }
+          ],
+          "stateMutability": "view",
+          "type": "function"
+        },
+        {
+          "inputs": [
+            {
+              "internalType": "uint256",
+              "name": "campaignId",
+              "type": "uint256"
+            },
+            {
+              "internalType": "address",
+              "name": "donor",
+              "type": "address"
+            }
+          ],
+          "name": "getDonation",
+          "outputs": [
+            {
+              "internalType": "uint256",
+              "name": "",
+              "type": "uint256"
+            }
+          ],
+          "stateMutability": "view",
+          "type": "function"
+        },
+        {
+          "inputs": [
+            {
+              "internalType": "uint256",
+              "name": "campaignId",
+              "type": "uint256"
+            }
+          ],
+          "name": "getDonors",
+          "outputs": [
+            {
+              "internalType": "address[]",
+              "name": "",
+              "type": "address[]"
+            }
+          ],
+          "stateMutability": "view",
+          "type": "function"
+        },
+        {
+          "inputs": [
+            {
+              "internalType": "uint256",
+              "name": "campaignId",
+              "type": "uint256"
+            },
+            {
+              "internalType": "uint256",
+              "name": "index",
+              "type": "uint256"
+            }
+          ],
+          "name": "getMilestone",
+          "outputs": [
+            {
+              "components": [
+                {
+                  "internalType": "string",
+                  "name": "description",
+                  "type": "string"
+                },
+                {
+                  "internalType": "uint256",
+                  "name": "amount",
+                  "type": "uint256"
+                },
+                {
+                  "internalType": "string",
+                  "name": "evidence",
+                  "type": "string"
+                },
+                {
+                  "internalType": "bool",
+                  "name": "evidenceSubmitted",
+                  "type": "bool"
+                },
+                {
+                  "internalType": "bool",
+                  "name": "released",
+                  "type": "bool"
+                }
+              ],
+              "internalType": "struct Covenant.Milestone",
+              "name": "",
+              "type": "tuple"
+            }
+          ],
+          "stateMutability": "view",
+          "type": "function"
+        },
+        {
+          "inputs": [
+            {
+              "internalType": "uint256",
+              "name": "campaignId",
+              "type": "uint256"
+            }
+          ],
+          "name": "getMilestones",
+          "outputs": [
+            {
+              "components": [
+                {
+                  "internalType": "string",
+                  "name": "description",
+                  "type": "string"
+                },
+                {
+                  "internalType": "uint256",
+                  "name": "amount",
+                  "type": "uint256"
+                },
+                {
+                  "internalType": "string",
+                  "name": "evidence",
+                  "type": "string"
+                },
+                {
+                  "internalType": "bool",
+                  "name": "evidenceSubmitted",
+                  "type": "bool"
+                },
+                {
+                  "internalType": "bool",
+                  "name": "released",
+                  "type": "bool"
+                }
+              ],
+              "internalType": "struct Covenant.Milestone[]",
+              "name": "",
+              "type": "tuple[]"
+            }
+          ],
+          "stateMutability": "view",
+          "type": "function"
+        },
+        {
+          "inputs": [
+            {
+              "internalType": "address",
+              "name": "",
+              "type": "address"
+            }
+          ],
+          "name": "lastCampaignAt",
+          "outputs": [
+            {
+              "internalType": "uint256",
+              "name": "",
+              "type": "uint256"
+            }
+          ],
+          "stateMutability": "view",
+          "type": "function"
+        },
+        {
+          "inputs": [],
+          "name": "owner",
+          "outputs": [
+            {
+              "internalType": "address",
+              "name": "",
+              "type": "address"
+            }
+          ],
+          "stateMutability": "view",
+          "type": "function"
+        },
+        {
+          "inputs": [],
+          "name": "renounceOwnership",
+          "outputs": [],
+          "stateMutability": "nonpayable",
+          "type": "function"
+        },
+        {
+          "inputs": [
+            {
+              "internalType": "address",
+              "name": "creator",
+              "type": "address"
+            },
+            {
+              "internalType": "bool",
+              "name": "approved",
+              "type": "bool"
+            }
+          ],
+          "name": "setCreatorApproval",
+          "outputs": [],
+          "stateMutability": "nonpayable",
+          "type": "function"
+        },
+        {
+          "inputs": [
+            {
+              "internalType": "uint256",
+              "name": "campaignId",
+              "type": "uint256"
+            },
+            {
+              "internalType": "string",
+              "name": "evidence",
+              "type": "string"
+            }
+          ],
+          "name": "submitEvidence",
+          "outputs": [],
+          "stateMutability": "nonpayable",
+          "type": "function"
+        },
+        {
+          "inputs": [
+            {
+              "internalType": "address",
+              "name": "newOwner",
+              "type": "address"
+            }
+          ],
+          "name": "transferOwnership",
+          "outputs": [],
+          "stateMutability": "nonpayable",
+          "type": "function"
+        },
+        {
+          "inputs": [
+            {
+              "internalType": "address",
+              "name": "creator",
+              "type": "address"
+            }
+          ],
+          "name": "trustScore",
+          "outputs": [
+            {
+              "internalType": "uint256",
+              "name": "",
+              "type": "uint256"
+            }
+          ],
+          "stateMutability": "view",
+          "type": "function"
+        },
+        {
+          "inputs": [],
+          "name": "usdc",
+          "outputs": [
+            {
+              "internalType": "contract IERC20",
+              "name": "",
+              "type": "address"
+            }
+          ],
+          "stateMutability": "view",
+          "type": "function"
+        }
+      ]
+    },
+    "USDC": {
+      "address": "0xCf7Ed3AccA5a467e9e704C703E8D87F634fB0Fc9"
     }
   }
 }
