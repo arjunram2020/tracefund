@@ -10,18 +10,30 @@ import {
   useWriteContract,
 } from "wagmi";
 import { useQueryClient } from "@tanstack/react-query";
-import { getCovenant, getCovenantAbi, getUsdcAddress, resolveReadChainId } from "../lib/contract";
+import {
+  getCovenant,
+  getCovenantAbi,
+  getDeploymentMode,
+  getUsdcAddress,
+  resolveReadChainId,
+  supportsContractFunction,
+} from "../lib/contract";
 import type { Campaign, CreatorStats, Milestone } from "../lib/types";
 
 export function useReadChain() {
   const connectedChainId = useChainId();
   const chainId = resolveReadChainId(connectedChainId);
   const deployment = getCovenant(chainId);
+  const connectedMode = getDeploymentMode(connectedChainId);
+  const mode = getDeploymentMode(chainId);
   return {
     chainId,
     address: deployment?.address,
     abi: getCovenantAbi(chainId),
     deployed: !!deployment,
+    mode,
+    connectedMode,
+    writeEnabled: mode === "active",
     connectedChainId,
   };
 }
@@ -123,13 +135,15 @@ export function useMyDonation(id?: bigint, donor?: `0x${string}`) {
  */
 export function useCreatorAccess(creator?: `0x${string}`) {
   const { address, abi, chainId } = useReadChain();
+  const supportsApprovedCreators = supportsContractFunction(chainId, "approvedCreators");
+  const supportsLastCampaignAt = supportsContractFunction(chainId, "lastCampaignAt");
   const approvedQ = useReadContract({
     address,
     abi,
     functionName: "approvedCreators",
     args: creator ? [creator] : undefined,
     chainId,
-    query: { enabled: !!address && !!creator },
+    query: { enabled: !!address && !!creator && supportsApprovedCreators },
   });
   const lastQ = useReadContract({
     address,
@@ -137,18 +151,18 @@ export function useCreatorAccess(creator?: `0x${string}`) {
     functionName: "lastCampaignAt",
     args: creator ? [creator] : undefined,
     chainId,
-    query: { enabled: !!address && !!creator },
+    query: { enabled: !!address && !!creator && supportsLastCampaignAt },
   });
   return {
-    approved: approvedQ.data as boolean | undefined,
-    lastCampaignAt: lastQ.data as bigint | undefined,
+    approved: supportsApprovedCreators ? (approvedQ.data as boolean | undefined) : undefined,
+    lastCampaignAt: supportsLastCampaignAt ? (lastQ.data as bigint | undefined) : undefined,
   };
 }
 
 export type CovenantFn = "createCampaign" | "donate" | "submitEvidence";
 
 export function useCovenantWrite() {
-  const { address, abi, chainId } = useReadChain();
+  const { address, abi, chainId, writeEnabled } = useReadChain();
   const connectedChainId = useChainId();
   const { switchChainAsync } = useSwitchChain();
   const queryClient = useQueryClient();
@@ -161,6 +175,11 @@ export function useCovenantWrite() {
 
   const execute = useCallback(
     async (functionName: CovenantFn, args: unknown[]) => {
+      if (!writeEnabled) {
+        throw new Error(
+          "This network only has a legacy ETH Covenant deployment. Redeploy the USDC contract before sending write transactions.",
+        );
+      }
       if (!address) throw new Error("Covenant is not deployed on this network.");
       if (connectedChainId !== chainId) {
         await switchChainAsync({ chainId });
@@ -174,7 +193,7 @@ export function useCovenantWrite() {
       } as any);
       return txHash;
     },
-    [address, abi, chainId, connectedChainId, switchChainAsync, writeContractAsync],
+    [address, abi, chainId, connectedChainId, switchChainAsync, writeContractAsync, writeEnabled],
   );
 
   const refresh = useCallback(() => {
@@ -198,7 +217,7 @@ export function useCovenantWrite() {
  * and an approve() writer. Donating is a two-step flow — approve, then donate.
  */
 export function useUsdc(owner?: `0x${string}`) {
-  const { address: covenantAddress, chainId } = useReadChain();
+  const { address: covenantAddress, chainId, writeEnabled } = useReadChain();
   const usdcAddress = getUsdcAddress(chainId);
   const connectedChainId = useChainId();
   const { switchChainAsync } = useSwitchChain();
@@ -209,7 +228,7 @@ export function useUsdc(owner?: `0x${string}`) {
     functionName: "allowance",
     args: owner && covenantAddress ? [owner, covenantAddress] : undefined,
     chainId,
-    query: { enabled: !!usdcAddress && !!owner && !!covenantAddress },
+    query: { enabled: writeEnabled && !!usdcAddress && !!owner && !!covenantAddress },
   });
 
   const balanceQ = useReadContract({
@@ -218,7 +237,7 @@ export function useUsdc(owner?: `0x${string}`) {
     functionName: "balanceOf",
     args: owner ? [owner] : undefined,
     chainId,
-    query: { enabled: !!usdcAddress && !!owner },
+    query: { enabled: writeEnabled && !!usdcAddress && !!owner },
   });
 
   const { writeContractAsync, data: hash, isPending, error, reset } = useWriteContract();
@@ -239,6 +258,11 @@ export function useUsdc(owner?: `0x${string}`) {
 
   const approve = useCallback(
     async (amount: bigint) => {
+      if (!writeEnabled) {
+        throw new Error(
+          "This network only has a legacy ETH Covenant deployment. Redeploy the USDC contract before approving donations.",
+        );
+      }
       if (!usdcAddress || !covenantAddress) {
         throw new Error("USDC is not configured on this network.");
       }
@@ -253,7 +277,7 @@ export function useUsdc(owner?: `0x${string}`) {
         chainId,
       });
     },
-    [usdcAddress, covenantAddress, chainId, connectedChainId, switchChainAsync, writeContractAsync],
+    [usdcAddress, covenantAddress, chainId, connectedChainId, switchChainAsync, writeContractAsync, writeEnabled],
   );
 
   return {

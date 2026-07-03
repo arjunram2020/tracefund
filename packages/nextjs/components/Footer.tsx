@@ -5,7 +5,7 @@ export function Footer() {
     <footer className="border-t border-[var(--border-primary)] py-8">
       <div className="mx-auto flex max-w-6xl flex-col items-center justify-between gap-3 px-4 text-sm text-[var(--text-tertiary)] sm:flex-row sm:px-6">
         <p>
-          Covenant · Donations follow the proof. Built on Ethereum &amp; Base.
+          Covenant · Donations follow the proof. USDC on Base, ETH only for gas.
         </p>
         <div className="flex items-center gap-4">
           <Link href="/campaigns" className="hover:text-[var(--text-secondary)]">

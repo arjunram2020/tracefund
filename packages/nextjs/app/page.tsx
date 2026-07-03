@@ -111,7 +111,7 @@ export default function HomePage() {
           }}
         >
           <span className="h-1.5 w-1.5 rounded-full" style={{ background: "var(--brand-primary)" }} />
-          Milestone-based · On-chain escrow · Base &amp; Ethereum
+          Milestone-based · USDC escrow · Base
         </div>
 
         <h1
@@ -147,7 +147,7 @@ export default function HomePage() {
           <div className="flex flex-wrap items-center justify-center gap-8">
             {[
               { label: "Base", icon: "⬡" },
-              { label: "Ethereum", icon: "◆" },
+              { label: "USDC", icon: "$" },
               { label: "IPFS", icon: "◉" },
               { label: "Alchemy", icon: "✦" },
             ].map((p) => (
@@ -274,7 +274,8 @@ export default function HomePage() {
             What lives on-chain
           </h2>
           <p className="mx-auto mb-10 max-w-sm text-base" style={{ color: "var(--text-secondary)" }}>
-            Covenant uses Ethereum for the parts that shouldn&apos;t depend on trust.
+            Covenant uses Base for the trustless record. USDC is the fundraising asset; ETH is only
+            used for gas.
           </p>
           <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
             {ON_CHAIN.map((item) => (

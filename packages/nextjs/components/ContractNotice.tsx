@@ -1,7 +1,7 @@
 "use client";
 
 import { useReadChain } from "../hooks/useCovenant";
-import { deployedChainIds } from "../lib/contract";
+import { activeChainIds } from "../lib/contract";
 
 const CHAIN_NAMES: Record<number, string> = {
   31337: "Hardhat localhost",
@@ -15,10 +15,23 @@ const CHAIN_NAMES: Record<number, string> = {
  * (e.g. the wallet is on an unsupported network).
  */
 export function ContractNotice() {
-  const { deployed, chainId } = useReadChain();
-  if (deployed) return null;
+  const { connectedChainId, connectedMode, chainId, mode } = useReadChain();
+  if (connectedChainId != null && connectedMode === "legacy") {
+    return (
+      <div className="card border-amber-600/30 bg-amber-600/[0.06] p-4 text-sm text-amber-200">
+        <p className="font-medium">
+          Base Mainnet is still pointing at a legacy ETH Covenant deployment.
+        </p>
+        <p className="mt-1 text-amber-700/90">
+          The current app only writes to USDC-compatible Covenant contracts, so create, donate, and
+          proof submissions are disabled on this network until the USDC version is redeployed.
+        </p>
+      </div>
+    );
+  }
+  if (mode !== "missing") return null;
 
-  const supported = deployedChainIds
+  const supported = activeChainIds
     .map((id) => CHAIN_NAMES[id] ?? `chain ${id}`)
     .join(", ");
 

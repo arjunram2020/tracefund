@@ -6,7 +6,7 @@ import { useAccount } from "wagmi";
 import { ConnectButton } from "@rainbow-me/rainbowkit";
 import type { Campaign } from "../lib/types";
 import { USDC_DECIMALS, formatUsdc } from "../lib/format";
-import { useCovenantWrite, useUsdc } from "../hooks/useCovenant";
+import { useCovenantWrite, useReadChain, useUsdc } from "../hooks/useCovenant";
 import { TxFeedback } from "./TxFeedback";
 
 // Safe demo values from PRD §9 — tiny real-USDC amounts.
@@ -20,6 +20,7 @@ export function DonationPanel({
   onSuccess?: () => void;
 }) {
   const { isConnected, address: account } = useAccount();
+  const { writeEnabled } = useReadChain();
   const [amount, setAmount] = useState("");
   const { execute, refresh, isPending, isConfirming, isConfirmed, error, hash } =
     useCovenantWrite();
@@ -115,7 +116,13 @@ export function DonationPanel({
         <span className="pill bg-[var(--brand-primary)]/10 text-[var(--brand-primary)]">USDC locked on-chain</span>
       </div>
 
-      {!campaign.active ? (
+      {!writeEnabled ? (
+        <p className="rounded-xl bg-[var(--bg-subtle)] px-4 py-3 text-sm text-[var(--text-secondary)]">
+          USDC donations are disabled here because the connected Covenant deployment is still the
+          older ETH contract. Redeploy the USDC contract on this network before accepting new
+          donations.
+        </p>
+      ) : !campaign.active ? (
         <p className="rounded-xl bg-[var(--bg-subtle)] px-4 py-3 text-sm text-[var(--text-secondary)]">
           This campaign is {campaign.completed ? "completed" : "closed"} and no longer accepting
           donations.
