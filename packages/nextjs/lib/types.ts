@@ -1,12 +1,77 @@
 // Shapes that mirror the Covenant.sol structs. viem decodes named tuple
-// outputs into objects with these exact field names.
+// outputs into objects with these exact field names; enum values arrive as
+// plain numbers matching Solidity declaration order.
+
+export const ApprovalModel = {
+  DesignatedReviewers: 0,
+  LeadDonor: 1,
+  PlatformOperator: 2,
+  /** Reserved in the contract but rejected at creation — donor-wide voting
+   *  needs snapshot + quorum design before it can be enabled. */
+  DonorVote: 3,
+} as const;
+export type ApprovalModelValue = (typeof ApprovalModel)[keyof typeof ApprovalModel];
+
+export const MilestoneState = {
+  Pending: 0,
+  Submitted: 1,
+  ChangesRequested: 2,
+  Approved: 3,
+} as const;
+export type MilestoneStateValue = (typeof MilestoneState)[keyof typeof MilestoneState];
+
+export const CampaignKind = {
+  Charity: 0,
+  Startup: 1,
+  Grant: 2,
+  Other: 3,
+} as const;
+export type CampaignKindValue = (typeof CampaignKind)[keyof typeof CampaignKind];
+
+/** What the reviewer evaluates. Evidence stays flexible; criteria don't. */
+export interface MilestoneCriteria {
+  title: string;
+  successDefinition: string;
+  reportingPeriod: string;
+  expectedMetrics: string;
+  requiredProof: string;
+  /** Unix seconds; 0n = no deadline (no timeout/refund path for this milestone). */
+  proofDeadline: bigint;
+}
 
 export interface Milestone {
-  description: string;
+  criteria: MilestoneCriteria;
   amount: bigint;
-  evidence: string;
-  evidenceSubmitted: boolean;
+  state: MilestoneStateValue;
+  submissionCount: number;
+  approvalCount: number;
+  /** Set when a reviewer rejects: the creator must resubmit by this time. */
+  revisionDeadline: bigint;
   released: boolean;
+}
+
+/** On-chain record of one proof package. The full package (narrative,
+ *  justification, metrics, evidence links) lives off-chain; the chain holds
+ *  its keccak256 hash, an optional public pointer, and a short summary. */
+export interface ProofSubmission {
+  manifestHash: `0x${string}`;
+  manifestURI: string;
+  summary: string;
+  submittedAt: bigint;
+}
+
+export interface ReviewDecision {
+  reviewer: `0x${string}`;
+  approved: boolean;
+  notes: string;
+  decidedAt: bigint;
+  submissionIndex: number;
+}
+
+export interface ApprovalConfig {
+  model: ApprovalModelValue;
+  reviewers: readonly `0x${string}`[];
+  threshold: number;
 }
 
 export interface Campaign {
@@ -14,11 +79,14 @@ export interface Campaign {
   creator: `0x${string}`;
   title: string;
   description: string;
+  kind: CampaignKindValue;
   goalAmount: bigint;
   totalRaised: bigint;
   totalReleased: bigint;
   active: boolean;
   completed: boolean;
+  /** 0n = not cancelled. Non-zero opens pro-rata refunds for donors. */
+  cancelledAt: bigint;
   currentMilestone: bigint;
   createdAt: bigint;
   donorCount: bigint;
@@ -30,13 +98,32 @@ export interface CreatorStats {
   campaignsCompleted: bigint;
   totalRaised: bigint;
   totalReleased: bigint;
-  milestonesCompleted: bigint;
-  evidenceUpdates: bigint;
+  /** Reviewer-verified milestone completions — the only thing reputation rewards. */
+  milestonesApproved: bigint;
+  /** Informational; submissions never move the trust score. */
+  proofSubmissions: bigint;
 }
 
-// Per-milestone UI status derived from on-chain state.
+// Per-milestone UI status derived from on-chain state + funding + deadlines.
 export type MilestoneStatus =
-  | "locked"             // future milestone, not yet reachable
-  | "funding"            // active, waiting for donations
-  | "awaiting-evidence"  // active with donations, creator hasn't posted proof yet
-  | "released";          // funds released to creator
+  | "locked" //             future milestone, not yet reachable
+  | "funding" //            active, tranche not yet covered by donations
+  | "awaiting-proof" //     funded, waiting on the creator's proof package
+  | "under-review" //       proof submitted, reviewers deciding
+  | "changes-requested" //  rejected with notes, creator revising
+  | "approved" //           reviewers approved; funds released
+  | "expired"; //           deadline blown — campaign can be failed / refunded
+
+export const APPROVAL_MODEL_LABELS: Record<ApprovalModelValue, string> = {
+  [ApprovalModel.DesignatedReviewers]: "Designated reviewers",
+  [ApprovalModel.LeadDonor]: "Lead donor",
+  [ApprovalModel.PlatformOperator]: "Platform operator",
+  [ApprovalModel.DonorVote]: "Donor vote (coming soon)",
+};
+
+export const CAMPAIGN_KIND_LABELS: Record<CampaignKindValue, string> = {
+  [CampaignKind.Charity]: "Charity / community",
+  [CampaignKind.Startup]: "Startup / VC",
+  [CampaignKind.Grant]: "Grant program",
+  [CampaignKind.Other]: "Other",
+};

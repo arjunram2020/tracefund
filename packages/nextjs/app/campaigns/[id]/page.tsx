@@ -18,6 +18,7 @@ import { ProgressBar } from "../../../components/ProgressBar";
 import { MilestoneTimeline } from "../../../components/MilestoneTimeline";
 import { DonationPanel } from "../../../components/DonationPanel";
 import { EvidencePanel } from "../../../components/EvidencePanel";
+import { ReviewPanel } from "../../../components/ReviewPanel";
 import { ActivityFeed } from "../../../components/ActivityFeed";
 
 export default function CampaignDetailPage() {
@@ -160,6 +161,7 @@ export default function CampaignDetailPage() {
 
         <div className="space-y-6 lg:sticky lg:top-20 lg:self-start">
           <DonationPanel campaign={campaign} />
+          <ReviewPanel campaign={campaign} milestones={milestones} />
           <EvidencePanel campaign={campaign} milestones={milestones} isCreator={isCreator} />
         </div>
       </div>

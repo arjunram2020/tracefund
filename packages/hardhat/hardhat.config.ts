@@ -30,14 +30,11 @@ const config: HardhatUserConfig = {
       url: process.env.BASE_SEPOLIA_RPC_URL || "https://sepolia.base.org",
       accounts,
     },
-    // Base Mainnet — the first production deployment target (see PRD §9).
+    // Base Mainnet — the production deployment target (see PRD §9).
+    // Ethereum mainnet is intentionally not configured: Covenant is Base-only,
+    // and an L1 deploy would cost ~100x in gas for no benefit.
     base: {
       url: process.env.BASE_RPC_URL || "https://mainnet.base.org",
-      accounts,
-    },
-    // Ethereum Mainnet — later production deployment.
-    mainnet: {
-      url: process.env.MAINNET_RPC_URL || "https://eth.llamarpc.com",
       accounts,
     },
   },
@@ -45,7 +42,6 @@ const config: HardhatUserConfig = {
     apiKey: {
       base: process.env.BASESCAN_API_KEY || "",
       baseSepolia: process.env.BASESCAN_API_KEY || "",
-      mainnet: process.env.ETHERSCAN_API_KEY || "",
     },
     customChains: [
       {

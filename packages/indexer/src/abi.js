@@ -1,6 +1,6 @@
-// The five events emitted by Covenant.sol. The indexer only needs the EVENT
-// fragments of the ABI — it never calls functions, it only listens.
-// These signatures match contracts/Covenant.sol exactly.
+// The events emitted by Covenant.sol (proof/review flow). The indexer only
+// needs the EVENT fragments of the ABI — it never calls functions, it only
+// listens. These signatures match contracts/Covenant.sol exactly.
 export const COVENANT_EVENTS = [
   {
     type: "event",
@@ -25,11 +25,25 @@ export const COVENANT_EVENTS = [
   },
   {
     type: "event",
-    name: "EvidenceSubmitted",
+    name: "ProofSubmitted",
     inputs: [
       { name: "campaignId", type: "uint256", indexed: true },
       { name: "milestoneIndex", type: "uint256", indexed: true },
-      { name: "evidence", type: "string", indexed: false },
+      { name: "submissionIndex", type: "uint256", indexed: false },
+      { name: "manifestHash", type: "bytes32", indexed: false },
+      { name: "summary", type: "string", indexed: false },
+    ],
+  },
+  {
+    type: "event",
+    name: "ProofReviewed",
+    inputs: [
+      { name: "campaignId", type: "uint256", indexed: true },
+      { name: "milestoneIndex", type: "uint256", indexed: true },
+      { name: "reviewer", type: "address", indexed: true },
+      { name: "submissionIndex", type: "uint256", indexed: false },
+      { name: "approved", type: "bool", indexed: false },
+      { name: "notes", type: "string", indexed: false },
     ],
   },
   {
@@ -46,5 +60,31 @@ export const COVENANT_EVENTS = [
     type: "event",
     name: "CampaignCompleted",
     inputs: [{ name: "campaignId", type: "uint256", indexed: true }],
+  },
+  {
+    type: "event",
+    name: "CampaignCancelled",
+    inputs: [
+      { name: "campaignId", type: "uint256", indexed: true },
+      { name: "milestoneIndex", type: "uint256", indexed: false },
+      { name: "voluntary", type: "bool", indexed: false },
+    ],
+  },
+  {
+    type: "event",
+    name: "RefundClaimed",
+    inputs: [
+      { name: "campaignId", type: "uint256", indexed: true },
+      { name: "donor", type: "address", indexed: true },
+      { name: "amount", type: "uint256", indexed: false },
+    ],
+  },
+  {
+    type: "event",
+    name: "CreatorApprovalChanged",
+    inputs: [
+      { name: "creator", type: "address", indexed: true },
+      { name: "approved", type: "bool", indexed: false },
+    ],
   },
 ];

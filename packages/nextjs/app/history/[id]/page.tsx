@@ -2,9 +2,13 @@
 
 import Link from "next/link";
 import { useParams } from "next/navigation";
-import type { Milestone } from "../../../lib/types";
-import { campaignStatus, percent } from "../../../lib/format";
-import { formatLegacyEth, legacyAddress } from "../../../lib/legacy";
+import { percent } from "../../../lib/format";
+import {
+  getArchive,
+  legacyCampaignStatus,
+  type ArchivedDeployment,
+  type LegacyMilestone,
+} from "../../../lib/legacy";
 import { useLegacyCampaign, useLegacyMilestones } from "../../../hooks/useLegacy";
 import { campaignPhoto } from "../../../lib/campaignImage";
 import { Address } from "../../../components/Address";
@@ -12,20 +16,33 @@ import { Stat } from "../../../components/Stat";
 import { ProgressBar } from "../../../components/ProgressBar";
 import { EvidenceLink } from "../../../components/EvidenceLink";
 
+/**
+ * Archived campaign detail. Route param is "<archiveKey>-<campaignId>",
+ * e.g. /history/approval-3 — plain numeric ids resolve against the original
+ * approval-era contract so old links keep working.
+ */
 export default function LegacyCampaignDetailPage() {
   const params = useParams();
   const raw = Array.isArray(params.id) ? params.id[0] : params.id;
+
+  let archive: ArchivedDeployment | undefined;
   let id: bigint | undefined;
-  try {
-    id = raw !== undefined ? BigInt(raw) : undefined;
-  } catch {
-    id = undefined;
+  if (raw !== undefined) {
+    const match = /^(?:([a-z0-9]+)-)?(\d+)$/.exec(raw);
+    if (match) {
+      archive = getArchive(match[1] ?? "approval");
+      try {
+        id = BigInt(match[2]);
+      } catch {
+        id = undefined;
+      }
+    }
   }
 
-  const { campaign, isLoading, isError } = useLegacyCampaign(id);
-  const { milestones } = useLegacyMilestones(id);
+  const { campaign, isLoading, isError } = useLegacyCampaign(archive, id);
+  const { milestones } = useLegacyMilestones(archive, id);
 
-  if (id === undefined) {
+  if (!archive || id === undefined) {
     return <CenteredMessage title="Invalid campaign" body="That campaign id is not valid." />;
   }
   if (isError) {
@@ -44,9 +61,11 @@ export default function LegacyCampaignDetailPage() {
     );
   }
 
-  const status = campaignStatus(campaign);
+  const status = legacyCampaignStatus(campaign);
   const raisedPct = percent(campaign.totalRaised, campaign.goalAmount);
   const inEscrow = campaign.totalRaised - campaign.totalReleased;
+  const amount = archive.formatAmount;
+  const symbol = archive.symbol;
 
   return (
     <div className="mx-auto max-w-6xl px-4 py-8 sm:px-6">
@@ -68,7 +87,7 @@ export default function LegacyCampaignDetailPage() {
             style={{ background: "linear-gradient(to top, rgba(0,0,0,0.5) 0%, transparent 60%)" }}
           />
           <div className="absolute bottom-4 left-6 flex flex-wrap items-center gap-2">
-            <span className="pill bg-white/90 text-[var(--text-secondary)]">Archived</span>
+            <span className="pill bg-white/90 text-[var(--text-secondary)]">{archive.label}</span>
             <span className={`pill ${status.pill}`}>{status.label}</span>
             <span className="ml-1 text-xs text-white/60">
               by <Address address={campaign.creator} className="text-white/80" />
@@ -82,17 +101,17 @@ export default function LegacyCampaignDetailPage() {
 
           {/* Read-only notice — this deployment is retired, never write to it. */}
           <div className="mt-5 rounded-xl border border-[var(--border-primary)] bg-[var(--bg-faint)] px-4 py-3 text-sm text-[var(--text-secondary)]">
-            This campaign ran in ETH on a previous version of the Covenant contract (
-            <span className="font-mono text-xs">{legacyAddress}</span> on Base) and is closed to
-            new donations. Everything shown is its permanent on-chain record.
+            This campaign ran in {symbol} on a previous version of the Covenant contract (
+            <span className="font-mono text-xs">{archive.address}</span> on Base) and is closed to
+            new donations. {archive.note} Everything shown is its permanent on-chain record.
           </div>
 
           {/* Stats */}
           <div className="mt-6 grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-6">
-            <Stat label="Raised" value={formatLegacyEth(campaign.totalRaised)} sub="ETH" accent />
-            <Stat label="Goal" value={formatLegacyEth(campaign.goalAmount)} sub="ETH" />
-            <Stat label="Released" value={formatLegacyEth(campaign.totalReleased)} sub="ETH" />
-            <Stat label="Unreleased" value={formatLegacyEth(inEscrow)} sub="ETH" />
+            <Stat label="Raised" value={amount(campaign.totalRaised)} sub={symbol} accent />
+            <Stat label="Goal" value={amount(campaign.goalAmount)} sub={symbol} />
+            <Stat label="Released" value={amount(campaign.totalReleased)} sub={symbol} />
+            <Stat label="Unreleased" value={amount(inEscrow)} sub={symbol} />
             <Stat label="Donors" value={campaign.donorCount.toString()} />
             <Stat
               label="Milestones"
@@ -115,7 +134,13 @@ export default function LegacyCampaignDetailPage() {
         <h2 className="mb-3 text-lg font-semibold text-[var(--text-primary)]">Milestones</h2>
         <ol className="relative space-y-3">
           {milestones.map((m, i) => (
-            <LegacyMilestoneRow key={i} milestone={m} index={i} milestones={milestones} />
+            <LegacyMilestoneRow
+              key={i}
+              milestone={m}
+              index={i}
+              milestones={milestones}
+              archive={archive}
+            />
           ))}
         </ol>
       </section>
@@ -127,12 +152,15 @@ function LegacyMilestoneRow({
   milestone: m,
   index: i,
   milestones,
+  archive,
 }: {
-  milestone: Milestone;
+  milestone: LegacyMilestone;
   index: number;
-  milestones: Milestone[];
+  milestones: LegacyMilestone[];
+  archive: ArchivedDeployment;
 }) {
   const cumTarget = milestones.slice(0, i + 1).reduce((s, x) => s + x.amount, 0n);
+  const amount = archive.formatAmount;
   return (
     <li className="card relative p-4">
       <div className="flex items-start gap-3">
@@ -151,10 +179,10 @@ function LegacyMilestoneRow({
             <p className="font-medium text-[var(--text-primary)]">{m.description}</p>
             <div className="flex items-center gap-2">
               <span className="text-xs text-[var(--text-tertiary)]">
-                at {formatLegacyEth(cumTarget)} ETH
+                at {amount(cumTarget)} {archive.symbol}
               </span>
               <span className="font-mono text-sm font-semibold text-[var(--brand-primary)]">
-                +{formatLegacyEth(m.amount)} ETH
+                +{amount(m.amount)} {archive.symbol}
               </span>
             </div>
           </div>

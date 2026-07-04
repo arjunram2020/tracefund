@@ -16,10 +16,39 @@ import * as path from "path";
  */
 
 // Canonical USDC addresses per chain. Anything not listed gets a MockUSDC.
+// Source: Circle / Superchain token list. Verify against
+// https://developers.circle.com/stablecoins/usdc-on-main-networks before editing.
 const USDC_ADDRESSES: Record<number, string> = {
-  8453: "0x833589fcB6E61E26EE7660cE1C83e66bc46d47c9", // Base Mainnet (native USDC)
+  8453: "0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913", // Base Mainnet (native USDC)
   84532: "0x036CbD53842c5426634e7929541eC2318f3dCF7e", // Base Sepolia (Circle testnet USDC)
 };
+
+/**
+ * The token address is immutable in Covenant, so a wrong constant above bricks
+ * the whole deployment (every donate()/release reverts against an address with
+ * no code). Refuse to deploy unless the address hosts a 6-decimal USDC token
+ * on the target network.
+ */
+async function assertLooksLikeUsdc(address: string) {
+  const code = await ethers.provider.getCode(address);
+  if (code === "0x") {
+    throw new Error(
+      `No contract bytecode at USDC address ${address} on this network — refusing to deploy Covenant against it.`,
+    );
+  }
+  const erc20 = new ethers.Contract(
+    address,
+    ["function symbol() view returns (string)", "function decimals() view returns (uint8)"],
+    ethers.provider,
+  );
+  const [symbol, decimals] = await Promise.all([erc20.symbol(), erc20.decimals()]);
+  if (Number(decimals) !== 6 || !String(symbol).toUpperCase().includes("USDC")) {
+    throw new Error(
+      `Token at ${address} reports symbol=${symbol}, decimals=${decimals}; expected USDC with 6 decimals — refusing to deploy.`,
+    );
+  }
+  console.log(`  verified USDC: symbol=${symbol}, decimals=${decimals}, bytecode present`);
+}
 
 async function main() {
   const [deployer] = await ethers.getSigners();
@@ -35,6 +64,7 @@ async function main() {
   let usdcAddress = USDC_ADDRESSES[chainId];
   if (usdcAddress) {
     console.log(`Using canonical USDC at ${usdcAddress}`);
+    await assertLooksLikeUsdc(usdcAddress);
   } else {
     const MockFactory = await ethers.getContractFactory("MockUSDC");
     const mock = await MockFactory.deploy();
@@ -54,9 +84,70 @@ async function main() {
 
   console.log(`Covenant deployed to: ${address} (block ${deployBlock})`);
 
+  // Post-deploy verification: the immutable token baked into the contract
+  // must be exactly the address we validated above, and the contract itself
+  // must have bytecode. Fail loudly rather than exporting a broken config.
+  // Public RPCs are load-balanced and a node may lag the deployment by a few
+  // seconds, so retry stale reads before concluding anything is wrong.
+  let verified = false;
+  for (let attempt = 1; attempt <= 6 && !verified; attempt++) {
+    try {
+      const covenantCode = await ethers.provider.getCode(address);
+      if (covenantCode === "0x") throw new Error("no bytecode yet");
+      const onChainUsdc = await covenant.usdc();
+      if (onChainUsdc.toLowerCase() !== usdcAddress.toLowerCase()) {
+        // A real mismatch, not propagation lag — abort immediately.
+        throw new Error(
+          `FATAL: deployed Covenant reports usdc()=${onChainUsdc}, expected ${usdcAddress}`,
+        );
+      }
+      verified = true;
+    } catch (err: any) {
+      if (String(err?.message).startsWith("FATAL")) throw err;
+      if (attempt === 6) {
+        throw new Error(
+          `Could not verify the deployment after ${attempt} attempts (${err?.shortMessage ?? err?.message}) — aborting export.`,
+        );
+      }
+      console.log(`  verification read not propagated yet (attempt ${attempt}) — retrying…`);
+      await new Promise((r) => setTimeout(r, 5000));
+    }
+  }
+  console.log(`  verified on-chain: usdc() matches, Covenant bytecode present`);
+
   await exportToFrontend(chainId, address, deployBlock, usdcAddress);
+  verifyExport(chainId, address, usdcAddress);
 
   console.log(`\nDone. Frontend contract config updated for chainId ${chainId}.\n`);
+}
+
+/**
+ * Read the exported frontend config back and confirm it matches what was
+ * actually deployed — the frontend must never point at a different contract
+ * or token than the chain has.
+ */
+function verifyExport(chainId: number, address: string, usdcAddress: string) {
+  const outFile = path.resolve(__dirname, "../../nextjs/contracts/deployedContracts.json");
+  const json = JSON.parse(fs.readFileSync(outFile, "utf8"));
+  const entry = json?.[chainId];
+  if (
+    entry?.Covenant?.address !== address ||
+    entry?.USDC?.address !== usdcAddress ||
+    !Array.isArray(entry?.Covenant?.abi)
+  ) {
+    throw new Error(
+      `Exported frontend config for chainId ${chainId} does not match the deployment — fix before shipping.`,
+    );
+  }
+  const abiNames = new Set(
+    entry.Covenant.abi.filter((f: any) => f.type === "function").map((f: any) => f.name),
+  );
+  for (const fn of ["submitProof", "reviewProof", "claimRefund", "failCampaign"]) {
+    if (!abiNames.has(fn)) {
+      throw new Error(`Exported ABI is missing ${fn}() — stale artifact? Recompile and redeploy.`);
+    }
+  }
+  console.log(`  verified export: frontend config matches deployed contract + token`);
 }
 
 /**

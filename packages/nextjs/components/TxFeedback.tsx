@@ -6,7 +6,6 @@ import { shortenAddress } from "../lib/format";
 const EXPLORERS: Record<number, string> = {
   8453: "https://basescan.org",
   84532: "https://sepolia.basescan.org",
-  1: "https://etherscan.io",
 };
 
 function Spinner() {

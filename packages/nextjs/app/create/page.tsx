@@ -1,8 +1,8 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
+import { useRef, useState } from "react";
 import { useRouter } from "next/navigation";
-import { parseUnits } from "viem";
+import { isAddress, parseUnits } from "viem";
 import { useAccount } from "wagmi";
 import { ConnectButton } from "@rainbow-me/rainbowkit";
 import {
@@ -15,25 +15,46 @@ import {
 import { TxFeedback } from "../../components/TxFeedback";
 import { ContractNotice } from "../../components/ContractNotice";
 import { USDC_DECIMALS, formatUsdc } from "../../lib/format";
+import {
+  ApprovalModel,
+  CampaignKind,
+  type ApprovalModelValue,
+  type CampaignKindValue,
+} from "../../lib/types";
+import { defaultApprovalForKind, draftMilestones } from "../../lib/milestoneDrafter";
 
-const MIN_MILESTONES = 3;
-// Must match Covenant.sol MAX_MILESTONES — the contract reverts above this.
+// Must match Covenant.sol constants — the contract is the enforcer.
 const MAX_MILESTONES = 5;
+const MAX_REVIEWERS = 7;
+const FREE_CAMPAIGNS = 2;
+const CREATION_COOLDOWN_MS = 24 * 60 * 60 * 1000;
 
-const DEMO = {
-  title: "Community Medical Relief Fund",
-  description:
-    "A transparent emergency fundraiser where donations unlock in equal tranches. Each withdrawal requires on-chain proof of how the previous funds were used.",
-  mode: "even" as "even" | "manual",
-  totalGoal: "0.5",
-  milestoneCount: 3,
-  descriptions: [
-    "Hospital deposit — receipt posted on-chain",
-    "Medication purchase — purchase proof submitted",
-    "Follow-up appointment — confirmation uploaded",
-  ],
-  amounts: ["", "", ""],
-};
+interface MilestoneForm {
+  title: string;
+  amount: string; // USDC display units
+  successDefinition: string;
+  reportingPeriod: string;
+  expectedMetrics: string;
+  requiredProof: string;
+  deadline: string; // yyyy-mm-dd, "" = none
+}
+
+const emptyMilestone = (): MilestoneForm => ({
+  title: "",
+  amount: "",
+  successDefinition: "",
+  reportingPeriod: "",
+  expectedMetrics: "",
+  requiredProof: "",
+  deadline: "",
+});
+
+const KIND_OPTIONS: Array<{ value: CampaignKindValue; label: string; hint: string }> = [
+  { value: CampaignKind.Charity, label: "Charity / community", hint: "receipts, photos, delivery proof" },
+  { value: CampaignKind.Startup, label: "Startup / VC", hint: "metrics, analytics, investor review" },
+  { value: CampaignKind.Grant, label: "Grant program", hint: "deliverables, administrator sign-off" },
+  { value: CampaignKind.Other, label: "Other", hint: "" },
+];
 
 function safeParse(amount: string): bigint | null {
   try {
@@ -43,9 +64,12 @@ function safeParse(amount: string): bigint | null {
   }
 }
 
-// Mirrors Covenant.sol's anti-spam constants (FREE_CAMPAIGNS, CREATION_COOLDOWN).
-const FREE_CAMPAIGNS = 2;
-const CREATION_COOLDOWN_MS = 24 * 60 * 60 * 1000;
+function deadlineToUnix(date: string): bigint {
+  if (!date) return 0n;
+  // End of the chosen day, local time — a deadline "on July 20" means July 20 counts.
+  const ts = new Date(`${date}T23:59:59`).getTime();
+  return Number.isNaN(ts) ? 0n : BigInt(Math.floor(ts / 1000));
+}
 
 export default function CreateCampaignPage() {
   const router = useRouter();
@@ -53,6 +77,7 @@ export default function CreateCampaignPage() {
   const { writeEnabled } = useReadChain();
   const { count } = useCampaignCount();
   const predictedId = useRef<bigint | null>(null);
+  const confirmedOnce = useRef(false);
 
   // Pre-check the on-chain creation limits so users get a clear message
   // instead of a wallet revert. The contract is the actual enforcer.
@@ -68,322 +93,536 @@ export default function CreateCampaignPage() {
 
   const [title, setTitle] = useState("");
   const [description, setDescription] = useState("");
-  const [mode, setMode] = useState<"even" | "manual">("even");
+  const [kind, setKind] = useState<CampaignKindValue>(CampaignKind.Charity);
+  const [milestones, setMilestones] = useState<MilestoneForm[]>([
+    emptyMilestone(),
+    emptyMilestone(),
+    emptyMilestone(),
+  ]);
+  const [expanded, setExpanded] = useState<number | null>(0);
 
-  // Even split state
+  // Approval configuration
+  const [approvalModel, setApprovalModel] = useState<ApprovalModelValue>(
+    defaultApprovalForKind(CampaignKind.Charity).model,
+  );
+  const [approvalTouched, setApprovalTouched] = useState(false);
+  const [reviewers, setReviewers] = useState<string[]>([""]);
+  const [threshold, setThreshold] = useState(1);
+
+  // AI drafting state
+  const [drafting, setDrafting] = useState(false);
+  const [draftNote, setDraftNote] = useState<string | null>(null);
   const [totalGoal, setTotalGoal] = useState("");
-  const [milestoneCount, setMilestoneCount] = useState(3);
-
-  // Shared: per-milestone descriptions + manual amounts
-  const [descriptions, setDescriptions] = useState<string[]>(["", "", ""]);
-  const [amounts, setAmounts] = useState<string[]>(["", "", ""]);
 
   const { execute, refresh, isPending, isConfirming, isConfirmed, error, hash } =
     useCovenantWrite();
 
-  // Keep descriptions + amounts arrays in sync with milestoneCount (even mode)
-  useEffect(() => {
-    if (mode !== "even") return;
-    setDescriptions((prev) => {
-      if (prev.length === milestoneCount) return prev;
-      return prev.length < milestoneCount
-        ? [...prev, ...Array(milestoneCount - prev.length).fill("")]
-        : prev.slice(0, milestoneCount);
-    });
-    setAmounts((prev) => {
-      if (prev.length === milestoneCount) return prev;
-      return prev.length < milestoneCount
-        ? [...prev, ...Array(milestoneCount - prev.length).fill("")]
-        : prev.slice(0, milestoneCount);
-    });
-  }, [milestoneCount, mode]);
+  if (isConfirmed && predictedId.current !== null && !confirmedOnce.current) {
+    confirmedOnce.current = true;
+    refresh();
+    router.push(`/campaigns/${predictedId.current.toString()}`);
+  }
 
-  useEffect(() => {
-    if (isConfirmed && predictedId.current !== null) {
-      refresh();
-      router.push(`/campaigns/${predictedId.current.toString()}`);
+  const selectKind = (next: CampaignKindValue) => {
+    setKind(next);
+    // Smart default: only move the approval model if the user hasn't chosen one.
+    if (!approvalTouched) {
+      setApprovalModel(defaultApprovalForKind(next).model);
     }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [isConfirmed]);
+  };
 
-  // Derived values
-  const parsedGoal = safeParse(totalGoal);
-  const amountEach = parsedGoal && milestoneCount > 0 ? parsedGoal / BigInt(milestoneCount) : null;
+  const patchMilestone = (i: number, patch: Partial<MilestoneForm>) => {
+    setMilestones((prev) => prev.map((m, idx) => (idx === i ? { ...m, ...patch } : m)));
+  };
 
-  // In manual mode, compute totalGoal from sum of amounts
-  const parsedAmounts = amounts.map(safeParse);
-  const manualTotal =
-    mode === "manual" && parsedAmounts.every((a) => a !== null && a > 0n)
-      ? parsedAmounts.reduce((s, a) => s! + a!, 0n as bigint)
-      : null;
+  const addMilestone = () => {
+    setMilestones((prev) => [...prev, emptyMilestone()]);
+    setExpanded(milestones.length);
+  };
 
-  // Per-milestone amounts array to pass to contract
-  const finalAmounts: bigint[] | null = (() => {
-    if (mode === "even") {
-      if (!amountEach || !parsedGoal) return null;
-      const n = milestoneCount;
-      return Array.from({ length: n }, (_, i) =>
-        i === n - 1 ? parsedGoal - amountEach * BigInt(n - 1) : amountEach,
+  const removeMilestone = (i: number) => {
+    setMilestones((prev) => prev.filter((_, idx) => idx !== i));
+    setExpanded(null);
+  };
+
+  const splitEvenly = () => {
+    const parsed = safeParse(totalGoal);
+    if (!parsed || parsed <= 0n || milestones.length === 0) return;
+    const n = BigInt(milestones.length);
+    const each = parsed / n;
+    const last = parsed - each * (n - 1n);
+    setMilestones((prev) =>
+      prev.map((m, i) => ({
+        ...m,
+        amount: formatUsdc(i === prev.length - 1 ? last : each),
+      })),
+    );
+  };
+
+  const runDraft = async () => {
+    if (!title.trim() || !description.trim()) return;
+    setDrafting(true);
+    setDraftNote(null);
+    try {
+      const draft = await draftMilestones({
+        kind,
+        title: title.trim(),
+        description: description.trim(),
+        goalAmount: totalGoal || undefined,
+        milestoneCount: milestones.length,
+      });
+      const goal = safeParse(totalGoal);
+      setMilestones(
+        draft.milestones.map((m) => {
+          const deadline = new Date(Date.now() + m.suggestedDeadlineDays * 86_400_000);
+          const share =
+            goal && goal > 0n
+              ? formatUsdc(BigInt(Math.floor(Number(goal) * m.amountShare)))
+              : "";
+          return {
+            title: m.title,
+            amount: share,
+            successDefinition: m.successDefinition,
+            reportingPeriod: m.reportingPeriod,
+            expectedMetrics: m.expectedMetrics,
+            requiredProof: m.requiredProof,
+            deadline: m.suggestedDeadlineDays > 0 ? deadline.toISOString().slice(0, 10) : "",
+          };
+        }),
       );
-    } else {
-      if (parsedAmounts.some((a) => a === null || a <= 0n)) return null;
-      return parsedAmounts as bigint[];
+      if (!approvalTouched) {
+        setApprovalModel(draft.approval.model);
+        setThreshold(draft.approval.threshold);
+      }
+      setDraftNote(
+        `${draft.source === "llm" ? "AI draft" : "Template draft"} loaded — every field below is a suggestion. Edit until it matches what you actually committed to. ${draft.notes}`,
+      );
+      setExpanded(0);
+    } catch {
+      setDraftNote("Drafting failed — fill the milestones in manually.");
+    } finally {
+      setDrafting(false);
     }
-  })();
+  };
 
-  const titleValid = title.trim().length > 0;
-  const descValid = description.trim().length > 0;
-  const goalValid = mode === "even" ? (parsedGoal !== null && parsedGoal > 0n) : manualTotal !== null;
-  const descsValid = descriptions.every((d) => d.trim().length > 0);
-  const formValid = titleValid && descValid && goalValid && descsValid && finalAmounts !== null;
+  // ---------------------------------------------------------------------------
+  // Validation
+  // ---------------------------------------------------------------------------
+  const parsedAmounts = milestones.map((m) => safeParse(m.amount));
+  const goalTotal = parsedAmounts.every((a) => a !== null && a > 0n)
+    ? parsedAmounts.reduce((s, a) => s! + a!, 0n as bigint)
+    : null;
+
+  const milestoneErrors = milestones.map((m, i) => {
+    if (!m.title.trim()) return "needs a title";
+    if (!m.successDefinition.trim()) return "needs a success definition";
+    const a = parsedAmounts[i];
+    if (a === null || a <= 0n) return "needs a USDC amount";
+    if (m.deadline && deadlineToUnix(m.deadline) <= BigInt(Math.floor(Date.now() / 1000)))
+      return "deadline must be in the future";
+    return null;
+  });
+
+  const needsReviewers = approvalModel === ApprovalModel.DesignatedReviewers;
+  const cleanReviewers = reviewers.map((r) => r.trim()).filter((r) => r.length > 0);
+  const reviewerError = !needsReviewers
+    ? null
+    : cleanReviewers.length === 0
+      ? "Add at least one reviewer address"
+      : cleanReviewers.some((r) => !isAddress(r))
+        ? "One of the reviewer addresses is not a valid address"
+        : address && cleanReviewers.some((r) => r.toLowerCase() === address.toLowerCase())
+          ? "You cannot review your own campaign"
+          : new Set(cleanReviewers.map((r) => r.toLowerCase())).size !== cleanReviewers.length
+            ? "Duplicate reviewer address"
+            : cleanReviewers.length > MAX_REVIEWERS
+              ? `At most ${MAX_REVIEWERS} reviewers`
+              : threshold < 1 || threshold > cleanReviewers.length
+                ? "Approval threshold must be between 1 and the number of reviewers"
+                : null;
+
+  const formValid =
+    title.trim().length > 0 &&
+    description.trim().length > 0 &&
+    milestones.length >= 1 &&
+    milestones.length <= MAX_MILESTONES &&
+    milestoneErrors.every((e) => e === null) &&
+    reviewerError === null;
 
   const submit = async () => {
-    if (!formValid || !finalAmounts) return;
+    if (!formValid) return;
     predictedId.current = count;
     try {
       await execute("createCampaign", [
         title.trim(),
         description.trim(),
-        descriptions.map((d) => d.trim()),
-        finalAmounts,
+        kind,
+        {
+          model: approvalModel,
+          reviewers: needsReviewers ? cleanReviewers : [],
+          threshold: needsReviewers ? threshold : 1,
+        },
+        milestones.map((m, i) => ({
+          criteria: {
+            title: m.title.trim(),
+            successDefinition: m.successDefinition.trim(),
+            reportingPeriod: m.reportingPeriod.trim(),
+            expectedMetrics: m.expectedMetrics.trim(),
+            requiredProof: m.requiredProof.trim(),
+            proofDeadline: deadlineToUnix(m.deadline),
+          },
+          amount: parsedAmounts[i]!,
+        })),
       ]);
     } catch {
       /* surfaced via TxFeedback */
     }
   };
 
-  const loadDemo = () => {
-    setTitle(DEMO.title);
-    setDescription(DEMO.description);
-    setMode(DEMO.mode);
-    setTotalGoal(DEMO.totalGoal);
-    setMilestoneCount(DEMO.milestoneCount);
-    setDescriptions(DEMO.descriptions);
-    setAmounts(DEMO.amounts);
-  };
-
-  const addMilestone = () => {
-    setDescriptions((prev) => [...prev, ""]);
-    setAmounts((prev) => [...prev, ""]);
-  };
-
-  const removeMilestone = (i: number) => {
-    setDescriptions((prev) => prev.filter((_, idx) => idx !== i));
-    setAmounts((prev) => prev.filter((_, idx) => idx !== i));
-  };
-
-  // Cumulative thresholds for display
-  const cumulativeTargets: string[] = (() => {
-    if (mode === "even") {
-      return descriptions.map((_, i) => {
-        if (!amountEach) return "?";
-        const n = milestoneCount;
-        const cum = i === n - 1
-          ? parsedGoal! - amountEach * BigInt(n - 1) + amountEach * BigInt(i)
-          : amountEach * BigInt(i + 1);
-        return formatUsdc(cum);
-      });
-    } else {
-      let running = 0n;
-      return parsedAmounts.map((a) => {
-        if (a === null) return "?";
-        running += a;
-        return formatUsdc(running);
-      });
-    }
-  })();
-
   return (
     <div className="mx-auto max-w-3xl px-4 py-10 sm:px-6">
-      <div className="mb-6 flex items-center justify-between">
-        <div>
-          <h1 className="text-2xl font-bold text-[var(--text-primary)]">Create a campaign</h1>
-          <p className="mt-1 text-sm text-[var(--text-secondary)]">
-            Set milestone amounts — funds unlock in tranches as each milestone is proven.
-          </p>
-        </div>
-        <button type="button" className="btn-ghost text-xs" onClick={loadDemo}>
-          Use demo campaign
-        </button>
+      <div className="mb-6">
+        <h1 className="text-2xl font-bold text-[var(--text-primary)]">Create a campaign</h1>
+        <p className="mt-1 text-sm text-[var(--text-secondary)]">
+          Funds unlock in tranches — each milestone releases only after your reviewers approve the
+          proof against the acceptance criteria you set here.
+        </p>
       </div>
 
       <div className="mb-6">
         <ContractNotice />
       </div>
 
-      <div className="card space-y-5 p-6">
-        {!writeEnabled && (
-          <p className="rounded-xl bg-[var(--bg-subtle)] px-4 py-3 text-sm text-[var(--text-secondary)]">
-            Campaign creation is only enabled on USDC-compatible Covenant deployments. The current
-            Base Mainnet contract is still the older ETH version, so this form stays read-only until
-            the USDC contract is redeployed and exported to the frontend.
-          </p>
-        )}
+      <div className="card space-y-6 p-6">
+        {/* Campaign kind */}
+        <div>
+          <label className="label">Campaign type</label>
+          <div className="grid gap-2 sm:grid-cols-4">
+            {KIND_OPTIONS.map((opt) => (
+              <button
+                key={opt.value}
+                type="button"
+                onClick={() => selectKind(opt.value)}
+                className={`rounded-xl border px-3 py-2 text-left text-sm transition ${
+                  kind === opt.value
+                    ? "border-[var(--brand-primary)]/60 bg-[var(--brand-primary)]/10 text-[var(--brand-primary)]"
+                    : "border-[var(--border-primary)] bg-[var(--bg-faint)] text-[var(--text-secondary)] hover:text-[var(--text-primary)]"
+                }`}
+              >
+                <span className="block font-medium">{opt.label}</span>
+                {opt.hint && <span className="block text-xs opacity-70">{opt.hint}</span>}
+              </button>
+            ))}
+          </div>
+        </div>
 
-        {/* Title */}
+        {/* Title + description */}
         <div>
           <label className="label">Title</label>
           <input
             className="input"
-            placeholder="Community Medical Relief Fund"
+            placeholder={
+              kind === CampaignKind.Startup ? "Acme — seed milestone tranche" : "Community Medical Relief Fund"
+            }
             value={title}
             onChange={(e) => setTitle(e.target.value)}
           />
         </div>
-
-        {/* Description */}
         <div>
-          <label className="label">Description</label>
+          <label className="label">What is this campaign for?</label>
           <textarea
             className="input min-h-[90px] resize-y"
-            placeholder="What is this fundraiser for, and how will milestones prove progress?"
+            placeholder="Describe the goal. The milestone drafter uses this to suggest acceptance criteria."
             value={description}
             onChange={(e) => setDescription(e.target.value)}
           />
         </div>
 
-        {/* Mode toggle */}
-        <div>
-          <label className="label">Milestone amounts</label>
-          <div className="flex gap-2">
-            <button
-              type="button"
-              className={`flex-1 rounded-xl border px-4 py-2 text-sm font-medium transition ${
-                mode === "even"
-                  ? "border-[var(--brand-primary)]/60 bg-[var(--brand-primary)]/10 text-[var(--brand-primary)]"
-                  : "border-[var(--border-primary)] bg-[var(--bg-faint)] text-[var(--text-secondary)] hover:text-[var(--text-primary)]"
-              }`}
-              onClick={() => setMode("even")}
-            >
-              Even split
-            </button>
-            <button
-              type="button"
-              className={`flex-1 rounded-xl border px-4 py-2 text-sm font-medium transition ${
-                mode === "manual"
-                  ? "border-[var(--brand-primary)]/60 bg-[var(--brand-primary)]/10 text-[var(--brand-primary)]"
-                  : "border-[var(--border-primary)] bg-[var(--bg-faint)] text-[var(--text-secondary)] hover:text-[var(--text-primary)]"
-              }`}
-              onClick={() => {
-                setMode("manual");
-                // migrate descriptions length into manual mode
-                setAmounts(Array(descriptions.length).fill(""));
-              }}
-            >
-              Set manually
-            </button>
-          </div>
-        </div>
-
-        {/* Even split controls */}
-        {mode === "even" && (
-          <div className="grid gap-4 sm:grid-cols-2">
-            <div>
-              <label className="label">Total goal (USDC)</label>
+        {/* Goal + drafting */}
+        <div className="rounded-xl border border-[var(--border-primary)] bg-[var(--bg-faint)] p-4">
+          <div className="flex flex-wrap items-end gap-3">
+            <div className="flex-1">
+              <label className="label">Total goal (USDC, optional here)</label>
               <input
                 className="input font-mono"
                 inputMode="decimal"
-                placeholder="e.g. 0.10"
+                placeholder="e.g. 0.5"
                 value={totalGoal}
                 onChange={(e) => setTotalGoal(e.target.value.replace(/[^0-9.]/g, ""))}
               />
             </div>
-            <div>
-              <label className="label">Number of milestones</label>
-              <select
-                className="input"
-                value={milestoneCount}
-                onChange={(e) => setMilestoneCount(Number(e.target.value))}
-              >
-                {Array.from({ length: MAX_MILESTONES - MIN_MILESTONES + 1 }, (_, i) => i + MIN_MILESTONES).map((n) => (
-                  <option key={n} value={n}>
-                    {n} milestones
-                  </option>
-                ))}
-              </select>
-            </div>
-          </div>
-        )}
-
-        {/* Even split preview */}
-        {mode === "even" && amountEach !== null && amountEach > 0n && (
-          <div className="flex items-center justify-between rounded-xl bg-[var(--bg-faint)] px-4 py-3">
-            <span className="text-sm text-[var(--text-secondary)]">Each milestone unlocks</span>
-            <span className="font-mono text-lg font-semibold text-[var(--brand-primary)]">
-              {formatUsdc(amountEach)} USDC
-            </span>
-          </div>
-        )}
-
-        {/* Manual total preview */}
-        {mode === "manual" && manualTotal !== null && (
-          <div className="flex items-center justify-between rounded-xl bg-[var(--bg-faint)] px-4 py-3">
-            <span className="text-sm text-[var(--text-secondary)]">Total goal</span>
-            <span className="font-mono text-lg font-semibold text-[var(--brand-primary)]">
-              {formatUsdc(manualTotal)} USDC
-            </span>
-          </div>
-        )}
-
-        {/* Milestone rows */}
-        <div>
-          <label className="label">Milestones</label>
-          <p className="mb-3 text-xs text-[var(--text-tertiary)]">
-            To unlock milestone N, the creator must first post on-chain proof for milestone N−1.
-          </p>
-          <div className="space-y-2">
-            {descriptions.map((d, i) => (
-              <div key={i} className="flex items-center gap-2">
-                <div className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-[var(--bg-subtle)] text-xs font-bold text-[var(--text-secondary)]">
-                  {i + 1}
-                </div>
-                <input
-                  className="input flex-1"
-                  placeholder={`What milestone ${i + 1} delivers`}
-                  value={d}
-                  onChange={(e) => {
-                    const next = [...descriptions];
-                    next[i] = e.target.value;
-                    setDescriptions(next);
-                  }}
-                />
-                {mode === "manual" && (
-                  <input
-                    className="input w-28 font-mono"
-                    inputMode="decimal"
-                    placeholder="USDC"
-                    value={amounts[i] ?? ""}
-                    onChange={(e) => {
-                      const next = [...amounts];
-                      next[i] = e.target.value.replace(/[^0-9.]/g, "");
-                      setAmounts(next);
-                    }}
-                  />
-                )}
-                <span className="w-24 shrink-0 text-right font-mono text-xs text-[var(--text-tertiary)]">
-                  at {cumulativeTargets[i]} USDC
-                </span>
-                {mode === "manual" && descriptions.length > MIN_MILESTONES && (
-                  <button
-                    type="button"
-                    className="shrink-0 text-[var(--text-tertiary)] hover:text-[var(--text-danger)]"
-                    onClick={() => removeMilestone(i)}
-                    title="Remove milestone"
-                  >
-                    ✕
-                  </button>
-                )}
-              </div>
-            ))}
-          </div>
-          {mode === "manual" && descriptions.length < MAX_MILESTONES && (
             <button
               type="button"
-              className="btn-ghost mt-3 text-xs"
-              onClick={addMilestone}
+              className="btn-secondary"
+              onClick={splitEvenly}
+              disabled={!safeParse(totalGoal)}
+              title="Split the goal evenly across the milestones below"
             >
+              Split evenly
+            </button>
+            <button
+              type="button"
+              className="btn-primary"
+              onClick={runDraft}
+              disabled={drafting || !title.trim() || !description.trim()}
+            >
+              {drafting ? "Drafting…" : "✦ Draft milestones for me"}
+            </button>
+          </div>
+          <p className="mt-2 text-xs text-[var(--text-tertiary)]">
+            The drafter proposes acceptance criteria, proof requirements, reporting cadence,
+            deadlines and an approval setup based on your campaign type. It&apos;s an assistant, not
+            the final authority — you review and edit everything before it goes on-chain.
+          </p>
+          {draftNote && (
+            <p className="mt-2 rounded-lg bg-[var(--brand-primary)]/10 px-3 py-2 text-xs text-[var(--brand-primary)]">
+              {draftNote}
+            </p>
+          )}
+        </div>
+
+        {/* Milestones */}
+        <div>
+          <div className="flex items-center justify-between">
+            <label className="label">Milestones &amp; acceptance criteria</label>
+            {goalTotal !== null && (
+              <span className="font-mono text-sm text-[var(--text-secondary)]">
+                goal: {formatUsdc(goalTotal)} USDC
+              </span>
+            )}
+          </div>
+          <p className="mb-3 text-xs text-[var(--text-tertiary)]">
+            Evidence can stay flexible; the criteria can&apos;t stay vague. Each milestone should
+            state what &ldquo;done&rdquo; means so your reviewers know exactly what they&apos;re
+            evaluating.
+          </p>
+
+          <div className="space-y-3">
+            {milestones.map((m, i) => {
+              const isOpen = expanded === i;
+              const err = milestoneErrors[i];
+              return (
+                <div
+                  key={i}
+                  className={`rounded-xl border p-4 ${
+                    err && (m.title || m.successDefinition || m.amount)
+                      ? "border-amber-600/40"
+                      : "border-[var(--border-primary)]"
+                  }`}
+                >
+                  <div className="flex items-center gap-2">
+                    <span className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-[var(--bg-subtle)] text-xs font-bold text-[var(--text-secondary)]">
+                      {i + 1}
+                    </span>
+                    <input
+                      className="input flex-1"
+                      placeholder={`Milestone ${i + 1} title (e.g. "500 weekly active users")`}
+                      value={m.title}
+                      onChange={(e) => patchMilestone(i, { title: e.target.value })}
+                    />
+                    <input
+                      className="input w-28 font-mono"
+                      inputMode="decimal"
+                      placeholder="USDC"
+                      value={m.amount}
+                      onChange={(e) =>
+                        patchMilestone(i, { amount: e.target.value.replace(/[^0-9.]/g, "") })
+                      }
+                    />
+                    <button
+                      type="button"
+                      className="btn-ghost shrink-0 px-2 text-xs"
+                      onClick={() => setExpanded(isOpen ? null : i)}
+                    >
+                      {isOpen ? "▴ criteria" : "▾ criteria"}
+                    </button>
+                    {milestones.length > 1 && (
+                      <button
+                        type="button"
+                        className="shrink-0 text-[var(--text-tertiary)] hover:text-red-600"
+                        onClick={() => removeMilestone(i)}
+                        title="Remove milestone"
+                      >
+                        ✕
+                      </button>
+                    )}
+                  </div>
+
+                  {isOpen && (
+                    <div className="mt-3 space-y-3 border-t border-[var(--border-primary)] pt-3">
+                      <div>
+                        <label className="label">Success definition (required)</label>
+                        <textarea
+                          className="input min-h-[60px] resize-y"
+                          placeholder='What does "done" mean, concretely? A stranger should be able to judge it.'
+                          value={m.successDefinition}
+                          onChange={(e) => patchMilestone(i, { successDefinition: e.target.value })}
+                        />
+                      </div>
+                      <div>
+                        <label className="label">Required proof / documents</label>
+                        <input
+                          className="input"
+                          placeholder="e.g. analytics screenshots, receipts, delivery logs"
+                          value={m.requiredProof}
+                          onChange={(e) => patchMilestone(i, { requiredProof: e.target.value })}
+                        />
+                      </div>
+                      <div className="grid gap-3 sm:grid-cols-2">
+                        <div>
+                          <label className="label">Expected metrics (optional)</label>
+                          <input
+                            className="input"
+                            placeholder="e.g. WAU ≥ 500, retention ≥ 20%"
+                            value={m.expectedMetrics}
+                            onChange={(e) => patchMilestone(i, { expectedMetrics: e.target.value })}
+                          />
+                        </div>
+                        <div>
+                          <label className="label">Reporting period (optional)</label>
+                          <input
+                            className="input"
+                            placeholder="e.g. every 2 weeks"
+                            value={m.reportingPeriod}
+                            onChange={(e) => patchMilestone(i, { reportingPeriod: e.target.value })}
+                          />
+                        </div>
+                      </div>
+                      <div>
+                        <label className="label">Proof deadline (recommended)</label>
+                        <input
+                          type="date"
+                          className="input"
+                          value={m.deadline}
+                          onChange={(e) => patchMilestone(i, { deadline: e.target.value })}
+                        />
+                        <p className="mt-1 text-xs text-[var(--text-tertiary)]">
+                          If proof isn&apos;t approved by the deadline, donors can recover their
+                          unreleased funds. Without one, refunds only open on rejection timeouts or
+                          if you cancel.
+                        </p>
+                      </div>
+                    </div>
+                  )}
+                  {err && (m.title || m.successDefinition || m.amount) && (
+                    <p className="mt-2 text-xs text-amber-700">Milestone {i + 1} {err}.</p>
+                  )}
+                </div>
+              );
+            })}
+          </div>
+          {milestones.length < MAX_MILESTONES && (
+            <button type="button" className="btn-ghost mt-3 text-xs" onClick={addMilestone}>
               + Add milestone
             </button>
+          )}
+        </div>
+
+        {/* Approval authority */}
+        <div>
+          <label className="label">Who approves milestone proof?</label>
+          <p className="mb-3 text-xs text-[var(--text-tertiary)]">
+            Funds only release when the approver(s) accept the proof. Rejections send it back to
+            you with notes.
+          </p>
+          <div className="grid gap-2 sm:grid-cols-3">
+            {(
+              [
+                {
+                  value: ApprovalModel.LeadDonor,
+                  label: "Lead donor",
+                  hint: "largest donor reviews for everyone",
+                },
+                {
+                  value: ApprovalModel.DesignatedReviewers,
+                  label: "Designated reviewers",
+                  hint: "investors, committee, or grant admins you name",
+                },
+                {
+                  value: ApprovalModel.PlatformOperator,
+                  label: "Platform operator",
+                  hint: "the Covenant platform reviews",
+                },
+              ] as const
+            ).map((opt) => (
+              <button
+                key={opt.value}
+                type="button"
+                onClick={() => {
+                  setApprovalModel(opt.value);
+                  setApprovalTouched(true);
+                }}
+                className={`rounded-xl border px-3 py-2 text-left text-sm transition ${
+                  approvalModel === opt.value
+                    ? "border-[var(--brand-primary)]/60 bg-[var(--brand-primary)]/10 text-[var(--brand-primary)]"
+                    : "border-[var(--border-primary)] bg-[var(--bg-faint)] text-[var(--text-secondary)] hover:text-[var(--text-primary)]"
+                }`}
+              >
+                <span className="block font-medium">{opt.label}</span>
+                <span className="block text-xs opacity-70">{opt.hint}</span>
+              </button>
+            ))}
+          </div>
+          <p className="mt-2 text-xs text-[var(--text-tertiary)]">
+            {defaultApprovalForKind(kind).rationale} Donor-wide voting is scaffolded in the contract
+            but not yet available.
+          </p>
+
+          {needsReviewers && (
+            <div className="mt-4 space-y-2 rounded-xl border border-[var(--border-primary)] bg-[var(--bg-faint)] p-4">
+              <label className="label">Reviewer wallet addresses</label>
+              {reviewers.map((r, i) => (
+                <div key={i} className="flex items-center gap-2">
+                  <input
+                    className="input flex-1 font-mono text-sm"
+                    placeholder="0x…"
+                    value={r}
+                    onChange={(e) =>
+                      setReviewers((prev) => prev.map((v, idx) => (idx === i ? e.target.value : v)))
+                    }
+                  />
+                  {reviewers.length > 1 && (
+                    <button
+                      type="button"
+                      className="shrink-0 text-[var(--text-tertiary)] hover:text-red-600"
+                      onClick={() => setReviewers((prev) => prev.filter((_, idx) => idx !== i))}
+                    >
+                      ✕
+                    </button>
+                  )}
+                </div>
+              ))}
+              {reviewers.length < MAX_REVIEWERS && (
+                <button
+                  type="button"
+                  className="btn-ghost text-xs"
+                  onClick={() => setReviewers((prev) => [...prev, ""])}
+                >
+                  + Add reviewer
+                </button>
+              )}
+              <div className="flex items-center gap-3 pt-2">
+                <label className="label mb-0">Approvals required to release</label>
+                <select
+                  className="input w-24"
+                  value={threshold}
+                  onChange={(e) => setThreshold(Number(e.target.value))}
+                >
+                  {Array.from({ length: Math.max(cleanReviewers.length, 1) }, (_, i) => i + 1).map(
+                    (n) => (
+                      <option key={n} value={n}>
+                        {n}
+                      </option>
+                    ),
+                  )}
+                </select>
+                <span className="text-xs text-[var(--text-tertiary)]">
+                  of {cleanReviewers.length || "?"} reviewer{cleanReviewers.length === 1 ? "" : "s"}
+                  {threshold > 1 ? " (committee)" : ""}
+                </span>
+              </div>
+              {reviewerError && <p className="text-xs text-amber-700">{reviewerError}</p>}
+            </div>
           )}
         </div>
 
@@ -435,14 +674,12 @@ export default function CreateCampaignPage() {
           />
         </div>
 
-        {!formValid &&
-          (title || description || totalGoal || descriptions.some((d) => d)) && (
-            <p className="text-xs text-[var(--text-tertiary)]">
-              Provide a title, description,{" "}
-              {mode === "even" ? "total goal and milestone count" : "a USDC amount for every milestone"},{" "}
-              and a description for every milestone.
-            </p>
-          )}
+        {!formValid && (title || description || milestones.some((m) => m.title)) && (
+          <p className="text-xs text-[var(--text-tertiary)]">
+            Every milestone needs a title, a success definition and a USDC amount
+            {needsReviewers ? ", and reviewer addresses must be valid" : ""}.
+          </p>
+        )}
       </div>
     </div>
   );

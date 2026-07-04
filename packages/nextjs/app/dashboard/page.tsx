@@ -58,7 +58,8 @@ export default function DashboardPage() {
                   Wallet <Address address={address} className="text-[var(--text-primary)]" />
                 </p>
                 <p className="mt-1 text-xs text-[var(--text-tertiary)]">
-                  Reputation grows as you complete proof-backed milestones.
+                  Reputation only grows when reviewers approve your milestone proof — submissions
+                  alone don&apos;t count.
                 </p>
               </div>
               <ReputationBadge score={score} variant="full" />
@@ -67,8 +68,8 @@ export default function DashboardPage() {
             <div className="mt-6 grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-6">
               <Stat label="Campaigns" value={(stats?.campaignsCreated ?? 0n).toString()} />
               <Stat label="Completed" value={(stats?.campaignsCompleted ?? 0n).toString()} />
-              <Stat label="Milestones" value={(stats?.milestonesCompleted ?? 0n).toString()} />
-              <Stat label="Evidence" value={(stats?.evidenceUpdates ?? 0n).toString()} />
+              <Stat label="Approved" value={(stats?.milestonesApproved ?? 0n).toString()} />
+              <Stat label="Submissions" value={(stats?.proofSubmissions ?? 0n).toString()} />
               <Stat label="Raised" value={formatUsdc(stats?.totalRaised)} sub="USDC" accent />
               <Stat label="Released" value={formatUsdc(stats?.totalReleased)} sub="USDC" />
             </div>

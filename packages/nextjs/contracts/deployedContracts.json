@@ -1,8 +1,8 @@
 {
   "8453": {
     "Covenant": {
-      "address": "0xe11CE961Ff378B5D5172DE6ABfE8c16f900e10F3",
-      "deployBlock": 48139854,
+      "address": "0xB31D06627E249282Ec2a7e17efcebae55F934F29",
+      "deployBlock": 48208634,
       "abi": [
         {
           "inputs": [
@@ -52,6 +52,31 @@
           ],
           "name": "SafeERC20FailedOperation",
           "type": "error"
+        },
+        {
+          "anonymous": false,
+          "inputs": [
+            {
+              "indexed": true,
+              "internalType": "uint256",
+              "name": "campaignId",
+              "type": "uint256"
+            },
+            {
+              "indexed": false,
+              "internalType": "uint256",
+              "name": "milestoneIndex",
+              "type": "uint256"
+            },
+            {
+              "indexed": false,
+              "internalType": "bool",
+              "name": "voluntary",
+              "type": "bool"
+            }
+          ],
+          "name": "CampaignCancelled",
+          "type": "event"
         },
         {
           "anonymous": false,
@@ -170,31 +195,6 @@
             },
             {
               "indexed": false,
-              "internalType": "string",
-              "name": "evidence",
-              "type": "string"
-            }
-          ],
-          "name": "EvidenceSubmitted",
-          "type": "event"
-        },
-        {
-          "anonymous": false,
-          "inputs": [
-            {
-              "indexed": true,
-              "internalType": "uint256",
-              "name": "campaignId",
-              "type": "uint256"
-            },
-            {
-              "indexed": true,
-              "internalType": "uint256",
-              "name": "milestoneIndex",
-              "type": "uint256"
-            },
-            {
-              "indexed": false,
               "internalType": "uint256",
               "name": "amount",
               "type": "uint256"
@@ -229,6 +229,111 @@
           "type": "event"
         },
         {
+          "anonymous": false,
+          "inputs": [
+            {
+              "indexed": true,
+              "internalType": "uint256",
+              "name": "campaignId",
+              "type": "uint256"
+            },
+            {
+              "indexed": true,
+              "internalType": "uint256",
+              "name": "milestoneIndex",
+              "type": "uint256"
+            },
+            {
+              "indexed": true,
+              "internalType": "address",
+              "name": "reviewer",
+              "type": "address"
+            },
+            {
+              "indexed": false,
+              "internalType": "uint256",
+              "name": "submissionIndex",
+              "type": "uint256"
+            },
+            {
+              "indexed": false,
+              "internalType": "bool",
+              "name": "approved",
+              "type": "bool"
+            },
+            {
+              "indexed": false,
+              "internalType": "string",
+              "name": "notes",
+              "type": "string"
+            }
+          ],
+          "name": "ProofReviewed",
+          "type": "event"
+        },
+        {
+          "anonymous": false,
+          "inputs": [
+            {
+              "indexed": true,
+              "internalType": "uint256",
+              "name": "campaignId",
+              "type": "uint256"
+            },
+            {
+              "indexed": true,
+              "internalType": "uint256",
+              "name": "milestoneIndex",
+              "type": "uint256"
+            },
+            {
+              "indexed": false,
+              "internalType": "uint256",
+              "name": "submissionIndex",
+              "type": "uint256"
+            },
+            {
+              "indexed": false,
+              "internalType": "bytes32",
+              "name": "manifestHash",
+              "type": "bytes32"
+            },
+            {
+              "indexed": false,
+              "internalType": "string",
+              "name": "summary",
+              "type": "string"
+            }
+          ],
+          "name": "ProofSubmitted",
+          "type": "event"
+        },
+        {
+          "anonymous": false,
+          "inputs": [
+            {
+              "indexed": true,
+              "internalType": "uint256",
+              "name": "campaignId",
+              "type": "uint256"
+            },
+            {
+              "indexed": true,
+              "internalType": "address",
+              "name": "donor",
+              "type": "address"
+            },
+            {
+              "indexed": false,
+              "internalType": "uint256",
+              "name": "amount",
+              "type": "uint256"
+            }
+          ],
+          "name": "RefundClaimed",
+          "type": "event"
+        },
+        {
           "inputs": [],
           "name": "CREATION_COOLDOWN",
           "outputs": [
@@ -257,6 +362,45 @@
         {
           "inputs": [],
           "name": "MAX_MILESTONES",
+          "outputs": [
+            {
+              "internalType": "uint256",
+              "name": "",
+              "type": "uint256"
+            }
+          ],
+          "stateMutability": "view",
+          "type": "function"
+        },
+        {
+          "inputs": [],
+          "name": "MAX_REVIEWERS",
+          "outputs": [
+            {
+              "internalType": "uint256",
+              "name": "",
+              "type": "uint256"
+            }
+          ],
+          "stateMutability": "view",
+          "type": "function"
+        },
+        {
+          "inputs": [],
+          "name": "REVIEW_WINDOW",
+          "outputs": [
+            {
+              "internalType": "uint256",
+              "name": "",
+              "type": "uint256"
+            }
+          ],
+          "stateMutability": "view",
+          "type": "function"
+        },
+        {
+          "inputs": [],
+          "name": "REVISION_WINDOW",
           "outputs": [
             {
               "internalType": "uint256",
@@ -302,6 +446,32 @@
         {
           "inputs": [
             {
+              "internalType": "uint256",
+              "name": "campaignId",
+              "type": "uint256"
+            }
+          ],
+          "name": "cancelCampaign",
+          "outputs": [],
+          "stateMutability": "nonpayable",
+          "type": "function"
+        },
+        {
+          "inputs": [
+            {
+              "internalType": "uint256",
+              "name": "campaignId",
+              "type": "uint256"
+            }
+          ],
+          "name": "claimRefund",
+          "outputs": [],
+          "stateMutability": "nonpayable",
+          "type": "function"
+        },
+        {
+          "inputs": [
+            {
               "internalType": "string",
               "name": "title",
               "type": "string"
@@ -312,14 +482,80 @@
               "type": "string"
             },
             {
-              "internalType": "string[]",
-              "name": "milestoneDescriptions",
-              "type": "string[]"
+              "internalType": "enum Covenant.CampaignKind",
+              "name": "kind",
+              "type": "uint8"
             },
             {
-              "internalType": "uint256[]",
-              "name": "milestoneAmounts",
-              "type": "uint256[]"
+              "components": [
+                {
+                  "internalType": "enum Covenant.ApprovalModel",
+                  "name": "model",
+                  "type": "uint8"
+                },
+                {
+                  "internalType": "address[]",
+                  "name": "reviewers",
+                  "type": "address[]"
+                },
+                {
+                  "internalType": "uint8",
+                  "name": "threshold",
+                  "type": "uint8"
+                }
+              ],
+              "internalType": "struct Covenant.ApprovalConfig",
+              "name": "approval",
+              "type": "tuple"
+            },
+            {
+              "components": [
+                {
+                  "components": [
+                    {
+                      "internalType": "string",
+                      "name": "title",
+                      "type": "string"
+                    },
+                    {
+                      "internalType": "string",
+                      "name": "successDefinition",
+                      "type": "string"
+                    },
+                    {
+                      "internalType": "string",
+                      "name": "reportingPeriod",
+                      "type": "string"
+                    },
+                    {
+                      "internalType": "string",
+                      "name": "expectedMetrics",
+                      "type": "string"
+                    },
+                    {
+                      "internalType": "string",
+                      "name": "requiredProof",
+                      "type": "string"
+                    },
+                    {
+                      "internalType": "uint64",
+                      "name": "proofDeadline",
+                      "type": "uint64"
+                    }
+                  ],
+                  "internalType": "struct Covenant.MilestoneCriteria",
+                  "name": "criteria",
+                  "type": "tuple"
+                },
+                {
+                  "internalType": "uint256",
+                  "name": "amount",
+                  "type": "uint256"
+                }
+              ],
+              "internalType": "struct Covenant.MilestoneInput[]",
+              "name": "items",
+              "type": "tuple[]"
             }
           ],
           "name": "createCampaign",
@@ -376,6 +612,19 @@
           "type": "function"
         },
         {
+          "inputs": [
+            {
+              "internalType": "uint256",
+              "name": "campaignId",
+              "type": "uint256"
+            }
+          ],
+          "name": "failCampaign",
+          "outputs": [],
+          "stateMutability": "nonpayable",
+          "type": "function"
+        },
+        {
           "inputs": [],
           "name": "getAllCampaigns",
           "outputs": [
@@ -402,6 +651,11 @@
                   "type": "string"
                 },
                 {
+                  "internalType": "enum Covenant.CampaignKind",
+                  "name": "kind",
+                  "type": "uint8"
+                },
+                {
                   "internalType": "uint256",
                   "name": "goalAmount",
                   "type": "uint256"
@@ -425,6 +679,11 @@
                   "internalType": "bool",
                   "name": "completed",
                   "type": "bool"
+                },
+                {
+                  "internalType": "uint64",
+                  "name": "cancelledAt",
+                  "type": "uint64"
                 },
                 {
                   "internalType": "uint256",
@@ -463,6 +722,42 @@
               "type": "uint256"
             }
           ],
+          "name": "getApprovalConfig",
+          "outputs": [
+            {
+              "components": [
+                {
+                  "internalType": "enum Covenant.ApprovalModel",
+                  "name": "model",
+                  "type": "uint8"
+                },
+                {
+                  "internalType": "address[]",
+                  "name": "reviewers",
+                  "type": "address[]"
+                },
+                {
+                  "internalType": "uint8",
+                  "name": "threshold",
+                  "type": "uint8"
+                }
+              ],
+              "internalType": "struct Covenant.ApprovalConfig",
+              "name": "",
+              "type": "tuple"
+            }
+          ],
+          "stateMutability": "view",
+          "type": "function"
+        },
+        {
+          "inputs": [
+            {
+              "internalType": "uint256",
+              "name": "campaignId",
+              "type": "uint256"
+            }
+          ],
           "name": "getCampaign",
           "outputs": [
             {
@@ -488,6 +783,11 @@
                   "type": "string"
                 },
                 {
+                  "internalType": "enum Covenant.CampaignKind",
+                  "name": "kind",
+                  "type": "uint8"
+                },
+                {
                   "internalType": "uint256",
                   "name": "goalAmount",
                   "type": "uint256"
@@ -511,6 +811,11 @@
                   "internalType": "bool",
                   "name": "completed",
                   "type": "bool"
+                },
+                {
+                  "internalType": "uint64",
+                  "name": "cancelledAt",
+                  "type": "uint64"
                 },
                 {
                   "internalType": "uint256",
@@ -575,12 +880,12 @@
                 },
                 {
                   "internalType": "uint256",
-                  "name": "milestonesCompleted",
+                  "name": "milestonesApproved",
                   "type": "uint256"
                 },
                 {
                   "internalType": "uint256",
-                  "name": "evidenceUpdates",
+                  "name": "proofSubmissions",
                   "type": "uint256"
                 }
               ],
@@ -653,9 +958,41 @@
             {
               "components": [
                 {
-                  "internalType": "string",
-                  "name": "description",
-                  "type": "string"
+                  "components": [
+                    {
+                      "internalType": "string",
+                      "name": "title",
+                      "type": "string"
+                    },
+                    {
+                      "internalType": "string",
+                      "name": "successDefinition",
+                      "type": "string"
+                    },
+                    {
+                      "internalType": "string",
+                      "name": "reportingPeriod",
+                      "type": "string"
+                    },
+                    {
+                      "internalType": "string",
+                      "name": "expectedMetrics",
+                      "type": "string"
+                    },
+                    {
+                      "internalType": "string",
+                      "name": "requiredProof",
+                      "type": "string"
+                    },
+                    {
+                      "internalType": "uint64",
+                      "name": "proofDeadline",
+                      "type": "uint64"
+                    }
+                  ],
+                  "internalType": "struct Covenant.MilestoneCriteria",
+                  "name": "criteria",
+                  "type": "tuple"
                 },
                 {
                   "internalType": "uint256",
@@ -663,14 +1000,24 @@
                   "type": "uint256"
                 },
                 {
-                  "internalType": "string",
-                  "name": "evidence",
-                  "type": "string"
+                  "internalType": "enum Covenant.MilestoneState",
+                  "name": "state",
+                  "type": "uint8"
                 },
                 {
-                  "internalType": "bool",
-                  "name": "evidenceSubmitted",
-                  "type": "bool"
+                  "internalType": "uint32",
+                  "name": "submissionCount",
+                  "type": "uint32"
+                },
+                {
+                  "internalType": "uint8",
+                  "name": "approvalCount",
+                  "type": "uint8"
+                },
+                {
+                  "internalType": "uint64",
+                  "name": "revisionDeadline",
+                  "type": "uint64"
                 },
                 {
                   "internalType": "bool",
@@ -699,9 +1046,41 @@
             {
               "components": [
                 {
-                  "internalType": "string",
-                  "name": "description",
-                  "type": "string"
+                  "components": [
+                    {
+                      "internalType": "string",
+                      "name": "title",
+                      "type": "string"
+                    },
+                    {
+                      "internalType": "string",
+                      "name": "successDefinition",
+                      "type": "string"
+                    },
+                    {
+                      "internalType": "string",
+                      "name": "reportingPeriod",
+                      "type": "string"
+                    },
+                    {
+                      "internalType": "string",
+                      "name": "expectedMetrics",
+                      "type": "string"
+                    },
+                    {
+                      "internalType": "string",
+                      "name": "requiredProof",
+                      "type": "string"
+                    },
+                    {
+                      "internalType": "uint64",
+                      "name": "proofDeadline",
+                      "type": "uint64"
+                    }
+                  ],
+                  "internalType": "struct Covenant.MilestoneCriteria",
+                  "name": "criteria",
+                  "type": "tuple"
                 },
                 {
                   "internalType": "uint256",
@@ -709,14 +1088,24 @@
                   "type": "uint256"
                 },
                 {
-                  "internalType": "string",
-                  "name": "evidence",
-                  "type": "string"
+                  "internalType": "enum Covenant.MilestoneState",
+                  "name": "state",
+                  "type": "uint8"
                 },
                 {
-                  "internalType": "bool",
-                  "name": "evidenceSubmitted",
-                  "type": "bool"
+                  "internalType": "uint32",
+                  "name": "submissionCount",
+                  "type": "uint32"
+                },
+                {
+                  "internalType": "uint8",
+                  "name": "approvalCount",
+                  "type": "uint8"
+                },
+                {
+                  "internalType": "uint64",
+                  "name": "revisionDeadline",
+                  "type": "uint64"
                 },
                 {
                   "internalType": "bool",
@@ -727,6 +1116,161 @@
               "internalType": "struct Covenant.Milestone[]",
               "name": "",
               "type": "tuple[]"
+            }
+          ],
+          "stateMutability": "view",
+          "type": "function"
+        },
+        {
+          "inputs": [
+            {
+              "internalType": "uint256",
+              "name": "campaignId",
+              "type": "uint256"
+            },
+            {
+              "internalType": "uint256",
+              "name": "milestoneIndex",
+              "type": "uint256"
+            }
+          ],
+          "name": "getReviews",
+          "outputs": [
+            {
+              "components": [
+                {
+                  "internalType": "address",
+                  "name": "reviewer",
+                  "type": "address"
+                },
+                {
+                  "internalType": "bool",
+                  "name": "approved",
+                  "type": "bool"
+                },
+                {
+                  "internalType": "string",
+                  "name": "notes",
+                  "type": "string"
+                },
+                {
+                  "internalType": "uint64",
+                  "name": "decidedAt",
+                  "type": "uint64"
+                },
+                {
+                  "internalType": "uint32",
+                  "name": "submissionIndex",
+                  "type": "uint32"
+                }
+              ],
+              "internalType": "struct Covenant.ReviewDecision[]",
+              "name": "",
+              "type": "tuple[]"
+            }
+          ],
+          "stateMutability": "view",
+          "type": "function"
+        },
+        {
+          "inputs": [
+            {
+              "internalType": "uint256",
+              "name": "campaignId",
+              "type": "uint256"
+            },
+            {
+              "internalType": "uint256",
+              "name": "milestoneIndex",
+              "type": "uint256"
+            }
+          ],
+          "name": "getSubmissions",
+          "outputs": [
+            {
+              "components": [
+                {
+                  "internalType": "bytes32",
+                  "name": "manifestHash",
+                  "type": "bytes32"
+                },
+                {
+                  "internalType": "string",
+                  "name": "manifestURI",
+                  "type": "string"
+                },
+                {
+                  "internalType": "string",
+                  "name": "summary",
+                  "type": "string"
+                },
+                {
+                  "internalType": "uint64",
+                  "name": "submittedAt",
+                  "type": "uint64"
+                }
+              ],
+              "internalType": "struct Covenant.ProofSubmission[]",
+              "name": "",
+              "type": "tuple[]"
+            }
+          ],
+          "stateMutability": "view",
+          "type": "function"
+        },
+        {
+          "inputs": [
+            {
+              "internalType": "uint256",
+              "name": "campaignId",
+              "type": "uint256"
+            },
+            {
+              "internalType": "uint256",
+              "name": "milestoneIndex",
+              "type": "uint256"
+            },
+            {
+              "internalType": "uint256",
+              "name": "submissionIndex",
+              "type": "uint256"
+            },
+            {
+              "internalType": "address",
+              "name": "reviewer",
+              "type": "address"
+            }
+          ],
+          "name": "hasReviewed",
+          "outputs": [
+            {
+              "internalType": "bool",
+              "name": "",
+              "type": "bool"
+            }
+          ],
+          "stateMutability": "view",
+          "type": "function"
+        },
+        {
+          "inputs": [
+            {
+              "internalType": "uint256",
+              "name": "campaignId",
+              "type": "uint256"
+            },
+            {
+              "internalType": "address",
+              "name": "account",
+              "type": "address"
+            }
+          ],
+          "name": "isReviewer",
+          "outputs": [
+            {
+              "internalType": "bool",
+              "name": "",
+              "type": "bool"
             }
           ],
           "stateMutability": "view",
@@ -752,6 +1296,44 @@
           "type": "function"
         },
         {
+          "inputs": [
+            {
+              "internalType": "uint256",
+              "name": "",
+              "type": "uint256"
+            }
+          ],
+          "name": "leadDonor",
+          "outputs": [
+            {
+              "internalType": "address",
+              "name": "",
+              "type": "address"
+            }
+          ],
+          "stateMutability": "view",
+          "type": "function"
+        },
+        {
+          "inputs": [
+            {
+              "internalType": "uint256",
+              "name": "campaignId",
+              "type": "uint256"
+            }
+          ],
+          "name": "milestoneFailed",
+          "outputs": [
+            {
+              "internalType": "bool",
+              "name": "",
+              "type": "bool"
+            }
+          ],
+          "stateMutability": "view",
+          "type": "function"
+        },
+        {
           "inputs": [],
           "name": "owner",
           "outputs": [
@@ -765,8 +1347,55 @@
           "type": "function"
         },
         {
+          "inputs": [
+            {
+              "internalType": "uint256",
+              "name": "campaignId",
+              "type": "uint256"
+            },
+            {
+              "internalType": "address",
+              "name": "donor",
+              "type": "address"
+            }
+          ],
+          "name": "refundOf",
+          "outputs": [
+            {
+              "internalType": "uint256",
+              "name": "",
+              "type": "uint256"
+            }
+          ],
+          "stateMutability": "view",
+          "type": "function"
+        },
+        {
           "inputs": [],
           "name": "renounceOwnership",
+          "outputs": [],
+          "stateMutability": "nonpayable",
+          "type": "function"
+        },
+        {
+          "inputs": [
+            {
+              "internalType": "uint256",
+              "name": "campaignId",
+              "type": "uint256"
+            },
+            {
+              "internalType": "bool",
+              "name": "approve",
+              "type": "bool"
+            },
+            {
+              "internalType": "string",
+              "name": "notes",
+              "type": "string"
+            }
+          ],
+          "name": "reviewProof",
           "outputs": [],
           "stateMutability": "nonpayable",
           "type": "function"
@@ -798,11 +1427,21 @@
             },
             {
               "internalType": "string",
-              "name": "evidence",
+              "name": "summary",
+              "type": "string"
+            },
+            {
+              "internalType": "bytes32",
+              "name": "manifestHash",
+              "type": "bytes32"
+            },
+            {
+              "internalType": "string",
+              "name": "manifestURI",
               "type": "string"
             }
           ],
-          "name": "submitEvidence",
+          "name": "submitProof",
           "outputs": [],
           "stateMutability": "nonpayable",
           "type": "function"
@@ -855,13 +1494,13 @@
       ]
     },
     "USDC": {
-      "address": "0x833589fcB6E61E26EE7660cE1C83e66bc46d47c9"
+      "address": "0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913"
     }
   },
   "31337": {
     "Covenant": {
-      "address": "0xDc64a140Aa3E981100a9becA4E685f962f0cF6C9",
-      "deployBlock": 10,
+      "address": "0x0165878A594ca255338adfa4d48449f69242Eb8F",
+      "deployBlock": 12,
       "abi": [
         {
           "inputs": [
@@ -911,6 +1550,31 @@
           ],
           "name": "SafeERC20FailedOperation",
           "type": "error"
+        },
+        {
+          "anonymous": false,
+          "inputs": [
+            {
+              "indexed": true,
+              "internalType": "uint256",
+              "name": "campaignId",
+              "type": "uint256"
+            },
+            {
+              "indexed": false,
+              "internalType": "uint256",
+              "name": "milestoneIndex",
+              "type": "uint256"
+            },
+            {
+              "indexed": false,
+              "internalType": "bool",
+              "name": "voluntary",
+              "type": "bool"
+            }
+          ],
+          "name": "CampaignCancelled",
+          "type": "event"
         },
         {
           "anonymous": false,
@@ -1029,31 +1693,6 @@
             },
             {
               "indexed": false,
-              "internalType": "string",
-              "name": "evidence",
-              "type": "string"
-            }
-          ],
-          "name": "EvidenceSubmitted",
-          "type": "event"
-        },
-        {
-          "anonymous": false,
-          "inputs": [
-            {
-              "indexed": true,
-              "internalType": "uint256",
-              "name": "campaignId",
-              "type": "uint256"
-            },
-            {
-              "indexed": true,
-              "internalType": "uint256",
-              "name": "milestoneIndex",
-              "type": "uint256"
-            },
-            {
-              "indexed": false,
               "internalType": "uint256",
               "name": "amount",
               "type": "uint256"
@@ -1088,6 +1727,111 @@
           "type": "event"
         },
         {
+          "anonymous": false,
+          "inputs": [
+            {
+              "indexed": true,
+              "internalType": "uint256",
+              "name": "campaignId",
+              "type": "uint256"
+            },
+            {
+              "indexed": true,
+              "internalType": "uint256",
+              "name": "milestoneIndex",
+              "type": "uint256"
+            },
+            {
+              "indexed": true,
+              "internalType": "address",
+              "name": "reviewer",
+              "type": "address"
+            },
+            {
+              "indexed": false,
+              "internalType": "uint256",
+              "name": "submissionIndex",
+              "type": "uint256"
+            },
+            {
+              "indexed": false,
+              "internalType": "bool",
+              "name": "approved",
+              "type": "bool"
+            },
+            {
+              "indexed": false,
+              "internalType": "string",
+              "name": "notes",
+              "type": "string"
+            }
+          ],
+          "name": "ProofReviewed",
+          "type": "event"
+        },
+        {
+          "anonymous": false,
+          "inputs": [
+            {
+              "indexed": true,
+              "internalType": "uint256",
+              "name": "campaignId",
+              "type": "uint256"
+            },
+            {
+              "indexed": true,
+              "internalType": "uint256",
+              "name": "milestoneIndex",
+              "type": "uint256"
+            },
+            {
+              "indexed": false,
+              "internalType": "uint256",
+              "name": "submissionIndex",
+              "type": "uint256"
+            },
+            {
+              "indexed": false,
+              "internalType": "bytes32",
+              "name": "manifestHash",
+              "type": "bytes32"
+            },
+            {
+              "indexed": false,
+              "internalType": "string",
+              "name": "summary",
+              "type": "string"
+            }
+          ],
+          "name": "ProofSubmitted",
+          "type": "event"
+        },
+        {
+          "anonymous": false,
+          "inputs": [
+            {
+              "indexed": true,
+              "internalType": "uint256",
+              "name": "campaignId",
+              "type": "uint256"
+            },
+            {
+              "indexed": true,
+              "internalType": "address",
+              "name": "donor",
+              "type": "address"
+            },
+            {
+              "indexed": false,
+              "internalType": "uint256",
+              "name": "amount",
+              "type": "uint256"
+            }
+          ],
+          "name": "RefundClaimed",
+          "type": "event"
+        },
+        {
           "inputs": [],
           "name": "CREATION_COOLDOWN",
           "outputs": [
@@ -1116,6 +1860,45 @@
         {
           "inputs": [],
           "name": "MAX_MILESTONES",
+          "outputs": [
+            {
+              "internalType": "uint256",
+              "name": "",
+              "type": "uint256"
+            }
+          ],
+          "stateMutability": "view",
+          "type": "function"
+        },
+        {
+          "inputs": [],
+          "name": "MAX_REVIEWERS",
+          "outputs": [
+            {
+              "internalType": "uint256",
+              "name": "",
+              "type": "uint256"
+            }
+          ],
+          "stateMutability": "view",
+          "type": "function"
+        },
+        {
+          "inputs": [],
+          "name": "REVIEW_WINDOW",
+          "outputs": [
+            {
+              "internalType": "uint256",
+              "name": "",
+              "type": "uint256"
+            }
+          ],
+          "stateMutability": "view",
+          "type": "function"
+        },
+        {
+          "inputs": [],
+          "name": "REVISION_WINDOW",
           "outputs": [
             {
               "internalType": "uint256",
@@ -1161,6 +1944,32 @@
         {
           "inputs": [
             {
+              "internalType": "uint256",
+              "name": "campaignId",
+              "type": "uint256"
+            }
+          ],
+          "name": "cancelCampaign",
+          "outputs": [],
+          "stateMutability": "nonpayable",
+          "type": "function"
+        },
+        {
+          "inputs": [
+            {
+              "internalType": "uint256",
+              "name": "campaignId",
+              "type": "uint256"
+            }
+          ],
+          "name": "claimRefund",
+          "outputs": [],
+          "stateMutability": "nonpayable",
+          "type": "function"
+        },
+        {
+          "inputs": [
+            {
               "internalType": "string",
               "name": "title",
               "type": "string"
@@ -1171,14 +1980,80 @@
               "type": "string"
             },
             {
-              "internalType": "string[]",
-              "name": "milestoneDescriptions",
-              "type": "string[]"
+              "internalType": "enum Covenant.CampaignKind",
+              "name": "kind",
+              "type": "uint8"
             },
             {
-              "internalType": "uint256[]",
-              "name": "milestoneAmounts",
-              "type": "uint256[]"
+              "components": [
+                {
+                  "internalType": "enum Covenant.ApprovalModel",
+                  "name": "model",
+                  "type": "uint8"
+                },
+                {
+                  "internalType": "address[]",
+                  "name": "reviewers",
+                  "type": "address[]"
+                },
+                {
+                  "internalType": "uint8",
+                  "name": "threshold",
+                  "type": "uint8"
+                }
+              ],
+              "internalType": "struct Covenant.ApprovalConfig",
+              "name": "approval",
+              "type": "tuple"
+            },
+            {
+              "components": [
+                {
+                  "components": [
+                    {
+                      "internalType": "string",
+                      "name": "title",
+                      "type": "string"
+                    },
+                    {
+                      "internalType": "string",
+                      "name": "successDefinition",
+                      "type": "string"
+                    },
+                    {
+                      "internalType": "string",
+                      "name": "reportingPeriod",
+                      "type": "string"
+                    },
+                    {
+                      "internalType": "string",
+                      "name": "expectedMetrics",
+                      "type": "string"
+                    },
+                    {
+                      "internalType": "string",
+                      "name": "requiredProof",
+                      "type": "string"
+                    },
+                    {
+                      "internalType": "uint64",
+                      "name": "proofDeadline",
+                      "type": "uint64"
+                    }
+                  ],
+                  "internalType": "struct Covenant.MilestoneCriteria",
+                  "name": "criteria",
+                  "type": "tuple"
+                },
+                {
+                  "internalType": "uint256",
+                  "name": "amount",
+                  "type": "uint256"
+                }
+              ],
+              "internalType": "struct Covenant.MilestoneInput[]",
+              "name": "items",
+              "type": "tuple[]"
             }
           ],
           "name": "createCampaign",
@@ -1235,6 +2110,19 @@
           "type": "function"
         },
         {
+          "inputs": [
+            {
+              "internalType": "uint256",
+              "name": "campaignId",
+              "type": "uint256"
+            }
+          ],
+          "name": "failCampaign",
+          "outputs": [],
+          "stateMutability": "nonpayable",
+          "type": "function"
+        },
+        {
           "inputs": [],
           "name": "getAllCampaigns",
           "outputs": [
@@ -1261,6 +2149,11 @@
                   "type": "string"
                 },
                 {
+                  "internalType": "enum Covenant.CampaignKind",
+                  "name": "kind",
+                  "type": "uint8"
+                },
+                {
                   "internalType": "uint256",
                   "name": "goalAmount",
                   "type": "uint256"
@@ -1284,6 +2177,11 @@
                   "internalType": "bool",
                   "name": "completed",
                   "type": "bool"
+                },
+                {
+                  "internalType": "uint64",
+                  "name": "cancelledAt",
+                  "type": "uint64"
                 },
                 {
                   "internalType": "uint256",
@@ -1322,6 +2220,42 @@
               "type": "uint256"
             }
           ],
+          "name": "getApprovalConfig",
+          "outputs": [
+            {
+              "components": [
+                {
+                  "internalType": "enum Covenant.ApprovalModel",
+                  "name": "model",
+                  "type": "uint8"
+                },
+                {
+                  "internalType": "address[]",
+                  "name": "reviewers",
+                  "type": "address[]"
+                },
+                {
+                  "internalType": "uint8",
+                  "name": "threshold",
+                  "type": "uint8"
+                }
+              ],
+              "internalType": "struct Covenant.ApprovalConfig",
+              "name": "",
+              "type": "tuple"
+            }
+          ],
+          "stateMutability": "view",
+          "type": "function"
+        },
+        {
+          "inputs": [
+            {
+              "internalType": "uint256",
+              "name": "campaignId",
+              "type": "uint256"
+            }
+          ],
           "name": "getCampaign",
           "outputs": [
             {
@@ -1347,6 +2281,11 @@
                   "type": "string"
                 },
                 {
+                  "internalType": "enum Covenant.CampaignKind",
+                  "name": "kind",
+                  "type": "uint8"
+                },
+                {
                   "internalType": "uint256",
                   "name": "goalAmount",
                   "type": "uint256"
@@ -1370,6 +2309,11 @@
                   "internalType": "bool",
                   "name": "completed",
                   "type": "bool"
+                },
+                {
+                  "internalType": "uint64",
+                  "name": "cancelledAt",
+                  "type": "uint64"
                 },
                 {
                   "internalType": "uint256",
@@ -1434,12 +2378,12 @@
                 },
                 {
                   "internalType": "uint256",
-                  "name": "milestonesCompleted",
+                  "name": "milestonesApproved",
                   "type": "uint256"
                 },
                 {
                   "internalType": "uint256",
-                  "name": "evidenceUpdates",
+                  "name": "proofSubmissions",
                   "type": "uint256"
                 }
               ],
@@ -1512,9 +2456,41 @@
             {
               "components": [
                 {
-                  "internalType": "string",
-                  "name": "description",
-                  "type": "string"
+                  "components": [
+                    {
+                      "internalType": "string",
+                      "name": "title",
+                      "type": "string"
+                    },
+                    {
+                      "internalType": "string",
+                      "name": "successDefinition",
+                      "type": "string"
+                    },
+                    {
+                      "internalType": "string",
+                      "name": "reportingPeriod",
+                      "type": "string"
+                    },
+                    {
+                      "internalType": "string",
+                      "name": "expectedMetrics",
+                      "type": "string"
+                    },
+                    {
+                      "internalType": "string",
+                      "name": "requiredProof",
+                      "type": "string"
+                    },
+                    {
+                      "internalType": "uint64",
+                      "name": "proofDeadline",
+                      "type": "uint64"
+                    }
+                  ],
+                  "internalType": "struct Covenant.MilestoneCriteria",
+                  "name": "criteria",
+                  "type": "tuple"
                 },
                 {
                   "internalType": "uint256",
@@ -1522,14 +2498,24 @@
                   "type": "uint256"
                 },
                 {
-                  "internalType": "string",
-                  "name": "evidence",
-                  "type": "string"
+                  "internalType": "enum Covenant.MilestoneState",
+                  "name": "state",
+                  "type": "uint8"
                 },
                 {
-                  "internalType": "bool",
-                  "name": "evidenceSubmitted",
-                  "type": "bool"
+                  "internalType": "uint32",
+                  "name": "submissionCount",
+                  "type": "uint32"
+                },
+                {
+                  "internalType": "uint8",
+                  "name": "approvalCount",
+                  "type": "uint8"
+                },
+                {
+                  "internalType": "uint64",
+                  "name": "revisionDeadline",
+                  "type": "uint64"
                 },
                 {
                   "internalType": "bool",
@@ -1558,9 +2544,41 @@
             {
               "components": [
                 {
-                  "internalType": "string",
-                  "name": "description",
-                  "type": "string"
+                  "components": [
+                    {
+                      "internalType": "string",
+                      "name": "title",
+                      "type": "string"
+                    },
+                    {
+                      "internalType": "string",
+                      "name": "successDefinition",
+                      "type": "string"
+                    },
+                    {
+                      "internalType": "string",
+                      "name": "reportingPeriod",
+                      "type": "string"
+                    },
+                    {
+                      "internalType": "string",
+                      "name": "expectedMetrics",
+                      "type": "string"
+                    },
+                    {
+                      "internalType": "string",
+                      "name": "requiredProof",
+                      "type": "string"
+                    },
+                    {
+                      "internalType": "uint64",
+                      "name": "proofDeadline",
+                      "type": "uint64"
+                    }
+                  ],
+                  "internalType": "struct Covenant.MilestoneCriteria",
+                  "name": "criteria",
+                  "type": "tuple"
                 },
                 {
                   "internalType": "uint256",
@@ -1568,14 +2586,24 @@
                   "type": "uint256"
                 },
                 {
-                  "internalType": "string",
-                  "name": "evidence",
-                  "type": "string"
+                  "internalType": "enum Covenant.MilestoneState",
+                  "name": "state",
+                  "type": "uint8"
                 },
                 {
-                  "internalType": "bool",
-                  "name": "evidenceSubmitted",
-                  "type": "bool"
+                  "internalType": "uint32",
+                  "name": "submissionCount",
+                  "type": "uint32"
+                },
+                {
+                  "internalType": "uint8",
+                  "name": "approvalCount",
+                  "type": "uint8"
+                },
+                {
+                  "internalType": "uint64",
+                  "name": "revisionDeadline",
+                  "type": "uint64"
                 },
                 {
                   "internalType": "bool",
@@ -1586,6 +2614,161 @@
               "internalType": "struct Covenant.Milestone[]",
               "name": "",
               "type": "tuple[]"
+            }
+          ],
+          "stateMutability": "view",
+          "type": "function"
+        },
+        {
+          "inputs": [
+            {
+              "internalType": "uint256",
+              "name": "campaignId",
+              "type": "uint256"
+            },
+            {
+              "internalType": "uint256",
+              "name": "milestoneIndex",
+              "type": "uint256"
+            }
+          ],
+          "name": "getReviews",
+          "outputs": [
+            {
+              "components": [
+                {
+                  "internalType": "address",
+                  "name": "reviewer",
+                  "type": "address"
+                },
+                {
+                  "internalType": "bool",
+                  "name": "approved",
+                  "type": "bool"
+                },
+                {
+                  "internalType": "string",
+                  "name": "notes",
+                  "type": "string"
+                },
+                {
+                  "internalType": "uint64",
+                  "name": "decidedAt",
+                  "type": "uint64"
+                },
+                {
+                  "internalType": "uint32",
+                  "name": "submissionIndex",
+                  "type": "uint32"
+                }
+              ],
+              "internalType": "struct Covenant.ReviewDecision[]",
+              "name": "",
+              "type": "tuple[]"
+            }
+          ],
+          "stateMutability": "view",
+          "type": "function"
+        },
+        {
+          "inputs": [
+            {
+              "internalType": "uint256",
+              "name": "campaignId",
+              "type": "uint256"
+            },
+            {
+              "internalType": "uint256",
+              "name": "milestoneIndex",
+              "type": "uint256"
+            }
+          ],
+          "name": "getSubmissions",
+          "outputs": [
+            {
+              "components": [
+                {
+                  "internalType": "bytes32",
+                  "name": "manifestHash",
+                  "type": "bytes32"
+                },
+                {
+                  "internalType": "string",
+                  "name": "manifestURI",
+                  "type": "string"
+                },
+                {
+                  "internalType": "string",
+                  "name": "summary",
+                  "type": "string"
+                },
+                {
+                  "internalType": "uint64",
+                  "name": "submittedAt",
+                  "type": "uint64"
+                }
+              ],
+              "internalType": "struct Covenant.ProofSubmission[]",
+              "name": "",
+              "type": "tuple[]"
+            }
+          ],
+          "stateMutability": "view",
+          "type": "function"
+        },
+        {
+          "inputs": [
+            {
+              "internalType": "uint256",
+              "name": "campaignId",
+              "type": "uint256"
+            },
+            {
+              "internalType": "uint256",
+              "name": "milestoneIndex",
+              "type": "uint256"
+            },
+            {
+              "internalType": "uint256",
+              "name": "submissionIndex",
+              "type": "uint256"
+            },
+            {
+              "internalType": "address",
+              "name": "reviewer",
+              "type": "address"
+            }
+          ],
+          "name": "hasReviewed",
+          "outputs": [
+            {
+              "internalType": "bool",
+              "name": "",
+              "type": "bool"
+            }
+          ],
+          "stateMutability": "view",
+          "type": "function"
+        },
+        {
+          "inputs": [
+            {
+              "internalType": "uint256",
+              "name": "campaignId",
+              "type": "uint256"
+            },
+            {
+              "internalType": "address",
+              "name": "account",
+              "type": "address"
+            }
+          ],
+          "name": "isReviewer",
+          "outputs": [
+            {
+              "internalType": "bool",
+              "name": "",
+              "type": "bool"
             }
           ],
           "stateMutability": "view",
@@ -1611,6 +2794,44 @@
           "type": "function"
         },
         {
+          "inputs": [
+            {
+              "internalType": "uint256",
+              "name": "",
+              "type": "uint256"
+            }
+          ],
+          "name": "leadDonor",
+          "outputs": [
+            {
+              "internalType": "address",
+              "name": "",
+              "type": "address"
+            }
+          ],
+          "stateMutability": "view",
+          "type": "function"
+        },
+        {
+          "inputs": [
+            {
+              "internalType": "uint256",
+              "name": "campaignId",
+              "type": "uint256"
+            }
+          ],
+          "name": "milestoneFailed",
+          "outputs": [
+            {
+              "internalType": "bool",
+              "name": "",
+              "type": "bool"
+            }
+          ],
+          "stateMutability": "view",
+          "type": "function"
+        },
+        {
           "inputs": [],
           "name": "owner",
           "outputs": [
@@ -1624,8 +2845,55 @@
           "type": "function"
         },
         {
+          "inputs": [
+            {
+              "internalType": "uint256",
+              "name": "campaignId",
+              "type": "uint256"
+            },
+            {
+              "internalType": "address",
+              "name": "donor",
+              "type": "address"
+            }
+          ],
+          "name": "refundOf",
+          "outputs": [
+            {
+              "internalType": "uint256",
+              "name": "",
+              "type": "uint256"
+            }
+          ],
+          "stateMutability": "view",
+          "type": "function"
+        },
+        {
           "inputs": [],
           "name": "renounceOwnership",
+          "outputs": [],
+          "stateMutability": "nonpayable",
+          "type": "function"
+        },
+        {
+          "inputs": [
+            {
+              "internalType": "uint256",
+              "name": "campaignId",
+              "type": "uint256"
+            },
+            {
+              "internalType": "bool",
+              "name": "approve",
+              "type": "bool"
+            },
+            {
+              "internalType": "string",
+              "name": "notes",
+              "type": "string"
+            }
+          ],
+          "name": "reviewProof",
           "outputs": [],
           "stateMutability": "nonpayable",
           "type": "function"
@@ -1657,11 +2925,21 @@
             },
             {
               "internalType": "string",
-              "name": "evidence",
+              "name": "summary",
+              "type": "string"
+            },
+            {
+              "internalType": "bytes32",
+              "name": "manifestHash",
+              "type": "bytes32"
+            },
+            {
+              "internalType": "string",
+              "name": "manifestURI",
               "type": "string"
             }
           ],
-          "name": "submitEvidence",
+          "name": "submitProof",
           "outputs": [],
           "stateMutability": "nonpayable",
           "type": "function"
@@ -1714,7 +2992,7 @@
       ]
     },
     "USDC": {
-      "address": "0xCf7Ed3AccA5a467e9e704C703E8D87F634fB0Fc9"
+      "address": "0x5FC8d32690cc91D4c39d9d3abcBD16989F875707"
     }
   }
 }

@@ -32,6 +32,18 @@ export function openDb(path) {
       key   TEXT PRIMARY KEY,
       value TEXT
     );
+
+    -- Off-chain evidence registry: full proof-package manifests, addressed by
+    -- the keccak256 hash that Covenant stores on-chain. Access model is
+    -- capability-by-hash (the hash is on-chain, so effectively "unlisted").
+    -- TODO(privacy): production needs authenticated access (reviewer
+    -- allowlists from the campaign's approval config, expiring links, and an
+    -- access audit log) before genuinely confidential documents belong here.
+    CREATE TABLE IF NOT EXISTS evidence (
+      hash        TEXT PRIMARY KEY,          -- 0x-prefixed keccak256, lowercase
+      manifest    TEXT NOT NULL,             -- canonical manifest JSON
+      created_at  TEXT DEFAULT (datetime('now'))
+    );
   `);
 
   return db;

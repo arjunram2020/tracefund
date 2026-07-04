@@ -25,7 +25,9 @@
       "Bash(curl -s -o /dev/null -w \"site: %{http_code}\\\\n\" http://18.219.16.173/)",
       "Bash(curl -s http://18.219.16.173/api/health)",
       "Bash(ssh -i ~/Downloads/covenant-key.pem ec2-user@18.219.16.173 'read -r OLDKEY; cd ~/covenant/packages/nextjs; echo \"old-key prefix length used: ${#OLDKEY}\"; echo '\\\\''files in bundle containing the actual old key:'\\\\''; grep -rl -- \"$OLDKEY\" .next 2>/dev/null | wc -l; echo '\\\\''context of the ra9 match \\(first 60 chars around it\\):'\\\\''; grep -roh -- '\\\\''ra9[A-Za-z0-9_-]*'\\\\'' .next/static 2>/dev/null | sort -u | head -3 | cut -c1-30')",
-      "Bash(node *)"
+      "Bash(node *)",
+      "Bash(curl -s https://mainnet.base.org -X POST -H 'content-type: application/json' --data '{\"jsonrpc\":\"2.0\",\"id\":1,\"method\":\"eth_getCode\",\"params\":[\"0xe11CE961Ff378B5D5172DE6ABfE8c16f900e10F3\",\"latest\"]}')",
+      "Bash(curl -s https://mainnet.base.org -X POST -H 'content-type: application/json' --data '{\"jsonrpc\":\"2.0\",\"id\":1,\"method\":\"eth_call\",\"params\":[{\"to\":\"0xe11CE961Ff378B5D5172DE6ABfE8c16f900e10F3\",\"data\":\"0x0f2c9329\"},\"latest\"]}')"
     ]
   }
 }
