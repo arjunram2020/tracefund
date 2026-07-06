@@ -29,5 +29,8 @@
       "Bash(curl -s https://mainnet.base.org -X POST -H 'content-type: application/json' --data '{\"jsonrpc\":\"2.0\",\"id\":1,\"method\":\"eth_getCode\",\"params\":[\"0xe11CE961Ff378B5D5172DE6ABfE8c16f900e10F3\",\"latest\"]}')",
       "Bash(curl -s https://mainnet.base.org -X POST -H 'content-type: application/json' --data '{\"jsonrpc\":\"2.0\",\"id\":1,\"method\":\"eth_call\",\"params\":[{\"to\":\"0xe11CE961Ff378B5D5172DE6ABfE8c16f900e10F3\",\"data\":\"0x0f2c9329\"},\"latest\"]}')"
     ]
+  },
+  "remote": {
+    "defaultEnvironmentId": "env_01Hf2JQgWszUvPCCZvx8Be41"
   }
 }
