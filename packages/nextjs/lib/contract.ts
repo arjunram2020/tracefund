@@ -12,7 +12,7 @@ export type DeploymentMode = "active" | "legacy" | "missing";
 // (e.g. a deployment made before USDC support). Local chains always record
 // their MockUSDC address at deploy time.
 const CANONICAL_USDC: Record<number, `0x${string}`> = {
-  8453: "0x833589fcB6E61E26EE7660cE1C83e66bc46d47c9", // Base Mainnet (native USDC)
+  8453: "0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913", // Base Mainnet (native USDC)
   84532: "0x036CbD53842c5426634e7929541eC2318f3dCF7e", // Base Sepolia (Circle testnet USDC)
 };
 
@@ -41,13 +41,21 @@ export function getCovenant(chainId?: number): Entry | undefined {
 }
 
 /**
- * A "current" Covenant deployment must match the USDC write flow the frontend
- * implements: donate(campaignId, amount) as a non-payable call.
+ * A "current" Covenant deployment must match the write flow the frontend
+ * implements: USDC donate(campaignId, amount), structured proof submission,
+ * reviewer-gated releases, and donor refunds. Older auto-release deployments
+ * (submitEvidence) are treated as legacy so the app never writes to them.
  */
 export function isWriteCompatibleDeployment(chainId?: number): boolean {
   const deployment = getCovenant(chainId);
   const donate = getAbiFunction(deployment?.abi, "donate");
-  return donate?.inputs?.length === 2 && donate.stateMutability === "nonpayable";
+  const donateOk = donate?.inputs?.length === 2 && donate.stateMutability === "nonpayable";
+  return (
+    donateOk &&
+    !!getAbiFunction(deployment?.abi, "submitProof") &&
+    !!getAbiFunction(deployment?.abi, "reviewProof") &&
+    !!getAbiFunction(deployment?.abi, "claimRefund")
+  );
 }
 
 export function getDeploymentMode(chainId?: number): DeploymentMode {

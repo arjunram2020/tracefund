@@ -6,7 +6,7 @@ import { useAccount } from "wagmi";
 import { ConnectButton } from "@rainbow-me/rainbowkit";
 import type { Campaign } from "../lib/types";
 import { USDC_DECIMALS, formatUsdc } from "../lib/format";
-import { useCovenantWrite, useReadChain, useUsdc } from "../hooks/useCovenant";
+import { useCovenantWrite, useReadChain, useRefund, useUsdc } from "../hooks/useCovenant";
 import { TxFeedback } from "./TxFeedback";
 
 // Safe demo values from PRD §9 — tiny real-USDC amounts.
@@ -122,6 +122,8 @@ export function DonationPanel({
           older ETH contract. Redeploy the USDC contract on this network before accepting new
           donations.
         </p>
+      ) : campaign.cancelledAt !== 0n ? (
+        <RefundSection campaign={campaign} account={account} />
       ) : !campaign.active ? (
         <p className="rounded-xl bg-[var(--bg-subtle)] px-4 py-3 text-sm text-[var(--text-secondary)]">
           This campaign is {campaign.completed ? "completed" : "closed"} and no longer accepting
@@ -223,10 +225,72 @@ export function DonationPanel({
 
           <p className="mt-2 text-xs text-[var(--text-tertiary)]">
             Funds are held by the Covenant contract and only released to the creator milestone by
-            milestone, once each milestone is funded and its on-chain proof is posted.
+            milestone, after the campaign&apos;s reviewers approve each proof package. If the
+            creator misses a proof deadline, you can reclaim your share of the unreleased escrow.
           </p>
         </>
       )}
+    </div>
+  );
+}
+
+/** Shown once a campaign is cancelled/failed: donors reclaim pro-rata escrow. */
+function RefundSection({
+  campaign,
+  account,
+}: {
+  campaign: Campaign;
+  account?: `0x${string}`;
+}) {
+  const { refund, refetch } = useRefund(campaign.id, account);
+  const { execute, refresh, isPending, isConfirming, isConfirmed, error, hash } =
+    useCovenantWrite();
+
+  useEffect(() => {
+    if (isConfirmed) {
+      refetch();
+      refresh();
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [isConfirmed]);
+
+  return (
+    <div className="rounded-xl bg-red-600/5 px-4 py-3 text-sm">
+      <p className="font-medium text-red-700">
+        This campaign was cancelled — refunds are open.
+      </p>
+      <p className="mt-1 text-xs text-[var(--text-secondary)]">
+        Each donor can reclaim their share of the unreleased escrow (
+        {formatUsdc(campaign.totalRaised - campaign.totalReleased)} USDC total). Funds already
+        released for approved milestones stay with the creator.
+      </p>
+      {account && refund > 0n ? (
+        <button
+          className="btn-primary mt-3 w-full"
+          disabled={isPending || isConfirming}
+          onClick={() => execute("claimRefund", [campaign.id]).catch(() => {})}
+        >
+          {isPending || isConfirming
+            ? "Claiming…"
+            : `Claim my ${formatUsdc(refund)} USDC refund`}
+        </button>
+      ) : (
+        <p className="mt-2 text-xs text-[var(--text-tertiary)]">
+          {account
+            ? "This wallet has no refund to claim (nothing donated, or already claimed)."
+            : "Connect the wallet you donated with to claim your refund."}
+        </p>
+      )}
+      <div className="mt-2 min-h-[1.25rem]">
+        <TxFeedback
+          isPending={isPending}
+          isConfirming={isConfirming}
+          isConfirmed={isConfirmed}
+          error={error}
+          hash={hash}
+          successText="Refund claimed — USDC returned to your wallet."
+        />
+      </div>
     </div>
   );
 }

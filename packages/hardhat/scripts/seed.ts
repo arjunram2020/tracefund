@@ -83,18 +83,43 @@ async function main() {
     console.log("Minted 1000 MockUSDC to each donor");
   }
 
-  const tx = await covenant
-    .connect(creator)
-    .createCampaign(
-      "Community Medical Relief Fund",
-      "A transparent emergency fundraiser where each milestone's funds unlock only after the creator posts on-chain proof.",
-      [
-        "Hospital deposit receipt",
-        "Medication purchase receipt",
-        "Follow-up appointment confirmation",
-      ],
-      MILESTONE_AMOUNTS.map((a) => usdc6(a)),
-    );
+  // Lead-donor approval keeps the demo self-contained: donor A ends up the
+  // largest donor and can approve/reject the creator's proof packages.
+  const criteria = [
+    {
+      title: "Hospital deposit paid",
+      successDefinition:
+        "The hospital deposit is paid in full, with a receipt matching the milestone amount.",
+      reportingPeriod: "Once, at admission",
+      expectedMetrics: "",
+      requiredProof: "Deposit receipt (photo or PDF) with hospital reference number",
+    },
+    {
+      title: "Medication purchased",
+      successDefinition: "The prescribed medication is purchased as itemized in the receipt.",
+      reportingPeriod: "Once, at purchase",
+      expectedMetrics: "",
+      requiredProof: "Itemized pharmacy receipt, photo of medication",
+    },
+    {
+      title: "Follow-up appointment completed",
+      successDefinition: "The follow-up appointment took place and is documented.",
+      reportingPeriod: "Once, after the appointment",
+      expectedMetrics: "",
+      requiredProof: "Appointment confirmation or discharge note",
+    },
+  ];
+
+  const tx = await covenant.connect(creator).createCampaign(
+    "Community Medical Relief Fund",
+    "A transparent emergency fundraiser: each milestone's funds unlock only after the lead donor approves the creator's proof package against the acceptance criteria.",
+    0, // CampaignKind.Charity
+    { model: 1 /* ApprovalModel.LeadDonor */, reviewers: [], threshold: 1 },
+    criteria.map((c, i) => ({
+      criteria: { ...c, proofDeadline: 0 },
+      amount: usdc6(MILESTONE_AMOUNTS[i]),
+    })),
+  );
   const receipt = await tx.wait();
 
   // Derive the new campaign id from the emitted event.
@@ -126,7 +151,10 @@ async function main() {
   await (await covenant.connect(donorA).donate(campaignId, usdc6(DONATION_A2))).wait();
   console.log(`Donor A donated ${DONATION_A2} USDC (total now at the ${goal} USDC goal)`);
 
-  console.log(`\nDemo ready: milestone one is funded and waiting for evidence.`);
+  console.log(
+    `\nDemo ready: milestone one is funded and waiting for the creator's proof package.` +
+      `\nDonor A (${donorA.address}) is the lead donor and reviews the proof.`,
+  );
 }
 
 /** Build a signer from a private key in the environment, connected to the provider. */

@@ -1,6 +1,6 @@
 import { getDefaultConfig } from "@rainbow-me/rainbowkit";
 import { http } from "wagmi";
-import { base, baseSepolia, hardhat, mainnet } from "wagmi/chains";
+import { base, baseSepolia, hardhat } from "wagmi/chains";
 import type { Chain } from "viem";
 import { defaultChainId } from "./contract";
 
@@ -10,7 +10,10 @@ import { defaultChainId } from "./contract";
 const projectId = process.env.NEXT_PUBLIC_WALLETCONNECT_PROJECT_ID || "covenant_local_demo";
 
 // Every network Covenant can target. The actual default is chosen below.
-const ALL_CHAINS: Chain[] = [base, baseSepolia, mainnet, hardhat];
+// Ethereum mainnet is deliberately excluded: Covenant only deploys to Base,
+// and offering chain 1 in the wallet lets users preview/send transactions at
+// L1 gas prices (~100x Base). ENS lookups use a standalone read client instead.
+const ALL_CHAINS: Chain[] = [base, baseSepolia, hardhat];
 
 // Per-chain RPC overrides. The built-in public RPCs (e.g. https://mainnet.base.org)
 // work but are rate-limited; a hosted multi-device demo should point at a dedicated
@@ -18,14 +21,17 @@ const ALL_CHAINS: Chain[] = [base, baseSepolia, mainnet, hardhat];
 const RPC_OVERRIDES: Record<number, string | undefined> = {
   [base.id]: process.env.NEXT_PUBLIC_BASE_RPC_URL,
   [baseSepolia.id]: process.env.NEXT_PUBLIC_BASE_SEPOLIA_RPC_URL,
-  [mainnet.id]: process.env.NEXT_PUBLIC_MAINNET_RPC_URL,
 };
 
 // Put the configured default chain (NEXT_PUBLIC_DEFAULT_CHAIN_ID, e.g. 8453 = Base)
-// first so the wallet modal and RainbowKit's initial chain prefer it.
+// first so the wallet modal and RainbowKit's initial chain prefer it. Use the
+// env value directly — contract.ts's defaultChainId can fall back to localhost
+// when the target chain's deployment is stale, and the wallet must never be
+// steered to a localhost chain on a hosted site.
+const preferredChainId = Number(process.env.NEXT_PUBLIC_DEFAULT_CHAIN_ID) || defaultChainId;
 const ordered = [
-  ...ALL_CHAINS.filter((c) => c.id === defaultChainId),
-  ...ALL_CHAINS.filter((c) => c.id !== defaultChainId),
+  ...ALL_CHAINS.filter((c) => c.id === preferredChainId),
+  ...ALL_CHAINS.filter((c) => c.id !== preferredChainId),
 ] as [Chain, ...Chain[]];
 
 const transports = Object.fromEntries(ALL_CHAINS.map((c) => [c.id, http(RPC_OVERRIDES[c.id])]));

@@ -18,7 +18,14 @@ import {
   resolveReadChainId,
   supportsContractFunction,
 } from "../lib/contract";
-import type { Campaign, CreatorStats, Milestone } from "../lib/types";
+import type {
+  ApprovalConfig,
+  Campaign,
+  CreatorStats,
+  Milestone,
+  ProofSubmission,
+  ReviewDecision,
+} from "../lib/types";
 
 export function useReadChain() {
   const connectedChainId = useChainId();
@@ -159,7 +166,104 @@ export function useCreatorAccess(creator?: `0x${string}`) {
   };
 }
 
-export type CovenantFn = "createCampaign" | "donate" | "submitEvidence";
+/** The campaign's approval authority configuration. */
+export function useApprovalConfig(id?: bigint) {
+  const { address, abi, chainId } = useReadChain();
+  const q = useReadContract({
+    address,
+    abi,
+    functionName: "getApprovalConfig",
+    args: id !== undefined ? [id] : undefined,
+    chainId,
+    query: { enabled: !!address && id !== undefined },
+  });
+  return { ...q, config: q.data as ApprovalConfig | undefined };
+}
+
+/** All proof packages submitted for one milestone (oldest first). */
+export function useSubmissions(id?: bigint, milestoneIndex?: number) {
+  const { address, abi, chainId } = useReadChain();
+  const q = useReadContract({
+    address,
+    abi,
+    functionName: "getSubmissions",
+    args:
+      id !== undefined && milestoneIndex !== undefined
+        ? [id, BigInt(milestoneIndex)]
+        : undefined,
+    chainId,
+    query: { enabled: !!address && id !== undefined && milestoneIndex !== undefined },
+  });
+  return { ...q, submissions: (q.data as ProofSubmission[] | undefined) ?? [] };
+}
+
+/** Every review decision recorded for one milestone (oldest first). */
+export function useReviews(id?: bigint, milestoneIndex?: number) {
+  const { address, abi, chainId } = useReadChain();
+  const q = useReadContract({
+    address,
+    abi,
+    functionName: "getReviews",
+    args:
+      id !== undefined && milestoneIndex !== undefined
+        ? [id, BigInt(milestoneIndex)]
+        : undefined,
+    chainId,
+    query: { enabled: !!address && id !== undefined && milestoneIndex !== undefined },
+  });
+  return { ...q, reviews: (q.data as ReviewDecision[] | undefined) ?? [] };
+}
+
+/** Whether an account currently holds review authority for a campaign. */
+export function useIsReviewer(id?: bigint, account?: `0x${string}`) {
+  const { address, abi, chainId } = useReadChain();
+  const q = useReadContract({
+    address,
+    abi,
+    functionName: "isReviewer",
+    args: id !== undefined && account ? [id, account] : undefined,
+    chainId,
+    query: { enabled: !!address && id !== undefined && !!account },
+  });
+  return { ...q, isReviewer: (q.data as boolean | undefined) ?? false };
+}
+
+/** A donor's claimable USDC refund (0 unless the campaign was cancelled). */
+export function useRefund(id?: bigint, donor?: `0x${string}`) {
+  const { address, abi, chainId } = useReadChain();
+  const q = useReadContract({
+    address,
+    abi,
+    functionName: "refundOf",
+    args: id !== undefined && donor ? [id, donor] : undefined,
+    chainId,
+    query: { enabled: !!address && id !== undefined && !!donor },
+  });
+  return { ...q, refund: (q.data as bigint | undefined) ?? 0n };
+}
+
+/** True when the current milestone blew its deadline and anyone may fail the campaign. */
+export function useMilestoneFailed(id?: bigint) {
+  const { address, abi, chainId } = useReadChain();
+  const q = useReadContract({
+    address,
+    abi,
+    functionName: "milestoneFailed",
+    args: id !== undefined ? [id] : undefined,
+    chainId,
+    query: { enabled: !!address && id !== undefined, refetchInterval: 30_000 },
+  });
+  return { ...q, failed: (q.data as boolean | undefined) ?? false };
+}
+
+export type CovenantFn =
+  | "createCampaign"
+  | "donate"
+  | "submitProof"
+  | "reviewProof"
+  | "cancelCampaign"
+  | "failCampaign"
+  | "claimRefund";
 
 export function useCovenantWrite() {
   const { address, abi, chainId, writeEnabled } = useReadChain();

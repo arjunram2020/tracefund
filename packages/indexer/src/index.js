@@ -1,7 +1,7 @@
 import "dotenv/config";
 import express from "express";
 import cors from "cors";
-import { createPublicClient, http } from "viem";
+import { createPublicClient, http, keccak256, toBytes } from "viem";
 import { base } from "viem/chains";
 import { COVENANT_EVENTS } from "./abi.js";
 import { openDb, getCursor, setCursor, insertEvent } from "./db.js";
@@ -117,6 +117,8 @@ async function pollForever() {
 function startApi() {
   const app = express();
   app.use(cors()); // let the browser frontend call us from another domain
+  // Evidence manifests arrive as raw JSON bodies; cap the size defensively.
+  app.use(express.text({ type: "application/json", limit: "256kb" }));
 
   app.get("/health", (_req, res) => {
     const last = getCursor(db, DEPLOY_BLOCK);
@@ -162,6 +164,36 @@ function startApi() {
       )
       .all(id);
     res.json(rows.map((r) => ({ ...r, args: JSON.parse(r.args) })));
+  });
+
+  // ---- Off-chain evidence registry -----------------------------------------
+  // Full proof-package manifests, addressed by the keccak256 hash Covenant
+  // stores on-chain. The server re-hashes the body before storing, so the
+  // registry can never serve content that doesn't match its address —
+  // reviewers get integrity for free. Access model is capability-by-hash
+  // ("unlisted"); see the TODO(privacy) note in db.js for the auth roadmap.
+  const isHash = (v) => /^0x[0-9a-fA-F]{64}$/.test(String(v));
+
+  app.put("/evidence/:hash", (req, res) => {
+    const hash = String(req.params.hash).toLowerCase();
+    if (!isHash(hash)) return res.status(400).json({ error: "invalid hash" });
+    const body = typeof req.body === "string" ? req.body : "";
+    if (!body) return res.status(400).json({ error: "missing manifest body" });
+    if (keccak256(toBytes(body)).toLowerCase() !== hash) {
+      return res.status(400).json({ error: "manifest does not hash to the given address" });
+    }
+    db.prepare(
+      "INSERT OR IGNORE INTO evidence (hash, manifest) VALUES (?, ?)",
+    ).run(hash, body);
+    res.json({ ok: true });
+  });
+
+  app.get("/evidence/:hash", (req, res) => {
+    const hash = String(req.params.hash).toLowerCase();
+    if (!isHash(hash)) return res.status(400).json({ error: "invalid hash" });
+    const row = db.prepare("SELECT manifest FROM evidence WHERE hash = ?").get(hash);
+    if (!row) return res.status(404).json({ error: "not found" });
+    res.type("application/json").send(row.manifest);
   });
 
   // Quick counts for a dashboard.

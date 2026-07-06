@@ -12,9 +12,12 @@ function explorerTxUrl(chainId: number, txHash: string): string {
 const ICON: Record<ActivityType, { glyph: string; ring: string }> = {
   CampaignCreated: { glyph: "✦", ring: "bg-[var(--bg-subtle)] text-[var(--text-secondary)]" },
   DonationReceived: { glyph: "↓", ring: "bg-[var(--brand-primary)]/15 text-[var(--brand-primary)]" },
-  EvidenceSubmitted: { glyph: "▣", ring: "bg-sky-600/10 text-sky-700" },
+  ProofSubmitted: { glyph: "▣", ring: "bg-sky-600/10 text-sky-700" },
+  ProofReviewed: { glyph: "⚖", ring: "bg-violet-600/10 text-violet-700" },
   MilestoneReleased: { glyph: "↑", ring: "bg-emerald-600/10 text-emerald-700" },
   CampaignCompleted: { glyph: "★", ring: "bg-[var(--brand-primary)]/20 text-[var(--brand-primary)]" },
+  CampaignCancelled: { glyph: "⊘", ring: "bg-red-600/10 text-red-700" },
+  RefundClaimed: { glyph: "↩", ring: "bg-red-600/10 text-red-700" },
 };
 
 type FlowTag = { label: string; cls: string } | null;
@@ -24,12 +27,18 @@ const FLOW: Record<ActivityType, FlowTag> = {
     label: "wallet → escrow",
     cls: "text-[var(--brand-primary)] bg-[var(--brand-primary)]/10 ring-1 ring-[var(--brand-primary)]/20",
   },
-  EvidenceSubmitted: null,
+  ProofSubmitted: null,
+  ProofReviewed: null,
   MilestoneReleased: {
     label: "escrow → creator wallet",
     cls: "text-emerald-700 bg-emerald-600/10 ring-1 ring-emerald-600/20",
   },
   CampaignCompleted: null,
+  CampaignCancelled: null,
+  RefundClaimed: {
+    label: "escrow → donor wallet",
+    cls: "text-red-700 bg-red-600/10 ring-1 ring-red-600/20",
+  },
 };
 
 function describe(item: ActivityItem): React.ReactNode {
@@ -54,11 +63,25 @@ function describe(item: ActivityItem): React.ReactNode {
           <span className="font-mono text-[var(--text-primary)]">{formatUsdc(a.totalRaised)} USDC</span>
         </>
       );
-    case "EvidenceSubmitted":
+    case "ProofSubmitted":
       return (
         <>
-          Creator posted on-chain proof for {ms} — this milestone&apos;s funds release to the
-          creator in the same transaction
+          Creator submitted a proof package for {ms}
+          {a.summary ? <> — &ldquo;{String(a.summary)}&rdquo;</> : null}. Funds stay locked until
+          reviewers approve it
+        </>
+      );
+    case "ProofReviewed":
+      return a.approved ? (
+        <>
+          Reviewer <span className="font-mono">{shortenAddress(a.reviewer)}</span> approved the
+          proof for {ms}
+        </>
+      ) : (
+        <>
+          Reviewer <span className="font-mono">{shortenAddress(a.reviewer)}</span> requested
+          changes on {ms}
+          {a.notes ? <> — &ldquo;{String(a.notes)}&rdquo;</> : null}
         </>
       );
     case "MilestoneReleased":
@@ -66,11 +89,26 @@ function describe(item: ActivityItem): React.ReactNode {
         <>
           <span className="font-mono text-emerald-700">{formatUsdc(a.amount)} USDC</span> transferred
           from escrow to creator{" "}
-          <span className="font-mono">{shortenAddress(a.creator)}</span> for {ms}
+          <span className="font-mono">{shortenAddress(a.creator)}</span> for {ms} after reviewer
+          approval
         </>
       );
     case "CampaignCompleted":
-      return <>All milestones proven and released — campaign complete</>;
+      return <>All milestones approved and released — campaign complete</>;
+    case "CampaignCancelled":
+      return (
+        <>
+          Campaign {a.voluntary ? "cancelled by the creator" : "failed on a missed deadline"} —
+          donor refunds are open for the unreleased escrow
+        </>
+      );
+    case "RefundClaimed":
+      return (
+        <>
+          <span className="font-mono">{shortenAddress(a.donor)}</span> reclaimed{" "}
+          <span className="font-mono text-red-700">{formatUsdc(a.amount)} USDC</span> from escrow
+        </>
+      );
     default:
       return item.type;
   }

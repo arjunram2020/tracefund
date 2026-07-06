@@ -6,21 +6,26 @@ This document is the short, practical handoff for the next deployment phase.
 
 ## Current status
 
-We already fixed the frontend so it no longer tries to send USDC-style writes to the old Base Mainnet Covenant deployment.
+Last verified: current session.
 
-Right now:
+The USDC Base Mainnet deployment is already done:
 
-- the checked-in Solidity contract is the newer USDC-based Covenant;
-- the live Base Mainnet contract address in `packages/nextjs/contracts/deployedContracts.json` still points to an older ETH-style deployment;
-- the frontend now detects that mismatch and disables create, donate, and proof submission on that legacy deployment instead of letting users hit a broken transaction flow.
+- the checked-in Solidity contract is the USDC-based Covenant;
+- `packages/nextjs/contracts/deployedContracts.json` for chain `8453` now points at the **USDC** deployment `0xe11CE961Ff378B5D5172DE6ABfE8c16f900e10F3` (deployBlock 48139854), whose ABI is the USDC generation (`donate(campaignId, amount)` non-payable, `constructor(usdc_)`, `submitEvidence`);
+- that address was confirmed to have live bytecode on Base Mainnet;
+- the 33-test hardhat suite passes against the current contract.
 
-That means the app is safer than before, but Base Mainnet is still not fully ready for production USDC usage until we redeploy and repoint it.
+In other words, the "redeploy Base to USDC" step below is **already complete**. The frontend's legacy-detection safety net (disabling create/donate/proof on non-USDC deployments) is still in place, but for chain 8453 it now resolves to `active`, not `legacy`.
 
-## Highest-priority blocker
+## Highest-priority remaining work
 
-We need a fresh Base Mainnet deployment of the current USDC Covenant contract and then need to update the frontend deployment metadata to point at it.
+The deploy itself is no longer the blocker. What still hasn't happened:
 
-Until that happens, Base Mainnet should be treated as read-only for the current frontend.
+1. an **end-to-end Base Mainnet smoke test** with tiny real USDC (create → approve → donate → submit proof → release), i.e. steps 3–5 below;
+2. the **proof-verification design decision** (see "Product/security next steps" §A) — currently `submitEvidence` is creator-only and auto-releases on any non-empty string, with no verification and no failure/refund path;
+3. **security debt**: a leaked Alchemy key remains in git history and baked into the EC2 `.env.local`; rotation is still pending, and the repo is public.
+
+The two deployment steps below are retained for reference but are effectively done — treat them as a checklist to re-verify, not fresh work.
 
 ## Deployment plan
 
@@ -104,20 +109,38 @@ These are not the main deployment blocker, but they should be next in line after
 
 ### A. Tighten milestone proof quality
 
-Right now the product direction is moving toward:
+There are three distinct problems here, in priority order.
 
-- required accomplishment description;
-- required evidence URL;
-- optional social-post helper workflow;
-- on-chain submission using the evidence URL instead of free-form proof text.
+**A1. No verification, no failure path (contract-level, needs a product decision).**
+`Covenant.sol::submitEvidence` is gated only by `msg.sender == creator` and a
+non-empty evidence string, and it releases that milestone's funds in the *same*
+transaction. Consequences:
 
-That improves accountability, but it does not fully validate truthfulness yet.
+- any string releases the money — donors have no approval role, so a fully
+  funded campaign can be drained with junk proof in a few back-to-back txns;
+- if a creator never submits proof, the USDC is locked in escrow **forever** —
+  there is no timeout, refund, or admin unlock path in the contract.
 
-Future hardening should focus on:
+Deciding who verifies proof (optimistic + challenge window, donor approval,
+etc.) and whether to add a refund/timeout are product decisions that require
+another contract redeploy. Do not implement unilaterally — see
+`docs/COVENANT_RESEARCH_GAPS.md` §1–§2.
 
-- stronger evidence standards;
-- clearer proof expectations per milestone;
-- distinguishing social visibility from actual verification.
+**A2. The accomplishment description is collected, required, then discarded (frontend bug).**
+In `components/EvidencePanel.tsx` the creator must fill "What did you
+accomplish?" (`canSubmit` requires `progress.trim().length > 0`), but only the
+evidence URL is sent on-chain (`execute("submitEvidence", [id, evidenceUrl])`)
+and `progress` is never persisted — it is not on-chain and not in the social
+post (that's a separate `messages[platform]` textarea). The comment claiming
+"the description lives in the social post" is false. Fix: either persist the
+description on-chain with the evidence, or stop requiring it. Blocked on a
+UX/data-format decision (the on-chain `evidence` field is a single string
+rendered by `EvidenceLink`).
+
+**A3. Evidence is unvalidated free text.**
+The contract accepts any non-empty string; the frontend's `https://` requirement
+is trivially bypassed by calling the contract directly, and a URL can 404 or
+point anywhere. Distinguish social visibility from actual verification.
 
 ### B. Decide how legacy Base data should be handled
 

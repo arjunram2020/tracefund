@@ -1,5 +1,6 @@
 import { formatUnits } from "viem";
 import type { Campaign, Milestone, MilestoneStatus } from "./types";
+import { MilestoneState } from "./types";
 
 /** USDC uses 6 decimals — every on-chain amount is in USDC base units. */
 export const USDC_DECIMALS = 6;
@@ -39,16 +40,32 @@ export function timeAgo(timestampSec: bigint | number): string {
   return new Date(ts).toLocaleDateString();
 }
 
+/** Seconds → ms guard for on-chain uint64 timestamps (0n = unset). */
+const pastDeadline = (deadline: bigint) =>
+  deadline !== 0n && Date.now() / 1000 > Number(deadline);
+
 export function milestoneStatus(
   milestone: Milestone,
   index: number,
   currentMilestone: number,
+  cumulativeTarget: bigint,
   totalRaised: bigint,
 ): MilestoneStatus {
-  if (milestone.released) return "released";
+  if (milestone.released || milestone.state === MilestoneState.Approved) return "approved";
   if (index > currentMilestone) return "locked";
-  if (totalRaised === 0n) return "funding";
-  return "awaiting-evidence";
+  if (milestone.state === MilestoneState.Submitted) {
+    return "under-review";
+  }
+  if (milestone.state === MilestoneState.ChangesRequested) {
+    return pastDeadline(milestone.revisionDeadline) ||
+      pastDeadline(milestone.criteria.proofDeadline)
+      ? "expired"
+      : "changes-requested";
+  }
+  // Pending
+  if (pastDeadline(milestone.criteria.proofDeadline)) return "expired";
+  if (totalRaised < cumulativeTarget) return "funding";
+  return "awaiting-proof";
 }
 
 interface StatusMeta {
@@ -59,13 +76,25 @@ interface StatusMeta {
 
 export function milestoneStatusMeta(status: MilestoneStatus): StatusMeta {
   switch (status) {
-    case "released":
+    case "approved":
       return {
-        label: "Released",
+        label: "Approved · released",
         pill: "bg-[var(--brand-secondary)] text-[var(--brand-primary)] ring-1 ring-[var(--brand-primary)]/25",
         dot: "bg-[var(--brand-primary)]",
       };
-    case "awaiting-evidence":
+    case "under-review":
+      return {
+        label: "Under review",
+        pill: "bg-violet-600/10 text-violet-700 ring-1 ring-violet-600/25",
+        dot: "bg-violet-600 animate-pulse",
+      };
+    case "changes-requested":
+      return {
+        label: "Changes requested",
+        pill: "bg-orange-600/10 text-orange-700 ring-1 ring-orange-600/25",
+        dot: "bg-orange-600",
+      };
+    case "awaiting-proof":
       return {
         label: "Awaiting proof",
         pill: "bg-amber-600/10 text-amber-700 ring-1 ring-amber-600/25",
@@ -76,6 +105,12 @@ export function milestoneStatusMeta(status: MilestoneStatus): StatusMeta {
         label: "Collecting funds",
         pill: "bg-sky-600/10 text-sky-700 ring-1 ring-sky-600/25",
         dot: "bg-sky-600",
+      };
+    case "expired":
+      return {
+        label: "Deadline missed",
+        pill: "bg-red-600/10 text-red-700 ring-1 ring-red-600/25",
+        dot: "bg-red-600",
       };
     case "locked":
     default:
@@ -91,8 +126,21 @@ export function campaignStatus(campaign: Campaign): { label: string; pill: strin
   if (campaign.completed) {
     return { label: "Completed", pill: "bg-[var(--brand-secondary)] text-[var(--brand-primary)] ring-1 ring-[var(--brand-primary)]/25" };
   }
+  if (campaign.cancelledAt !== 0n) {
+    return { label: "Cancelled · refunds open", pill: "bg-red-600/10 text-red-700 ring-1 ring-red-600/25" };
+  }
   if (campaign.active) {
     return { label: "Active", pill: "bg-sky-600/10 text-sky-700 ring-1 ring-sky-600/25" };
   }
   return { label: "Closed", pill: "bg-[var(--bg-subtle)] text-[var(--text-tertiary)] ring-1 ring-[var(--border-primary)]" };
+}
+
+/** Render a uint64 seconds deadline for the UI ("" when unset). */
+export function formatDeadline(deadline: bigint | undefined): string {
+  if (!deadline || deadline === 0n) return "";
+  return new Date(Number(deadline) * 1000).toLocaleDateString(undefined, {
+    year: "numeric",
+    month: "short",
+    day: "numeric",
+  });
 }

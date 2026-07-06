@@ -4,7 +4,7 @@ import { useEffect } from "react";
 import { usePublicClient } from "wagmi";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { createPublicClient, http, type Abi, type Chain, type PublicClient } from "viem";
-import { base, baseSepolia, hardhat, mainnet } from "wagmi/chains";
+import { base, baseSepolia, hardhat } from "wagmi/chains";
 import { getDeployBlock } from "../lib/contract";
 import { useReadChain } from "./useCovenant";
 
@@ -19,7 +19,6 @@ const LOG_CHUNK = 9999n;
 const SCAN_CHAINS: Record<number, Chain> = {
   [base.id]: base,
   [baseSepolia.id]: baseSepolia,
-  [mainnet.id]: mainnet,
   [hardhat.id]: hardhat,
 };
 const SCAN_RPC: Record<number, string | undefined> = {
@@ -70,9 +69,12 @@ async function fetchEventChunked(
 export type ActivityType =
   | "CampaignCreated"
   | "DonationReceived"
-  | "EvidenceSubmitted"
+  | "ProofSubmitted"
+  | "ProofReviewed"
   | "MilestoneReleased"
-  | "CampaignCompleted";
+  | "CampaignCompleted"
+  | "CampaignCancelled"
+  | "RefundClaimed";
 
 export interface ActivityItem {
   type: ActivityType;
@@ -86,9 +88,12 @@ export interface ActivityItem {
 const EVENT_NAMES: ActivityType[] = [
   "CampaignCreated",
   "DonationReceived",
-  "EvidenceSubmitted",
+  "ProofSubmitted",
+  "ProofReviewed",
   "MilestoneReleased",
   "CampaignCompleted",
+  "CampaignCancelled",
+  "RefundClaimed",
 ];
 
 // Base URL of our off-chain indexer running on EC2 (e.g. http://1.2.3.4/api).
