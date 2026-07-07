@@ -9,7 +9,7 @@ import "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
 /**
  * @title Covenant
  * @notice Milestone-based USDC escrow with explicit acceptance criteria,
- *         reviewer-gated releases, and donor refunds.
+ *         optionally reviewer-gated releases, and donor refunds.
  *
  * All value flows in USDC (an ERC-20 with 6 decimals); every amount in this
  * contract is denominated in USDC base units. Donors must approve() this
@@ -18,15 +18,15 @@ import "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
  * Flow per milestone:
  *   1. Donors send USDC into escrow via donate() (after approving it).
  *   2. Once donations cover the milestone, the creator submits a proof
- *      package via submitProof(). This does NOT release funds.
- *   3. The campaign's configured reviewers evaluate the proof against the
- *      milestone's acceptance criteria and approve or reject it.
- *   4. Funds release only when the approval threshold is met. On rejection
+ *      package via submitProof().
+ *   3. Under the NoApproval model, submitProof() releases funds immediately.
+ *      Otherwise the campaign's configured reviewers evaluate the proof
+ *      against the milestone's acceptance criteria and approve or reject it;
+ *      funds release only when the approval threshold is met. On rejection
  *      the creator revises and resubmits; escrow stays locked.
  *
- * Approval authority is configured per campaign (designated reviewers /
- * committee, lead donor, or platform operator). Donor-wide voting is
- * reserved in the ApprovalModel enum but not yet implemented.
+ * Approval authority is configured per campaign: no approval (funds release
+ * on submission), designated reviewers / committee, or platform operator.
  *
  * Evidence privacy boundary: the chain stores a short public summary plus a
  * keccak256 hash of the full proof-package manifest (and, only when the
@@ -77,10 +77,9 @@ contract Covenant is ReentrancyGuard, Ownable {
 
     /// @notice Who has the authority to approve milestone proof.
     enum ApprovalModel {
+        NoApproval,          // no review step — proof submission releases funds immediately
         DesignatedReviewers, // explicit reviewer set + threshold (committee when threshold > 1)
-        LeadDonor,           // the campaign's largest donor at review time
-        PlatformOperator,    // the contract owner (grant administrator / platform)
-        DonorVote            // reserved: donor-wide voting — not yet implemented
+        PlatformOperator     // the contract owner (grant administrator / platform)
     }
 
     /// @notice Review lifecycle of a single milestone. "Expired" is derived
@@ -191,8 +190,6 @@ contract Covenant is ReentrancyGuard, Ownable {
         private _reviewed;
     mapping(uint256 => mapping(address => uint256)) public donations;
     mapping(uint256 => address[]) private _donors;
-    /// @notice Largest single donor per campaign — the approver under LeadDonor.
-    mapping(uint256 => address) public leadDonor;
     mapping(address => CreatorStats) private _creatorStats;
 
     // -------------------------------------------------------------------------
@@ -359,16 +356,13 @@ contract Covenant is ReentrancyGuard, Ownable {
                     require(r != approval.reviewers[j], "Duplicate reviewer");
                 }
             }
-        } else if (
-            approval.model == ApprovalModel.LeadDonor ||
-            approval.model == ApprovalModel.PlatformOperator
-        ) {
+        } else if (approval.model == ApprovalModel.PlatformOperator) {
             require(approval.reviewers.length == 0, "Reviewers only for designated model");
             require(approval.threshold == 1, "Threshold must be 1 for this model");
         } else {
-            // ApprovalModel.DonorVote — scaffolded for donor-wide voting, which
-            // needs snapshotting + quorum design before it can be enabled.
-            revert("Donor voting not supported yet");
+            // ApprovalModel.NoApproval — no reviewers, nothing to meet.
+            require(approval.reviewers.length == 0, "Reviewers only for designated model");
+            require(approval.threshold == 0, "Threshold must be 0 for this model");
         }
     }
 
@@ -397,10 +391,6 @@ contract Covenant is ReentrancyGuard, Ownable {
         c.totalRaised += amount;
         _creatorStats[c.creator].totalRaised += amount;
 
-        if (donations[campaignId][msg.sender] > donations[campaignId][leadDonor[campaignId]]) {
-            leadDonor[campaignId] = msg.sender;
-        }
-
         usdc.safeTransferFrom(msg.sender, address(this), amount);
 
         emit DonationReceived(campaignId, msg.sender, amount, c.totalRaised);
@@ -408,8 +398,10 @@ contract Covenant is ReentrancyGuard, Ownable {
 
     /**
      * @notice Creator submits a proof package for the current milestone.
-     *         Funds are NOT released here — the campaign's reviewers must
-     *         approve the package against the milestone's acceptance criteria.
+     *         Under the NoApproval model there are no reviewers, so this call
+     *         releases the milestone's funds immediately. Otherwise the
+     *         campaign's reviewers must approve the package against the
+     *         milestone's acceptance criteria before funds move.
      * @param summary Short public summary (keep sensitive detail off-chain).
      * @param manifestHash keccak256 of the canonical proof-package manifest.
      * @param manifestURI Optional public pointer to the manifest; pass "" to
@@ -420,7 +412,7 @@ contract Covenant is ReentrancyGuard, Ownable {
         string calldata summary,
         bytes32 manifestHash,
         string calldata manifestURI
-    ) external campaignExists(campaignId) {
+    ) external campaignExists(campaignId) nonReentrant {
         Campaign storage c = _campaigns[campaignId];
         require(msg.sender == c.creator, "Only creator");
         require(c.active, "Campaign not active");
@@ -460,6 +452,10 @@ contract Covenant is ReentrancyGuard, Ownable {
         _creatorStats[c.creator].proofSubmissions += 1;
 
         emit ProofSubmitted(campaignId, mi, submissionIndex, manifestHash, summary);
+
+        if (_approvals[campaignId].model == ApprovalModel.NoApproval) {
+            _releaseMilestone(campaignId, c, m, mi);
+        }
     }
 
     /**
@@ -667,9 +663,6 @@ contract Covenant is ReentrancyGuard, Ownable {
                 if (cfg.reviewers[i] == account) return true;
             }
             return false;
-        }
-        if (cfg.model == ApprovalModel.LeadDonor) {
-            return account != address(0) && account == leadDonor[campaignId];
         }
         if (cfg.model == ApprovalModel.PlatformOperator) {
             return account == owner();

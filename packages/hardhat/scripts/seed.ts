@@ -83,8 +83,8 @@ async function main() {
     console.log("Minted 1000 MockUSDC to each donor");
   }
 
-  // Lead-donor approval keeps the demo self-contained: donor A ends up the
-  // largest donor and can approve/reject the creator's proof packages.
+  // No-approval keeps the demo self-contained: funds release the moment the
+  // creator submits a proof package, no reviewer required.
   const criteria = [
     {
       title: "Hospital deposit paid",
@@ -112,9 +112,9 @@ async function main() {
 
   const tx = await covenant.connect(creator).createCampaign(
     "Community Medical Relief Fund",
-    "A transparent emergency fundraiser: each milestone's funds unlock only after the lead donor approves the creator's proof package against the acceptance criteria.",
+    "A transparent emergency fundraiser: each milestone's funds release as soon as the creator submits a proof package against the acceptance criteria.",
     0, // CampaignKind.Charity
-    { model: 1 /* ApprovalModel.LeadDonor */, reviewers: [], threshold: 1 },
+    { model: 0 /* ApprovalModel.NoApproval */, reviewers: [], threshold: 0 },
     criteria.map((c, i) => ({
       criteria: { ...c, proofDeadline: 0 },
       amount: usdc6(MILESTONE_AMOUNTS[i]),
@@ -153,7 +153,7 @@ async function main() {
 
   console.log(
     `\nDemo ready: milestone one is funded and waiting for the creator's proof package.` +
-      `\nDonor A (${donorA.address}) is the lead donor and reviews the proof.`,
+      `\nNo approval required — funds release as soon as the creator submits proof.`,
   );
 }
 

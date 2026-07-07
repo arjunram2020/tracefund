@@ -29,6 +29,16 @@ const MAX_REVIEWERS = 7;
 const FREE_CAMPAIGNS = 2;
 const CREATION_COOLDOWN_MS = 24 * 60 * 60 * 1000;
 
+const PROOF_TYPE_OPTIONS = [
+  { label: "Analytics screenshots", fileTypes: ".png, .jpg, .pdf" },
+  { label: "Receipts", fileTypes: ".pdf, .jpg, .png" },
+  { label: "Delivery logs", fileTypes: ".csv, .xlsx, .pdf" },
+  { label: "Text update", fileTypes: ".txt, .pdf, .docx" },
+  { label: "Images", fileTypes: ".jpg, .png, .heic" },
+];
+
+const REPORTING_PERIOD_OPTIONS = ["Once, at completion", "Weekly", "Every 2 weeks", "Monthly", "Per phase"];
+
 interface MilestoneForm {
   title: string;
   amount: string; // USDC display units
@@ -461,12 +471,21 @@ export default function CreateCampaignPage() {
                       </div>
                       <div>
                         <label className="label">Required proof / documents</label>
-                        <input
+                        <select
                           className="input"
-                          placeholder="e.g. analytics screenshots, receipts, delivery logs"
                           value={m.requiredProof}
                           onChange={(e) => patchMilestone(i, { requiredProof: e.target.value })}
-                        />
+                        >
+                          <option value="">Select a proof type…</option>
+                          {m.requiredProof && !PROOF_TYPE_OPTIONS.some(o => o.label === m.requiredProof) && (
+                            <option value={m.requiredProof}>{m.requiredProof}</option>
+                          )}
+                          {PROOF_TYPE_OPTIONS.map(o => (
+                            <option key={o.label} value={o.label}>
+                              {o.label} ({o.fileTypes})
+                            </option>
+                          ))}
+                        </select>
                       </div>
                       <div className="grid gap-3 sm:grid-cols-2">
                         <div>
@@ -480,12 +499,21 @@ export default function CreateCampaignPage() {
                         </div>
                         <div>
                           <label className="label">Reporting period (optional)</label>
-                          <input
+                          <select
                             className="input"
-                            placeholder="e.g. every 2 weeks"
                             value={m.reportingPeriod}
                             onChange={(e) => patchMilestone(i, { reportingPeriod: e.target.value })}
-                          />
+                          >
+                            <option value="">Select a cadence…</option>
+                            {m.reportingPeriod && !REPORTING_PERIOD_OPTIONS.includes(m.reportingPeriod) && (
+                              <option value={m.reportingPeriod}>{m.reportingPeriod}</option>
+                            )}
+                            {REPORTING_PERIOD_OPTIONS.map(o => (
+                              <option key={o} value={o}>
+                                {o}
+                              </option>
+                            ))}
+                          </select>
                         </div>
                       </div>
                       <div>
@@ -529,9 +557,9 @@ export default function CreateCampaignPage() {
             {(
               [
                 {
-                  value: ApprovalModel.LeadDonor,
-                  label: "Lead donor",
-                  hint: "largest donor reviews for everyone",
+                  value: ApprovalModel.NoApproval,
+                  label: "No approval required",
+                  hint: "funds release the moment you submit proof",
                 },
                 {
                   value: ApprovalModel.DesignatedReviewers,
@@ -563,10 +591,7 @@ export default function CreateCampaignPage() {
               </button>
             ))}
           </div>
-          <p className="mt-2 text-xs text-[var(--text-tertiary)]">
-            {defaultApprovalForKind(kind).rationale} Donor-wide voting is scaffolded in the contract
-            but not yet available.
-          </p>
+          <p className="mt-2 text-xs text-[var(--text-tertiary)]">{defaultApprovalForKind(kind).rationale}</p>
 
           {needsReviewers && (
             <div className="mt-4 space-y-2 rounded-xl border border-[var(--border-primary)] bg-[var(--bg-faint)] p-4">

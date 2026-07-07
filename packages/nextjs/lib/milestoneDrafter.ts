@@ -77,14 +77,14 @@ export function defaultApprovalForKind(kind: CampaignKindValue): {
       };
     case CampaignKind.Charity:
       return {
-        model: ApprovalModel.LeadDonor,
+        model: ApprovalModel.NoApproval,
         rationale:
-          "Consumer/charity campaigns default to donor approval — the largest donor reviews proof on everyone's behalf. (Donor-wide voting is planned.)",
+          "Consumer/charity campaigns default to no approval — funds release as soon as you submit proof. Switch to designated reviewers if you want oversight.",
       };
     default:
       return {
-        model: ApprovalModel.LeadDonor,
-        rationale: "Defaulting to donor approval; switch to designated reviewers for institutional flows.",
+        model: ApprovalModel.NoApproval,
+        rationale: "Defaulting to no approval; switch to designated reviewers for institutional flows.",
       };
   }
 }

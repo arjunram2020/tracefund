@@ -3,12 +3,10 @@
 // plain numbers matching Solidity declaration order.
 
 export const ApprovalModel = {
-  DesignatedReviewers: 0,
-  LeadDonor: 1,
+  /** No reviewers — proof submission releases funds immediately. */
+  NoApproval: 0,
+  DesignatedReviewers: 1,
   PlatformOperator: 2,
-  /** Reserved in the contract but rejected at creation — donor-wide voting
-   *  needs snapshot + quorum design before it can be enabled. */
-  DonorVote: 3,
 } as const;
 export type ApprovalModelValue = (typeof ApprovalModel)[keyof typeof ApprovalModel];
 
@@ -115,10 +113,9 @@ export type MilestoneStatus =
   | "expired"; //           deadline blown — campaign can be failed / refunded
 
 export const APPROVAL_MODEL_LABELS: Record<ApprovalModelValue, string> = {
+  [ApprovalModel.NoApproval]: "No approval required",
   [ApprovalModel.DesignatedReviewers]: "Designated reviewers",
-  [ApprovalModel.LeadDonor]: "Lead donor",
   [ApprovalModel.PlatformOperator]: "Platform operator",
-  [ApprovalModel.DonorVote]: "Donor vote (coming soon)",
 };
 
 export const CAMPAIGN_KIND_LABELS: Record<CampaignKindValue, string> = {

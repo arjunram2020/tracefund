@@ -27,10 +27,9 @@ criteria are what reviewers evaluate against, so they must not be vague.
 
 | Model | Who approves | Notes |
 |---|---|---|
+| `NoApproval` | Nobody | Default for consumer/charity. `submitProof` releases funds immediately. |
 | `DesignatedReviewers` | Named addresses (≤7) | `threshold > 1` = committee. VC / grant flows. Creator can't be a reviewer. |
-| `LeadDonor` | The campaign's largest donor at review time | Default for consumer/charity. Tracked on every donation. |
 | `PlatformOperator` | Contract owner | Grant-administrator style. Blocked on the owner's own campaigns. |
-| `DonorVote` | — | **Scaffolded, rejected at creation.** Needs snapshot + quorum design first. |
 
 ## Review lifecycle
 
@@ -39,7 +38,8 @@ criteria are what reviewers evaluate against, so they must not be vague.
 
 - `submitProof` requires: creator, funded tranche, before `proofDeadline`
   (and inside the revision window when resubmitting). Emits `ProofSubmitted`.
-  **Never moves funds.**
+  Under `NoApproval`, this call also releases the milestone immediately;
+  otherwise funds only move once `reviewProof` meets the threshold.
 - `reviewProof(approve, notes)`: authorized reviewer, one vote per submission.
   Reject **requires notes**, flips to `ChangesRequested`, and starts a
   `REVISION_WINDOW` (14 days). Approvals accumulate per submission; at
@@ -114,7 +114,7 @@ configured USDC token has bytecode (`ContractNotice`).
 
 ## Deferred (intentionally)
 
-- Donor-wide voting (`ApprovalModel.DonorVote`) — enum scaffolded, creation reverts.
+- Donor-wide voting — no enum slot for it currently; would need a new `ApprovalModel` variant plus snapshot + quorum design.
 - Program-level approval config (per-campaign only for now; the `ApprovalConfig` struct is the unit a program registry would reference).
 - Authenticated evidence storage / RBAC / access audit (seam: `evidenceRegistry.ts` + indexer `TODO(privacy)`).
 - Typed artifacts and file uploads in proof packages (manifest `links[].kind` reserves the space).
