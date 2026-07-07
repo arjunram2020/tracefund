@@ -74,6 +74,18 @@ export function DonationPanel({
   const currentStatus = currentMilestoneData
     ? milestoneStatus(currentMilestoneData, mi, mi, cumulativeTarget, campaign.totalRaised)
     : "funding";
+
+  // While the current milestone is still being funded, a single donation
+  // shouldn't be able to overshoot past its tranche target — that would just
+  // pre-fund the next milestone, which donations can't do once this one
+  // locks (see milestoneLocked below). Falls back to the overall goal cap if
+  // milestone data hasn't loaded yet.
+  const remainingToMilestone = currentMilestoneData
+    ? cumulativeTarget > campaign.totalRaised
+      ? cumulativeTarget - campaign.totalRaised
+      : 0n
+    : remaining;
+
   const milestoneLocked =
     currentStatus === "awaiting-proof" ||
     currentStatus === "under-review" ||
@@ -105,8 +117,11 @@ export function DonationPanel({
   if (parsed !== null && parsed > 0n) {
     if (goalReached) {
       capError = "This campaign has already reached its goal.";
-    } else if (parsed > remaining) {
-      capError = `Only ${formatUsdc(remaining)} USDC left before the goal is reached.`;
+    } else if (parsed > remainingToMilestone) {
+      capError =
+        remainingToMilestone < remaining
+          ? `Only ${formatUsdc(remainingToMilestone)} USDC left until this milestone's target is reached.`
+          : `Only ${formatUsdc(remaining)} USDC left before the goal is reached.`;
     } else if (balance !== undefined && parsed > balance) {
       capError = `You only hold ${formatUsdc(balance)} USDC on this network.`;
     }
@@ -116,7 +131,7 @@ export function DonationPanel({
     parsed !== null &&
     parsed > 0n &&
     !goalReached &&
-    parsed <= remaining &&
+    parsed <= remainingToMilestone &&
     (balance === undefined || parsed <= balance);
 
   // USDC is an ERC-20, so the escrow can only pull funds the donor has
@@ -125,11 +140,11 @@ export function DonationPanel({
   const needsApproval = valid && allowance !== undefined && allowance < parsed!;
   const approving = isApprovePending || isApproveConfirming;
 
-  // Quick-pick presets that actually satisfy the goal cap.
+  // Quick-pick presets that actually satisfy the milestone cap.
   const quickOptions = QUICK.filter((q) => {
     try {
       const v = parseUnits(q, USDC_DECIMALS);
-      return v > 0n && !goalReached && v <= remaining;
+      return v > 0n && !goalReached && v <= remainingToMilestone;
     } catch {
       return false;
     }
@@ -214,11 +229,21 @@ export function DonationPanel({
               value={amount}
               onChange={(e) => setAmount(e.target.value.replace(/[^0-9.]/g, ""))}
             />
+            <button
+              type="button"
+              className="btn-secondary shrink-0 whitespace-nowrap px-3 text-xs"
+              disabled={remainingToMilestone <= 0n}
+              onClick={() => setAmount(formatUsdc(remainingToMilestone))}
+            >
+              Fill to milestone
+            </button>
           </div>
 
-          {/* The on-chain goal cap, shown up front so users don't hit a revert. */}
+          {/* The per-milestone cap, shown up front so users don't hit a revert. */}
           <p className="mt-2 text-xs text-[var(--text-tertiary)]">
-            <span className="text-[var(--text-secondary)]">{formatUsdc(remaining)} USDC</span> left to goal.
+            <span className="text-[var(--text-secondary)]">{formatUsdc(remainingToMilestone)} USDC</span> left
+            until this milestone&apos;s target is reached
+            {remainingToMilestone < remaining && ` (${formatUsdc(remaining)} USDC left to the full goal)`}.
           </p>
 
           {capError && <p className="mt-1 text-xs text-[var(--text-warning)]">{capError}</p>}
