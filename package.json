@@ -17,5 +17,8 @@
     "start": "yarn workspace @covenant/nextjs dev",
     "frontend": "yarn workspace @covenant/nextjs dev"
   },
-  "packageManager": "yarn@1.22.22"
+  "packageManager": "yarn@1.22.22",
+  "resolutions": {
+    "qr": "0.5.5"
+  }
 }

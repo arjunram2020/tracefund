@@ -4,9 +4,16 @@ import { useEffect, useState } from "react";
 import { parseUnits } from "viem";
 import { useAccount } from "wagmi";
 import { ConnectButton } from "@rainbow-me/rainbowkit";
-import type { Campaign } from "../lib/types";
-import { USDC_DECIMALS, formatUsdc } from "../lib/format";
-import { useCovenantWrite, useReadChain, useRefund, useUsdc } from "../hooks/useCovenant";
+import type { Campaign, Milestone } from "../lib/types";
+import { ApprovalModel } from "../lib/types";
+import { USDC_DECIMALS, formatUsdc, milestoneStatus } from "../lib/format";
+import {
+  useApprovalConfig,
+  useCovenantWrite,
+  useReadChain,
+  useRefund,
+  useUsdc,
+} from "../hooks/useCovenant";
 import { TxFeedback } from "./TxFeedback";
 
 // Safe demo values from PRD §9 — tiny real-USDC amounts.
@@ -14,13 +21,16 @@ const QUICK = ["0.05", "0.1", "0.25"];
 
 export function DonationPanel({
   campaign,
+  milestones,
   onSuccess,
 }: {
   campaign: Campaign;
+  milestones: Milestone[];
   onSuccess?: () => void;
 }) {
   const { isConnected, address: account } = useAccount();
   const { writeEnabled } = useReadChain();
+  const { config: approvalConfig } = useApprovalConfig(campaign.id);
   const [amount, setAmount] = useState("");
   const { execute, refresh, isPending, isConfirming, isConfirmed, error, hash } =
     useCovenantWrite();
@@ -53,6 +63,35 @@ export function DonationPanel({
   // Mirrors the on-chain rule: creators cannot donate to their own campaign.
   const isCreator =
     !!account && account.toLowerCase() === campaign.creator.toLowerCase();
+
+  // Once the current milestone's tranche is fully funded, further donations
+  // would only pre-fund the *next* milestone while this one sits idle. The
+  // contract itself doesn't gate on this (only the goal cap), so this is a
+  // UI-level pause: block donating until the current milestone clears review.
+  const mi = Math.min(Number(campaign.currentMilestone), Math.max(milestones.length - 1, 0));
+  const currentMilestoneData = milestones[mi];
+  const cumulativeTarget = milestones.slice(0, mi + 1).reduce((s, m) => s + m.amount, 0n);
+  const currentStatus = currentMilestoneData
+    ? milestoneStatus(currentMilestoneData, mi, mi, cumulativeTarget, campaign.totalRaised)
+    : "funding";
+  const milestoneLocked =
+    currentStatus === "awaiting-proof" ||
+    currentStatus === "under-review" ||
+    currentStatus === "changes-requested";
+
+  const lockStatusText =
+    currentStatus === "under-review"
+      ? "This milestone's proof has been submitted and is under review."
+      : currentStatus === "changes-requested"
+        ? "This milestone's proof was sent back for revision — the creator is revising and resubmitting."
+        : "This milestone is fully funded and awaiting the creator's proof submission.";
+
+  const lockResumeText =
+    approvalConfig?.model === ApprovalModel.NoApproval
+      ? "Donations for the next milestone reopen as soon as the creator submits proof — this model releases funds immediately on submission."
+      : approvalConfig?.model === ApprovalModel.PlatformOperator
+        ? "Donations for the next milestone reopen once the Covenant platform operator reviews and approves this milestone."
+        : `Donations for the next milestone reopen once the designated reviewers approve (${approvalConfig?.threshold ?? 1} approval${(approvalConfig?.threshold ?? 1) > 1 ? "s" : ""} needed) and funds release.`;
 
   let parsed: bigint | null = null;
   try {
@@ -134,6 +173,12 @@ export function DonationPanel({
           This campaign has reached its {formatUsdc(campaign.goalAmount)} USDC goal and is no longer
           accepting donations.
         </p>
+      ) : milestoneLocked ? (
+        <div className="rounded-xl bg-amber-600/5 px-4 py-3 text-sm">
+          <p className="font-medium text-amber-700">Donations paused for this milestone</p>
+          <p className="mt-1 text-xs text-[var(--text-secondary)]">{lockStatusText}</p>
+          <p className="mt-1 text-xs text-[var(--text-secondary)]">{lockResumeText}</p>
+        </div>
       ) : isCreator ? (
         <p className="rounded-xl bg-[var(--bg-subtle)] px-4 py-3 text-sm text-[var(--text-secondary)]">
           You cannot donate USDC to your own campaign. Self-donations are blocked on-chain so
