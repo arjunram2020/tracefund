@@ -3,8 +3,8 @@
 // plain numbers matching Solidity declaration order.
 
 export const ApprovalModel = {
-  /** No reviewers — proof submission releases funds immediately. */
-  NoApproval: 0,
+  /** Any donor may vote; releases once approving weight clears the campaign's threshold %. */
+  WeightedApproval: 0,
   DesignatedReviewers: 1,
   PlatformOperator: 2,
 } as const;
@@ -43,6 +43,8 @@ export interface Milestone {
   state: MilestoneStateValue;
   submissionCount: number;
   approvalCount: number;
+  /** Sum of donations from approving voters on the latest submission (WeightedApproval). */
+  approvedWeight: bigint;
   /** Set when a reviewer rejects: the creator must resubmit by this time. */
   revisionDeadline: bigint;
   released: boolean;
@@ -113,7 +115,7 @@ export type MilestoneStatus =
   | "expired"; //           deadline blown — campaign can be failed / refunded
 
 export const APPROVAL_MODEL_LABELS: Record<ApprovalModelValue, string> = {
-  [ApprovalModel.NoApproval]: "No approval required",
+  [ApprovalModel.WeightedApproval]: "Weighted donor approval",
   [ApprovalModel.DesignatedReviewers]: "Designated reviewers",
   [ApprovalModel.PlatformOperator]: "Platform operator",
 };

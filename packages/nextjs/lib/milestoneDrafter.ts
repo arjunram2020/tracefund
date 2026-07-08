@@ -58,33 +58,53 @@ export async function draftMilestones(request: DraftRequest): Promise<DraftRespo
   return (await res.json()) as DraftResponse;
 }
 
+/**
+ * Which approval models a campaign kind may choose between. Institutional
+ * flows (startup/grant) get named accountability; consumer/charity flows get
+ * donor-weighted voting instead. Platform operator is always available as a
+ * neutral fallback. This is a client-side UX rule only — the contract itself
+ * applies identical logic to every kind.
+ */
+export function allowedApprovalModels(kind: CampaignKindValue): ApprovalModelValue[] {
+  return kind === CampaignKind.Startup || kind === CampaignKind.Grant
+    ? [ApprovalModel.DesignatedReviewers, ApprovalModel.PlatformOperator]
+    : [ApprovalModel.WeightedApproval, ApprovalModel.PlatformOperator];
+}
+
 /** Sensible approval defaults by campaign kind, shared by UI and drafter. */
 export function defaultApprovalForKind(kind: CampaignKindValue): {
   model: ApprovalModelValue;
+  /** Reviewer count (DesignatedReviewers) or percent 1-100 (WeightedApproval). */
+  threshold: number;
   rationale: string;
 } {
   switch (kind) {
     case CampaignKind.Startup:
       return {
         model: ApprovalModel.DesignatedReviewers,
+        threshold: 1,
         rationale:
           "Investor flows name their reviewers: the lead investor, partners, or an investment committee (set the threshold for committee sign-off).",
       };
     case CampaignKind.Grant:
       return {
         model: ApprovalModel.DesignatedReviewers,
+        threshold: 1,
         rationale: "Grant programs designate the administrator(s) who verify deliverables.",
       };
     case CampaignKind.Charity:
       return {
-        model: ApprovalModel.NoApproval,
+        model: ApprovalModel.WeightedApproval,
+        threshold: 50,
         rationale:
-          "Consumer/charity campaigns default to no approval — funds release as soon as you submit proof. Switch to designated reviewers if you want oversight.",
+          "Consumer/charity campaigns default to weighted donor approval — donors vote on proof, weighted by how much they gave, and it releases once your chosen percentage of donated weight approves.",
       };
     default:
       return {
-        model: ApprovalModel.NoApproval,
-        rationale: "Defaulting to no approval; switch to designated reviewers for institutional flows.",
+        model: ApprovalModel.WeightedApproval,
+        threshold: 50,
+        rationale:
+          "Defaulting to weighted donor approval; switch to designated reviewers for institutional flows.",
       };
   }
 }

@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from "react";
 import type { Campaign, Milestone } from "../lib/types";
-import { MilestoneState } from "../lib/types";
+import { ApprovalModel, MilestoneState } from "../lib/types";
 import {
   useApprovalConfig,
   useCovenantWrite,
@@ -181,7 +181,15 @@ export function EvidencePanel({
   ) : state === MilestoneState.Submitted ? (
     <div className="rounded-xl bg-violet-600/10 px-4 py-3 text-sm text-violet-700">
       <p className="font-medium">
-        Proof submitted — under review ({milestone.approvalCount}/{threshold} approvals)
+        Proof submitted — under review (
+        {config?.model === ApprovalModel.WeightedApproval
+          ? `${
+              campaign.totalRaised > 0n
+                ? Number((milestone.approvedWeight * 10000n) / campaign.totalRaised) / 100
+                : 0
+            }%/${threshold}% of donor weight`
+          : `${milestone.approvalCount}/${threshold} approvals`}
+        )
       </p>
       <p className="mt-1 opacity-80">
         Funds stay locked until the reviewers approve this package against the milestone criteria.

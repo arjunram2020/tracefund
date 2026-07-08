@@ -99,8 +99,8 @@ export function DonationPanel({
         : "This milestone is fully funded and awaiting the creator's proof submission.";
 
   const lockResumeText =
-    approvalConfig?.model === ApprovalModel.NoApproval
-      ? "Donations for the next milestone reopen as soon as the creator submits proof — this model releases funds immediately on submission."
+    approvalConfig?.model === ApprovalModel.WeightedApproval
+      ? `Donations for the next milestone reopen once donors representing at least ${approvalConfig?.threshold ?? 50}% of this campaign's raised funds approve the proof.`
       : approvalConfig?.model === ApprovalModel.PlatformOperator
         ? "Donations for the next milestone reopen once the Covenant platform operator reviews and approves this milestone."
         : `Donations for the next milestone reopen once the designated reviewers approve (${approvalConfig?.threshold ?? 1} approval${(approvalConfig?.threshold ?? 1) > 1 ? "s" : ""} needed) and funds release.`;

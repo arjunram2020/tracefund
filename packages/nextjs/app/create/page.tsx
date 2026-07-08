@@ -21,7 +21,7 @@ import {
   type ApprovalModelValue,
   type CampaignKindValue,
 } from "../../lib/types";
-import { defaultApprovalForKind, draftMilestones } from "../../lib/milestoneDrafter";
+import { allowedApprovalModels, defaultApprovalForKind, draftMilestones } from "../../lib/milestoneDrafter";
 
 // Must match Covenant.sol constants — the contract is the enforcer.
 const MAX_MILESTONES = 5;
@@ -38,6 +38,21 @@ const PROOF_TYPE_OPTIONS = [
 ];
 
 const REPORTING_PERIOD_OPTIONS = ["Once, at completion", "Weekly", "Every 2 weeks", "Monthly", "Per phase"];
+
+const APPROVAL_OPTION_META: Record<ApprovalModelValue, { label: string; hint: string }> = {
+  [ApprovalModel.WeightedApproval]: {
+    label: "Weighted donor approval",
+    hint: "donors vote, weighted by how much they gave",
+  },
+  [ApprovalModel.DesignatedReviewers]: {
+    label: "Designated reviewers",
+    hint: "investors, committee, or grant admins you name",
+  },
+  [ApprovalModel.PlatformOperator]: {
+    label: "Platform operator",
+    hint: "the Covenant platform reviews",
+  },
+};
 
 interface MilestoneForm {
   title: string;
@@ -118,6 +133,10 @@ export default function CreateCampaignPage() {
   const [approvalTouched, setApprovalTouched] = useState(false);
   const [reviewers, setReviewers] = useState<string[]>([""]);
   const [threshold, setThreshold] = useState(1);
+  // Percent of donated weight required to approve (WeightedApproval only).
+  const [weightedThreshold, setWeightedThreshold] = useState(
+    defaultApprovalForKind(CampaignKind.Charity).threshold,
+  );
 
   // AI drafting state
   const [drafting, setDrafting] = useState(false);
@@ -135,9 +154,18 @@ export default function CreateCampaignPage() {
 
   const selectKind = (next: CampaignKindValue) => {
     setKind(next);
-    // Smart default: only move the approval model if the user hasn't chosen one.
-    if (!approvalTouched) {
-      setApprovalModel(defaultApprovalForKind(next).model);
+    const allowed = allowedApprovalModels(next);
+    // Smart default: move the approval model if the user hasn't chosen one,
+    // or if their choice is no longer offered for this kind (e.g. switching
+    // from Startup's designated-reviewers to Charity, which doesn't offer it).
+    if (!approvalTouched || !allowed.includes(approvalModel)) {
+      const def = defaultApprovalForKind(next);
+      setApprovalModel(def.model);
+      if (def.model === ApprovalModel.WeightedApproval) {
+        setWeightedThreshold(def.threshold);
+      } else {
+        setThreshold(def.threshold);
+      }
     }
   };
 
@@ -202,7 +230,11 @@ export default function CreateCampaignPage() {
       );
       if (!approvalTouched) {
         setApprovalModel(draft.approval.model);
-        setThreshold(draft.approval.threshold);
+        if (draft.approval.model === ApprovalModel.WeightedApproval) {
+          setWeightedThreshold(draft.approval.threshold);
+        } else {
+          setThreshold(draft.approval.threshold);
+        }
       }
       setDraftNote(
         `${draft.source === "llm" ? "AI draft" : "Template draft"} loaded — every field below is a suggestion. Edit until it matches what you actually committed to. ${draft.notes}`,
@@ -234,6 +266,7 @@ export default function CreateCampaignPage() {
   });
 
   const needsReviewers = approvalModel === ApprovalModel.DesignatedReviewers;
+  const needsWeighted = approvalModel === ApprovalModel.WeightedApproval;
   const cleanReviewers = reviewers.map((r) => r.trim()).filter((r) => r.length > 0);
   const reviewerError = !needsReviewers
     ? null
@@ -250,6 +283,10 @@ export default function CreateCampaignPage() {
               : threshold < 1 || threshold > cleanReviewers.length
                 ? "Approval threshold must be between 1 and the number of reviewers"
                 : null;
+  const weightedError =
+    needsWeighted && (weightedThreshold < 1 || weightedThreshold > 100)
+      ? "Approval threshold must be between 1 and 100 percent"
+      : null;
 
   const formValid =
     title.trim().length > 0 &&
@@ -257,7 +294,8 @@ export default function CreateCampaignPage() {
     milestones.length >= 1 &&
     milestones.length <= MAX_MILESTONES &&
     milestoneErrors.every((e) => e === null) &&
-    reviewerError === null;
+    reviewerError === null &&
+    weightedError === null;
 
   const submit = async () => {
     if (!formValid) return;
@@ -270,7 +308,7 @@ export default function CreateCampaignPage() {
         {
           model: approvalModel,
           reviewers: needsReviewers ? cleanReviewers : [],
-          threshold: needsReviewers ? threshold : 1,
+          threshold: needsReviewers ? threshold : needsWeighted ? weightedThreshold : 1,
         },
         milestones.map((m, i) => ({
           criteria: {
@@ -553,26 +591,10 @@ export default function CreateCampaignPage() {
             Funds only release when the approver(s) accept the proof. Rejections send it back to
             you with notes.
           </p>
-          <div className="grid gap-2 sm:grid-cols-3">
-            {(
-              [
-                {
-                  value: ApprovalModel.NoApproval,
-                  label: "No approval required",
-                  hint: "funds release the moment you submit proof",
-                },
-                {
-                  value: ApprovalModel.DesignatedReviewers,
-                  label: "Designated reviewers",
-                  hint: "investors, committee, or grant admins you name",
-                },
-                {
-                  value: ApprovalModel.PlatformOperator,
-                  label: "Platform operator",
-                  hint: "the Covenant platform reviews",
-                },
-              ] as const
-            ).map((opt) => (
+          <div className="grid gap-2 sm:grid-cols-2">
+            {allowedApprovalModels(kind)
+              .map((value) => ({ value, ...APPROVAL_OPTION_META[value] }))
+              .map((opt) => (
               <button
                 key={opt.value}
                 type="button"
@@ -647,6 +669,30 @@ export default function CreateCampaignPage() {
                 </span>
               </div>
               {reviewerError && <p className="text-xs text-amber-700">{reviewerError}</p>}
+            </div>
+          )}
+
+          {needsWeighted && (
+            <div className="mt-4 space-y-2 rounded-xl border border-[var(--border-primary)] bg-[var(--bg-faint)] p-4">
+              <div className="flex items-center gap-3">
+                <label className="label mb-0">Approval threshold</label>
+                <input
+                  type="number"
+                  min={1}
+                  max={100}
+                  className="input w-24"
+                  value={weightedThreshold}
+                  onChange={(e) => setWeightedThreshold(Number(e.target.value))}
+                />
+                <span className="text-xs text-[var(--text-tertiary)]">% of donated weight</span>
+              </div>
+              <p className="text-xs text-[var(--text-tertiary)]">
+                Any donor can vote to approve or reject submitted proof. A milestone releases once
+                donors representing at least {weightedThreshold || 0}% of this campaign&apos;s
+                raised funds have approved it — a $100 donor&apos;s vote counts for more than a $10
+                donor&apos;s.
+              </p>
+              {weightedError && <p className="text-xs text-amber-700">{weightedError}</p>}
             </div>
           )}
         </div>

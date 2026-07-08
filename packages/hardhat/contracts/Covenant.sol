@@ -18,15 +18,19 @@ import "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
  * Flow per milestone:
  *   1. Donors send USDC into escrow via donate() (after approving it).
  *   2. Once donations cover the milestone, the creator submits a proof
- *      package via submitProof().
- *   3. Under the NoApproval model, submitProof() releases funds immediately.
- *      Otherwise the campaign's configured reviewers evaluate the proof
- *      against the milestone's acceptance criteria and approve or reject it;
- *      funds release only when the approval threshold is met. On rejection
- *      the creator revises and resubmits; escrow stays locked.
+ *      package via submitProof(). This does NOT release funds.
+ *   3. The campaign's configured approvers evaluate the proof against the
+ *      milestone's acceptance criteria and approve or reject it. Funds
+ *      release only when the approval threshold is met. On rejection the
+ *      creator revises and resubmits; escrow stays locked.
  *
- * Approval authority is configured per campaign: no approval (funds release
- * on submission), designated reviewers / committee, or platform operator.
+ * Approval authority is configured per campaign:
+ *   - WeightedApproval: any donor may vote, weighted by how much USDC they've
+ *     personally donated to this campaign; releases once the approving
+ *     weight reaches the campaign's configured percentage of total raised.
+ *   - DesignatedReviewers: an explicit reviewer set + threshold (committee
+ *     when threshold > 1).
+ *   - PlatformOperator: the contract owner (grant administrator / platform).
  *
  * Evidence privacy boundary: the chain stores a short public summary plus a
  * keccak256 hash of the full proof-package manifest (and, only when the
@@ -77,7 +81,7 @@ contract Covenant is ReentrancyGuard, Ownable {
 
     /// @notice Who has the authority to approve milestone proof.
     enum ApprovalModel {
-        NoApproval,          // no review step — proof submission releases funds immediately
+        WeightedApproval,    // any donor may vote, weighted by their USDC donated
         DesignatedReviewers, // explicit reviewer set + threshold (committee when threshold > 1)
         PlatformOperator     // the contract owner (grant administrator / platform)
     }
@@ -116,7 +120,8 @@ contract Covenant is ReentrancyGuard, Ownable {
         uint256 amount;           // USDC released when approved
         MilestoneState state;
         uint32 submissionCount;   // proof packages submitted so far
-        uint8 approvalCount;      // approvals for the latest submission
+        uint8 approvalCount;      // approvals for the latest submission (count-based models)
+        uint256 approvedWeight;   // approving donor weight for the latest submission (WeightedApproval)
         uint64 revisionDeadline;  // set on rejection: resubmit by this time or fail
         bool released;
     }
@@ -142,7 +147,7 @@ contract Covenant is ReentrancyGuard, Ownable {
     struct ApprovalConfig {
         ApprovalModel model;
         address[] reviewers; // only for DesignatedReviewers
-        uint8 threshold;     // approvals needed to release (1 for single-reviewer models)
+        uint8 threshold;     // approvals needed (count models), or percent 1-100 (WeightedApproval)
     }
 
     /// @notice createCampaign input for one milestone.
@@ -311,6 +316,7 @@ contract Covenant is ReentrancyGuard, Ownable {
                     state: MilestoneState.Pending,
                     submissionCount: 0,
                     approvalCount: 0,
+                    approvedWeight: 0,
                     revisionDeadline: 0,
                     released: false
                 })
@@ -360,9 +366,13 @@ contract Covenant is ReentrancyGuard, Ownable {
             require(approval.reviewers.length == 0, "Reviewers only for designated model");
             require(approval.threshold == 1, "Threshold must be 1 for this model");
         } else {
-            // ApprovalModel.NoApproval — no reviewers, nothing to meet.
+            // ApprovalModel.WeightedApproval — no reviewer list; threshold is
+            // the percent (1-100) of donated weight required to approve.
             require(approval.reviewers.length == 0, "Reviewers only for designated model");
-            require(approval.threshold == 0, "Threshold must be 0 for this model");
+            require(
+                approval.threshold >= 1 && approval.threshold <= 100,
+                "Threshold must be 1..100 percent"
+            );
         }
     }
 
@@ -398,10 +408,8 @@ contract Covenant is ReentrancyGuard, Ownable {
 
     /**
      * @notice Creator submits a proof package for the current milestone.
-     *         Under the NoApproval model there are no reviewers, so this call
-     *         releases the milestone's funds immediately. Otherwise the
-     *         campaign's reviewers must approve the package against the
-     *         milestone's acceptance criteria before funds move.
+     *         Funds are NOT released here — the campaign's approvers must
+     *         approve the package against the milestone's acceptance criteria.
      * @param summary Short public summary (keep sensitive detail off-chain).
      * @param manifestHash keccak256 of the canonical proof-package manifest.
      * @param manifestURI Optional public pointer to the manifest; pass "" to
@@ -448,14 +456,11 @@ contract Covenant is ReentrancyGuard, Ownable {
         );
         m.state = MilestoneState.Submitted;
         m.approvalCount = 0;
+        m.approvedWeight = 0;
         m.submissionCount += 1;
         _creatorStats[c.creator].proofSubmissions += 1;
 
         emit ProofSubmitted(campaignId, mi, submissionIndex, manifestHash, summary);
-
-        if (_approvals[campaignId].model == ApprovalModel.NoApproval) {
-            _releaseMilestone(campaignId, c, m, mi);
-        }
     }
 
     /**
@@ -511,9 +516,24 @@ contract Covenant is ReentrancyGuard, Ownable {
             return;
         }
 
-        m.approvalCount += 1;
-        if (m.approvalCount >= _approvals[campaignId].threshold) {
-            _releaseMilestone(campaignId, c, m, mi);
+        if (_approvals[campaignId].model == ApprovalModel.WeightedApproval) {
+            // Weighted by how much USDC this voter has personally donated.
+            // Uses the *current* totalRaised as the denominator — donations
+            // landing mid-vote can shift the bar; a hard snapshot would need
+            // its own design (see docs). Existing votes' recorded weight
+            // isn't affected either way.
+            m.approvedWeight += donations[campaignId][msg.sender];
+            if (
+                c.totalRaised > 0 &&
+                m.approvedWeight * 100 >= c.totalRaised * _approvals[campaignId].threshold
+            ) {
+                _releaseMilestone(campaignId, c, m, mi);
+            }
+        } else {
+            m.approvalCount += 1;
+            if (m.approvalCount >= _approvals[campaignId].threshold) {
+                _releaseMilestone(campaignId, c, m, mi);
+            }
         }
     }
 
@@ -666,6 +686,9 @@ contract Covenant is ReentrancyGuard, Ownable {
         }
         if (cfg.model == ApprovalModel.PlatformOperator) {
             return account == owner();
+        }
+        if (cfg.model == ApprovalModel.WeightedApproval) {
+            return account != address(0) && donations[campaignId][account] > 0;
         }
         return false;
     }

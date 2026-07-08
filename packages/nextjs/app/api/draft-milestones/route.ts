@@ -74,7 +74,7 @@ function heuristicDraft(request: DraftRequest, count: number): DraftResponse {
     })),
     approval: {
       model: approvalDefault.model,
-      threshold: 1,
+      threshold: approvalDefault.threshold,
       rationale: approvalDefault.rationale,
     },
     notes: templates.notes,
