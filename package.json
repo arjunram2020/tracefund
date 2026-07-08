@@ -15,7 +15,11 @@
     "deploy:base": "yarn workspace @covenant/hardhat deploy:base",
     "seed": "yarn workspace @covenant/hardhat seed",
     "start": "yarn workspace @covenant/nextjs dev",
-    "frontend": "yarn workspace @covenant/nextjs dev"
+    "frontend": "yarn workspace @covenant/nextjs dev",
+    "loadtest:seed": "yarn workspace @covenant/loadtest seed",
+    "loadtest:actors": "yarn workspace @covenant/loadtest actors",
+    "loadtest:web": "yarn workspace @covenant/loadtest web",
+    "loadtest:browser": "yarn workspace @covenant/loadtest browser"
   },
   "packageManager": "yarn@1.22.22",
   "resolutions": {
