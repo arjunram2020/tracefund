@@ -160,7 +160,7 @@ export default function CampaignDetailPage() {
         </div>
 
         <div className="space-y-6 lg:sticky lg:top-20 lg:self-start">
-          <DonationPanel campaign={campaign} />
+          <DonationPanel campaign={campaign} milestones={milestones} />
           <ReviewPanel campaign={campaign} milestones={milestones} />
           <EvidencePanel campaign={campaign} milestones={milestones} isCreator={isCreator} />
         </div>

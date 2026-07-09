@@ -4,12 +4,13 @@ import { useEffect, useState } from "react";
 import { useAccount } from "wagmi";
 import { useQuery } from "@tanstack/react-query";
 import type { Campaign, Milestone, ProofSubmission } from "../lib/types";
-import { APPROVAL_MODEL_LABELS, MilestoneState } from "../lib/types";
+import { APPROVAL_MODEL_LABELS, ApprovalModel, MilestoneState } from "../lib/types";
 import {
   useApprovalConfig,
   useCovenantWrite,
   useIsReviewer,
   useMilestoneFailed,
+  useMyDonation,
   useReviews,
   useSubmissions,
 } from "../hooks/useCovenant";
@@ -42,6 +43,7 @@ export function ReviewPanel({
 
   const { config } = useApprovalConfig(campaign.id);
   const { isReviewer } = useIsReviewer(campaign.id, address);
+  const { donation: myDonation } = useMyDonation(campaign.id, address);
   const { submissions } = useSubmissions(campaign.id, mi);
   const { reviews } = useReviews(campaign.id, mi);
   const { failed } = useMilestoneFailed(campaign.id);
@@ -71,6 +73,16 @@ export function ReviewPanel({
   if (!milestone || !showPanel) return null;
 
   const threshold = config?.threshold ?? 1;
+  const isWeighted = config?.model === ApprovalModel.WeightedApproval;
+  // Approved-weight as a percent of total raised (WeightedApproval only).
+  const approvedPct =
+    milestone && campaign.totalRaised > 0n
+      ? Number((milestone.approvedWeight * 10000n) / campaign.totalRaised) / 100
+      : 0;
+  const projectedPct =
+    milestone && campaign.totalRaised > 0n
+      ? Number(((milestone.approvedWeight + myDonation) * 10000n) / campaign.totalRaised) / 100
+      : 0;
 
   const review = async (approve: boolean) => {
     try {
@@ -87,9 +99,11 @@ export function ReviewPanel({
         {config && (
           <span className="pill bg-[var(--bg-subtle)] text-[var(--text-secondary)]">
             {APPROVAL_MODEL_LABELS[config.model]}
-            {config.model === 0 && config.threshold > 1
+            {config.model === ApprovalModel.DesignatedReviewers && config.threshold > 1
               ? ` · ${config.threshold}/${config.reviewers.length}`
-              : ""}
+              : isWeighted
+                ? ` · ${config.threshold}% needed`
+                : ""}
           </span>
         )}
       </div>
@@ -121,7 +135,9 @@ export function ReviewPanel({
                 Submission #{submissions.length} · {timeAgo(latest.submittedAt)}
               </p>
               <span className="pill bg-violet-600/10 text-violet-700">
-                {milestone.approvalCount}/{threshold} approvals
+                {isWeighted
+                  ? `${approvedPct}% / ${threshold}% approved`
+                  : `${milestone.approvalCount}/${threshold} approvals`}
               </span>
             </div>
             <p className="mt-1 text-sm text-[var(--text-primary)]">{latest.summary}</p>
@@ -203,9 +219,13 @@ export function ReviewPanel({
                     {isPending || isConfirming
                       ? "Submitting review…"
                       : decision === "approve"
-                        ? milestone.approvalCount + 1 >= threshold
-                          ? "Approve — releases this milestone's funds"
-                          : `Approve (${milestone.approvalCount + 1}/${threshold})`
+                        ? isWeighted
+                          ? projectedPct >= threshold
+                            ? "Approve — releases this milestone's funds"
+                            : `Approve (adds your weight — ${projectedPct}%/${threshold}%)`
+                          : milestone.approvalCount + 1 >= threshold
+                            ? "Approve — releases this milestone's funds"
+                            : `Approve (${milestone.approvalCount + 1}/${threshold})`
                         : "Reject & send back for revision"}
                   </button>
                 </div>
@@ -225,9 +245,13 @@ export function ReviewPanel({
 
           {!isReviewer && (
             <p className="text-xs text-[var(--text-tertiary)]">
-              Only this campaign&apos;s configured approver
-              {config && config.model === 0 && config.reviewers.length > 1 ? "s" : ""} can
-              approve or reject this proof.
+              {isWeighted
+                ? "Only this campaign's donors can vote on this proof — donate to gain voting weight."
+                : `Only this campaign's configured approver${
+                    config && config.model === ApprovalModel.DesignatedReviewers && config.reviewers.length > 1
+                      ? "s"
+                      : ""
+                  } can approve or reject this proof.`}
             </p>
           )}
         </div>

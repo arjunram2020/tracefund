@@ -1,0 +1,23 @@
+{
+  "name": "@covenant/loadtest",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "description": "Stress-testing harness for Covenant: programmatic wallet actors, web/RPC load, and Playwright browser realism against a local chain.",
+  "scripts": {
+    "seed": "tsx src/seed.ts",
+    "actors": "tsx src/run-actors.ts",
+    "web": "tsx src/run-web.ts",
+    "browser": "playwright test -c browser/playwright.config.ts",
+    "typecheck": "tsc --noEmit"
+  },
+  "dependencies": {
+    "viem": "^2.21.19"
+  },
+  "devDependencies": {
+    "@playwright/test": "^1.48.0",
+    "@types/node": "^20.16.10",
+    "tsx": "^4.19.0",
+    "typescript": "^5.6.2"
+  }
+}

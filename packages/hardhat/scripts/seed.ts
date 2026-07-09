@@ -83,8 +83,8 @@ async function main() {
     console.log("Minted 1000 MockUSDC to each donor");
   }
 
-  // Lead-donor approval keeps the demo self-contained: donor A ends up the
-  // largest donor and can approve/reject the creator's proof packages.
+  // Weighted approval: any donor can vote on submitted proof, weighted by how
+  // much they've given. Here 50% of donated weight is enough to release.
   const criteria = [
     {
       title: "Hospital deposit paid",
@@ -112,9 +112,9 @@ async function main() {
 
   const tx = await covenant.connect(creator).createCampaign(
     "Community Medical Relief Fund",
-    "A transparent emergency fundraiser: each milestone's funds unlock only after the lead donor approves the creator's proof package against the acceptance criteria.",
+    "A transparent emergency fundraiser: each milestone's funds release once donors representing 50% of the raised weight approve the creator's proof package.",
     0, // CampaignKind.Charity
-    { model: 1 /* ApprovalModel.LeadDonor */, reviewers: [], threshold: 1 },
+    { model: 0 /* ApprovalModel.WeightedApproval */, reviewers: [], threshold: 50 },
     criteria.map((c, i) => ({
       criteria: { ...c, proofDeadline: 0 },
       amount: usdc6(MILESTONE_AMOUNTS[i]),
@@ -153,7 +153,7 @@ async function main() {
 
   console.log(
     `\nDemo ready: milestone one is funded and waiting for the creator's proof package.` +
-      `\nDonor A (${donorA.address}) is the lead donor and reviews the proof.`,
+      `\nOnce submitted, donors representing 50% of donated weight must approve to release funds.`,
   );
 }
 

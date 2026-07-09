@@ -102,18 +102,6 @@ export default function HomePage() {
         {/* Blockchain network — layered above this section's own gradient */}
         <BlockchainBg />
 
-        <div
-          className="mb-8 inline-flex items-center gap-2 rounded-full border px-4 py-1.5 text-xs font-medium"
-          style={{
-            background: "rgba(28,68,51,0.07)",
-            borderColor: "rgba(28,68,51,0.15)",
-            color: "var(--brand-primary)",
-          }}
-        >
-          <span className="h-1.5 w-1.5 rounded-full" style={{ background: "var(--brand-primary)" }} />
-          Milestone-based · USDC escrow · Base
-        </div>
-
         <h1
           className="mx-auto max-w-3xl text-[clamp(40px,6vw,68px)] font-extrabold"
           style={{ letterSpacing: "-0.03em", lineHeight: 1.08, color: "var(--text-primary)", marginBottom: 20 }}

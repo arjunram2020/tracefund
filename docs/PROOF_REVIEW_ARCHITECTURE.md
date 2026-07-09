@@ -23,14 +23,17 @@ criteria are what reviewers evaluate against, so they must not be vague.
 
 ## Approval authority (per campaign)
 
-`ApprovalConfig { model, reviewers[], threshold }`:
+`ApprovalConfig { model, reviewers[], threshold }`. The create-flow UI only
+offers two of the three models per campaign kind: `DesignatedReviewers` or
+`PlatformOperator` for Startup/Grant; `WeightedApproval` or `PlatformOperator`
+for Charity/Other. This is a client-side rule only — the contract applies
+identical logic to every `CampaignKind`.
 
 | Model | Who approves | Notes |
 |---|---|---|
+| `WeightedApproval` | Any donor, weighted by USDC donated | Default for consumer/charity. `threshold` is a percent (1-100) of total raised that must approve by weight. |
 | `DesignatedReviewers` | Named addresses (≤7) | `threshold > 1` = committee. VC / grant flows. Creator can't be a reviewer. |
-| `LeadDonor` | The campaign's largest donor at review time | Default for consumer/charity. Tracked on every donation. |
 | `PlatformOperator` | Contract owner | Grant-administrator style. Blocked on the owner's own campaigns. |
-| `DonorVote` | — | **Scaffolded, rejected at creation.** Needs snapshot + quorum design first. |
 
 ## Review lifecycle
 
@@ -39,12 +42,19 @@ criteria are what reviewers evaluate against, so they must not be vague.
 
 - `submitProof` requires: creator, funded tranche, before `proofDeadline`
   (and inside the revision window when resubmitting). Emits `ProofSubmitted`.
-  **Never moves funds.**
-- `reviewProof(approve, notes)`: authorized reviewer, one vote per submission.
-  Reject **requires notes**, flips to `ChangesRequested`, and starts a
-  `REVISION_WINDOW` (14 days). Approvals accumulate per submission; at
-  `threshold` the milestone releases (`MilestoneReleased`), the campaign
-  advances, and — on the last milestone — completes.
+  **Never moves funds** — every model requires at least one `reviewProof` call.
+- `reviewProof(approve, notes)`: authorized reviewer/donor, one vote per
+  submission. Reject **requires notes**, flips to `ChangesRequested`, and
+  starts a `REVISION_WINDOW` (14 days). On approve:
+  - `DesignatedReviewers` / `PlatformOperator`: `approvalCount` increments;
+    at `threshold` approvals the milestone releases.
+  - `WeightedApproval`: `approvedWeight` accumulates the voter's own
+    cumulative donation; once `approvedWeight / totalRaised >= threshold%`
+    the milestone releases. Uses the *live* `totalRaised` as the denominator
+    (no snapshot), so donations landing mid-vote can shift the bar — a hard
+    snapshot would need its own design.
+  - Either way: `MilestoneReleased`, the campaign advances, and — on the
+    last milestone — completes.
 
 ## Failure / timeout / refunds
 
@@ -114,7 +124,7 @@ configured USDC token has bytecode (`ContractNotice`).
 
 ## Deferred (intentionally)
 
-- Donor-wide voting (`ApprovalModel.DonorVote`) — enum scaffolded, creation reverts.
+- Snapshotted weighted voting — `WeightedApproval` currently divides by the *live* `totalRaised`, so donations landing mid-vote shift the bar. A hard snapshot (denominator fixed at submission time) would need its own design.
 - Program-level approval config (per-campaign only for now; the `ApprovalConfig` struct is the unit a program registry would reference).
 - Authenticated evidence storage / RBAC / access audit (seam: `evidenceRegistry.ts` + indexer `TODO(privacy)`).
 - Typed artifacts and file uploads in proof packages (manifest `links[].kind` reserves the space).

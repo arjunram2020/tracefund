@@ -19,10 +19,9 @@ const DESCRIPTION =
 
 // Contract enums (must match Covenant.sol declaration order).
 const ApprovalModel = {
-  DesignatedReviewers: 0,
-  LeadDonor: 1,
+  WeightedApproval: 0,
+  DesignatedReviewers: 1,
   PlatformOperator: 2,
-  DonorVote: 3,
 } as const;
 const MilestoneState = { Pending: 0, Submitted: 1, ChangesRequested: 2, Approved: 3 } as const;
 const CampaignKind = { Charity: 0, Startup: 1, Grant: 2, Other: 3 } as const;
@@ -287,14 +286,20 @@ describe("Covenant", function () {
         }),
       ).to.be.revertedWith("Duplicate reviewer");
       await expect(
-        make({ model: ApprovalModel.LeadDonor, reviewers: [reviewer2.address], threshold: 1 }),
+        make({ model: ApprovalModel.PlatformOperator, reviewers: [reviewer2.address], threshold: 1 }),
       ).to.be.revertedWith("Reviewers only for designated model");
       await expect(
-        make({ model: ApprovalModel.LeadDonor, reviewers: [], threshold: 2 }),
+        make({ model: ApprovalModel.PlatformOperator, reviewers: [], threshold: 2 }),
       ).to.be.revertedWith("Threshold must be 1 for this model");
       await expect(
-        make({ model: ApprovalModel.DonorVote, reviewers: [], threshold: 1 }),
-      ).to.be.revertedWith("Donor voting not supported yet");
+        make({ model: ApprovalModel.WeightedApproval, reviewers: [reviewer2.address], threshold: 50 }),
+      ).to.be.revertedWith("Reviewers only for designated model");
+      await expect(
+        make({ model: ApprovalModel.WeightedApproval, reviewers: [], threshold: 0 }),
+      ).to.be.revertedWith("Threshold must be 1..100 percent");
+      await expect(
+        make({ model: ApprovalModel.WeightedApproval, reviewers: [], threshold: 101 }),
+      ).to.be.revertedWith("Threshold must be 1..100 percent");
     });
   });
 
@@ -358,7 +363,7 @@ describe("Covenant", function () {
     const DA = usdc6("0.01");
     const DB = usdc6("0.015");
 
-    it("accepts donations, tracks donors and the lead donor, and locks USDC in escrow", async function () {
+    it("accepts donations, tracks donors, and locks USDC in escrow", async function () {
       const { covenant, usdc, creator, donorA, donorB, reviewer1 } =
         await loadFixture(deployFixture);
       const id = await createDemoCampaign(covenant, creator, [reviewer1.address]);
@@ -369,10 +374,8 @@ describe("Covenant", function () {
 
       // USDC is held by the contract (escrow), not forwarded to the creator.
       expect(await usdc.balanceOf(await covenant.getAddress())).to.equal(DA);
-      expect(await covenant.leadDonor(id)).to.equal(donorA.address);
 
       await covenant.connect(donorB).donate(id, DB);
-      expect(await covenant.leadDonor(id)).to.equal(donorB.address); // outdonated A
 
       const c = await covenant.getCampaign(id);
       expect(c.totalRaised).to.equal(DA + DB);
@@ -653,27 +656,43 @@ describe("Covenant", function () {
         .to.emit(covenant, "MilestoneReleased");
     });
 
-    it("supports the lead-donor approval model, tracking the current lead", async function () {
-      const { covenant, creator, donorA, donorB } = await loadFixture(deployFixture);
+    it("supports the weighted-approval model, requiring donor-weighted consensus", async function () {
+      const { covenant, creator, donorA, donorB, outsider } = await loadFixture(deployFixture);
       const id = await createDemoCampaign(covenant, creator, [], {
-        model: ApprovalModel.LeadDonor,
+        model: ApprovalModel.WeightedApproval,
+        threshold: 70, // needs 70% of donated weight to approve
         items: milestoneInputs([M1, M2]),
       });
 
-      await covenant.connect(donorA).donate(id, usdc6("0.01"));
-      await covenant.connect(donorB).donate(id, usdc6("0.025")); // donorB is lead
+      // donorA gives 40% of M1, donorB gives the remaining 60% — M1 exactly funded.
+      await covenant.connect(donorA).donate(id, usdc6("0.008"));
+      await covenant.connect(donorB).donate(id, usdc6("0.012"));
+
+      expect(await covenant.isReviewer(id, donorA.address)).to.equal(true);
+      expect(await covenant.isReviewer(id, donorB.address)).to.equal(true);
+      expect(await covenant.isReviewer(id, creator.address)).to.equal(false);
 
       await covenant.connect(creator).submitProof(id, "s", HASH1, "");
 
-      expect(await covenant.isReviewer(id, donorB.address)).to.equal(true);
-      expect(await covenant.isReviewer(id, donorA.address)).to.equal(false);
-      await expect(covenant.connect(donorA).reviewProof(id, true, "")).to.be.revertedWith(
+      // donorA alone holds 40% weight — below the 70% threshold, no release yet.
+      await covenant.connect(donorA).reviewProof(id, true, "");
+      let m = await covenant.getMilestone(id, 0);
+      expect(m.state).to.equal(MilestoneState.Submitted);
+
+      // A non-donor can't vote at all.
+      expect(await covenant.isReviewer(id, outsider.address)).to.equal(false);
+      await expect(covenant.connect(outsider).reviewProof(id, true, "")).to.be.revertedWith(
         "Not an authorized reviewer",
       );
+
+      // donorB's 60% pushes cumulative weight to 100% — crosses 70%, releases.
       await expect(covenant.connect(donorB).reviewProof(id, true, "")).to.emit(
         covenant,
         "MilestoneReleased",
       );
+      m = await covenant.getMilestone(id, 0);
+      expect(m.state).to.equal(MilestoneState.Approved);
+      expect(m.released).to.equal(true);
     });
 
     it("supports the platform-operator approval model", async function () {
