@@ -27,6 +27,23 @@ jobs:
       - name: Typecheck
         run: yarn workspace @covenant/nextjs typecheck
 
+  contracts:
+    name: Contracts (compile + test)
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+          cache: "yarn"
+      - name: Install
+        run: yarn install --frozen-lockfile
+      - name: Compile contracts
+        run: yarn workspace @covenant/hardhat compile
+      - name: Run contract tests (incl. security suite)
+        run: yarn workspace @covenant/hardhat test
+
   audit:
     name: Dependency audit (high+)
     runs-on: ubuntu-latest

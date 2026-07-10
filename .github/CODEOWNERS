@@ -1,0 +1,33 @@
+# Covenant CODEOWNERS
+#
+# Requires review from the listed owner(s) before security-sensitive paths can
+# be merged — GitHub auto-requests them as reviewers. This ONLY takes effect
+# once branch protection has "Require review from Code Owners" enabled (see
+# docs/soc2/10-secure-sdlc.md).
+#
+# Replace @arjunram2020 with the correct GitHub username/team for your repo.
+# An unmatched username silently assigns no one, so verify it resolves.
+
+# Default owner for everything.
+*                                   @arjunram2020
+
+# Smart contracts + deployment — the highest-risk surface (holds real USDC).
+/packages/hardhat/contracts/        @arjunram2020
+/packages/hardhat/scripts/          @arjunram2020
+
+# Off-chain security surfaces.
+/packages/indexer/src/              @arjunram2020
+/packages/nextjs/lib/evidenceCrypto.ts     @arjunram2020
+/packages/nextjs/lib/evidenceRegistry.ts   @arjunram2020
+/packages/nextjs/next.config.js     @arjunram2020
+
+# CI / supply chain / security config.
+/.github/                           @arjunram2020
+/.gitignore                         @arjunram2020
+
+# Security docs & policies.
+/docs/soc2/                         @arjunram2020
+/docs/SECURE_CONFIGURATION.md       @arjunram2020
+/docs/EVIDENCE_SECURITY_MODEL.md    @arjunram2020
+/docs/CONTRACT_SECURITY_REVIEW.md   @arjunram2020
+/docs/BACKUP_RECOVERY.md            @arjunram2020

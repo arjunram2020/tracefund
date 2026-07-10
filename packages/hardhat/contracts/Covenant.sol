@@ -3,6 +3,7 @@ pragma solidity ^0.8.20;
 
 import "@openzeppelin/contracts/access/Ownable.sol";
 import "@openzeppelin/contracts/utils/ReentrancyGuard.sol";
+import "@openzeppelin/contracts/utils/Pausable.sol";
 import "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 import "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
 
@@ -45,7 +46,7 @@ import "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
  * donations (totalReleased + amount <= totalRaised), so one campaign can
  * never be paid out of another campaign's escrow.
  */
-contract Covenant is ReentrancyGuard, Ownable {
+contract Covenant is ReentrancyGuard, Ownable, Pausable {
     using SafeERC20 for IERC20;
 
     uint256 public constant MAX_MILESTONES = 5;
@@ -260,6 +261,25 @@ contract Covenant is ReentrancyGuard, Ownable {
         emit CreatorApprovalChanged(creator, approved);
     }
 
+    /**
+     * @notice Emergency circuit breaker. Pausing halts money inflows and
+     *         milestone releases — new campaigns, donations, and proof reviews —
+     *         so an operator can stop a suspected exploit. It deliberately does
+     *         NOT block claimRefund, cancelCampaign, submitProof, or
+     *         failCampaign: donors and creators can always exit or recover funds
+     *         even while paused. The owner cannot ever move or seize escrow.
+     *
+     *         The owner SHOULD be a multisig (e.g. Gnosis Safe) so this power is
+     *         not a single-key risk — see docs/CONTRACT_SECURITY_REVIEW.md.
+     */
+    function pause() external onlyOwner {
+        _pause();
+    }
+
+    function unpause() external onlyOwner {
+        _unpause();
+    }
+
     // -------------------------------------------------------------------------
     // Write functions
     // -------------------------------------------------------------------------
@@ -270,7 +290,7 @@ contract Covenant is ReentrancyGuard, Ownable {
         CampaignKind kind,
         ApprovalConfig calldata approval,
         MilestoneInput[] calldata items
-    ) external returns (uint256 campaignId) {
+    ) external whenNotPaused returns (uint256 campaignId) {
         if (!approvedCreators[msg.sender]) {
             require(
                 _creatorStats[msg.sender].campaignsCreated < FREE_CAMPAIGNS,
@@ -381,7 +401,11 @@ contract Covenant is ReentrancyGuard, Ownable {
      * @param amount USDC base units; the donor must have approve()d at least
      *        this much to the contract beforehand.
      */
-    function donate(uint256 campaignId, uint256 amount) external campaignExists(campaignId) {
+    function donate(uint256 campaignId, uint256 amount)
+        external
+        campaignExists(campaignId)
+        whenNotPaused
+    {
         Campaign storage c = _campaigns[campaignId];
         require(c.active, "Campaign not active");
         // A campaign past its milestone deadline is headed for cancellation;
@@ -473,7 +497,7 @@ contract Covenant is ReentrancyGuard, Ownable {
         uint256 campaignId,
         bool approve,
         string calldata notes
-    ) external campaignExists(campaignId) nonReentrant {
+    ) external campaignExists(campaignId) nonReentrant whenNotPaused {
         Campaign storage c = _campaigns[campaignId];
         require(c.active, "Campaign not active");
         require(isReviewer(campaignId, msg.sender), "Not an authorized reviewer");

@@ -36,6 +36,7 @@ Every control is labeled with its real status:
 7. [Backup & Recovery](./07-backup-recovery.md) — how off-chain data survives failure.
 8. [Vendor Inventory](./08-vendor-inventory.md) — the third parties in our stack (template + current list).
 9. [Control Gaps & Next Steps](./09-control-gaps-and-next-steps.md) — what's not done yet, honestly.
+10. [Secure SDLC](./10-secure-sdlc.md) — how code changes reach production safely, plus the exact GitHub settings to enable.
 
 ## Deeper technical references
 

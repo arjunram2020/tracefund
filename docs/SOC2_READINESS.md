@@ -89,7 +89,11 @@ code; it does **not** mean independently audited.
 | Deploy-key format validation | ✅ In place | `hardhat.config.ts` rejects a malformed `DEPLOYER_PRIVATE_KEY` instead of deploying with the wrong signer |
 | MFA on admin systems | ❌ Missing | Human control — AWS/GitHub/DNS/RPC/WalletConnect; track in a checklist |
 | Least-privilege + access reviews | ❌ Missing | Named production access, documented approvals, quarterly review |
-| Backups + restore test | 🟡 Partial | `yarn backup` (online snapshot + checksum + manifest) and `yarn restore:verify` restore-test exist; enforced schedule + offsite copy + monitoring still operational. See [BACKUP_RECOVERY.md](./BACKUP_RECOVERY.md) |
+| Backups + restore test | 🟡 Partial | `yarn backup` (online snapshot + checksum + manifest + optional mirror), `yarn restore:verify`, and `offsite-copy.sh` exist; enabling the cron schedule + offsite destination is operational. See [BACKUP_RECOVERY.md](./BACKUP_RECOVERY.md) |
+| Uptime monitoring | 🟡 Partial | Free GitHub Actions `/health` cron (`.github/workflows/uptime.yml`); set the `HEALTH_URL` repo variable to activate |
+| Security disclosure policy | ✅ In place | `SECURITY.md` — private reporting, scope, safe harbor |
+| Emergency contract pause | 🟡 Partial | OZ `Pausable` circuit breaker implemented + tested in source (halts inflows/releases, never refunds); takes effect on next deploy. See [CONTRACT_SECURITY_REVIEW.md](./CONTRACT_SECURITY_REVIEW.md) |
+| Smart-contract test coverage | ✅ In place | 51 tests incl. reentrancy, escrow isolation, refund-dust, Sybil, pause. CI runs them on every PR |
 | Uptime monitoring + alerting | ❌ Missing | Health-check monitor with paging (Phase 2) |
 | Full script/connect CSP | ❌ Missing | Only `frame-ancestors` is enforced today; a tested full CSP is Phase 2 |
 | Shared-store rate limiting | ❌ Missing | Current limiter is per-instance/in-memory; fine for one host, Phase 2 for many |

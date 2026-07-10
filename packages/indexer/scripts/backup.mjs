@@ -41,6 +41,10 @@ import Database from "better-sqlite3";
 const DB_PATH = process.env.DB_PATH || "./covenant.db";
 const BACKUP_DIR = process.env.BACKUP_DIR || "./backups";
 const RETENTION = Math.max(1, Number(process.env.BACKUP_RETENTION || 14));
+// Optional second location to copy each artifact to (a mounted second volume,
+// an attached disk, etc.). This is a same-host mirror; for true offsite storage
+// on another machine or object store, use scripts/offsite-copy.sh.
+const MIRROR_DIR = process.env.BACKUP_MIRROR_DIR || "";
 
 const log = (msg, fields = {}) =>
   console.log(JSON.stringify({ ts: new Date().toISOString(), msg, ...fields }));
@@ -153,6 +157,20 @@ async function main() {
     fs.rmSync(path.join(BACKUP_DIR, `${f}.sha256`), { force: true });
   }
 
+  // 7) Optional mirror: copy this artifact + checksum to a second location.
+  let mirrored = false;
+  if (MIRROR_DIR) {
+    try {
+      fs.mkdirSync(MIRROR_DIR, { recursive: true });
+      fs.copyFileSync(gzPath, path.join(MIRROR_DIR, path.basename(gzPath)));
+      fs.copyFileSync(sumPath, path.join(MIRROR_DIR, path.basename(sumPath)));
+      mirrored = true;
+    } catch (err) {
+      // A mirror failure must not fail the primary backup — log and continue.
+      log("backup mirror failed", { mirrorDir: MIRROR_DIR, error: err.message });
+    }
+  }
+
   log("backup complete", {
     file: record.file,
     bytes: gzBytes,
@@ -161,6 +179,7 @@ async function main() {
     lastIndexedBlock,
     pruned: stale.length,
     retained: Math.min(backups.length, RETENTION),
+    mirrored,
   });
 }
 

@@ -65,12 +65,31 @@ Config (env): `DB_PATH` (default `./covenant.db`), `BACKUP_DIR` (default
 | Production baseline | **Daily** (cron) + before every deploy/migration | Evidence is also redundantly held (creator download + reviewer copy + browser localStorage), so a 24h RPO on the registry cache implies near-zero *effective* evidence loss. |
 | Higher assurance | **Hourly** | Cheap (the DB is small); tightens RPO if evidence volume grows. |
 
-Example cron (daily 03:15, plus a weekly restore test — see below):
+Example cron (daily backup + offsite copy at 03:15, plus a weekly restore test):
 
 ```cron
-15 3 * * *  cd /opt/covenant/packages/indexer && /usr/bin/node scripts/backup.mjs >> /var/log/covenant-backup.log 2>&1
+15 3 * * *  cd /opt/covenant/packages/indexer && /usr/bin/node scripts/backup.mjs && bash scripts/offsite-copy.sh >> /var/log/covenant-backup.log 2>&1
 30 3 * * 0  cd /opt/covenant/packages/indexer && /usr/bin/node scripts/restore.mjs --verify-only >> /var/log/covenant-backup.log 2>&1
 ```
+
+### Getting backups off the host (do this — it's the important part)
+
+A backup on the same machine does not survive losing that machine. Two options,
+both zero/low-cost:
+
+- **Same-host mirror** (cheapest, partial): set `BACKUP_MIRROR_DIR` to a second
+  mounted volume; `backup.mjs` copies each artifact there automatically.
+- **True offsite** (recommended): `scripts/offsite-copy.sh` pushes artifacts to
+  another host (`OFFSITE_RSYNC=user@host:/path/`) or an object store
+  (`OFFSITE_S3=s3://bucket/path/`, AWS free tier). Run it right after the backup
+  (see the cron above). The destination must be private and access-controlled,
+  and must **not** hold `EVIDENCE_ENC_KEY`.
+
+### Free availability monitoring
+
+`.github/workflows/uptime.yml` pings the indexer `/health` endpoint every 15
+minutes on GitHub Actions (set the `HEALTH_URL` repo variable). A failed check
+turns the run red and GitHub emails the owner — a zero-cost uptime alert.
 
 ## Verification method
 

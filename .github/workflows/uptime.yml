@@ -1,0 +1,59 @@
+# Zero-cost uptime monitor. On a schedule, pings the indexer health endpoint (and
+# optionally the frontend). A failed run turns the workflow red and GitHub emails
+# the repo owner — a free availability alert with no third-party service.
+#
+# Setup (one-time): add repository variables under
+#   Settings -> Secrets and variables -> Actions -> Variables
+#     HEALTH_URL   e.g. https://your-host/api/health   (required to actually check)
+#     SITE_URL     e.g. https://your-app.example        (optional)
+# Until HEALTH_URL is set, the job no-ops (so a fresh clone isn't perpetually red).
+name: Uptime
+
+on:
+  schedule:
+    - cron: "*/15 * * * *" # every 15 minutes
+  workflow_dispatch: {} # allow manual runs
+
+permissions:
+  contents: read
+
+jobs:
+  healthcheck:
+    name: Health check
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - name: Check indexer health endpoint
+        env:
+          HEALTH_URL: ${{ vars.HEALTH_URL }}
+        run: |
+          if [ -z "$HEALTH_URL" ]; then
+            echo "HEALTH_URL not set — skipping (configure it in repo Variables to enable monitoring)."
+            exit 0
+          fi
+          echo "Checking $HEALTH_URL"
+          # Retry a few times so a single blip doesn't page us.
+          for i in 1 2 3; do
+            code=$(curl -sS -o /tmp/body -w "%{http_code}" --max-time 20 "$HEALTH_URL" || echo "000")
+            body=$(cat /tmp/body 2>/dev/null || true)
+            echo "attempt $i -> HTTP $code"
+            if [ "$code" = "200" ] && echo "$body" | grep -q '"ok":true'; then
+              echo "Healthy: $body"
+              exit 0
+            fi
+            sleep 15
+          done
+          echo "::error::Indexer health check FAILED for $HEALTH_URL (last HTTP $code): $body"
+          exit 1
+
+      - name: Check frontend (optional)
+        if: ${{ vars.SITE_URL != '' }}
+        env:
+          SITE_URL: ${{ vars.SITE_URL }}
+        run: |
+          code=$(curl -sS -o /dev/null -w "%{http_code}" --max-time 20 "$SITE_URL" || echo "000")
+          echo "Frontend $SITE_URL -> HTTP $code"
+          case "$code" in
+            2??|3??) echo "Frontend reachable." ;;
+            *) echo "::error::Frontend check FAILED for $SITE_URL (HTTP $code)"; exit 1 ;;
+          esac

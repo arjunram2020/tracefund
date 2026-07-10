@@ -20,11 +20,17 @@ claim of SOC 2 compliance; it is a map of where we are and where we're going.
 - Secrets kept out of Git; clear public-vs-secret config separation; deploy-key
   validation.
 - CI supply-chain controls: Dependabot, CodeQL, dependency audit.
-- Backup, restore, and restore-test tooling with documented recovery targets.
+- Backup, restore, and restore-test tooling with documented recovery targets,
+  plus a same-host mirror and an offsite-copy script.
+- Published security disclosure policy (`SECURITY.md`).
+- Emergency pause / circuit breaker in the contract source (owner-only; halts
+  inflows and releases, never refunds) — awaiting the next deployment.
 
 ### 🟡 Partial (mechanism exists; operational piece outstanding)
-- **Backups:** scripts exist; the running schedule, offsite copies, and success
-  alerting need to be enabled.
+- **Backups:** scripts + offsite-copy exist; a running cron schedule and a
+  configured offsite destination still need to be enabled on the server.
+- **Uptime monitoring:** a free GitHub Actions health-check workflow exists;
+  set the `HEALTH_URL` repo variable to activate it.
 - **Change management:** CI + PRs exist; enforced peer review, branch protection,
   and a formal approval record are not switched on.
 - **Access control:** minimized access + logging exist; formal, dated access
@@ -35,12 +41,12 @@ claim of SOC 2 compliance; it is a map of where we are and where we're going.
 
 ### ⬜ Planned (deliberate future steps, some gated on funding)
 - Enforced MFA + SSO across all operator accounts and vendors.
-- Uptime monitoring and alerting.
 - A managed secrets store with a rotation cadence.
 - Per-reviewer evidence access with revocation; a data retention/deletion policy.
 - A full content-security policy on the frontend.
-- Published `SECURITY.md` disclosure contact and secret-scanning/push protection
-  on the repo.
+- Enable secret-scanning/push protection and branch protection on the repo (free
+  toggles — see [Secure SDLC](./10-secure-sdlc.md)).
+- Redeploy the contract with the emergency pause + a multisig owner.
 - **An independent SOC 2 examination (Type I, then Type II).**
 
 ## Why some things are deliberately "later"

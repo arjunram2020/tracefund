@@ -1,0 +1,24 @@
+# Blocks pull requests that introduce dependencies with known high-severity
+# vulnerabilities or non-permissive licenses. Uses GitHub's free
+# dependency-review-action. Requires the repo's Dependency Graph to be enabled
+# (free and on by default for public repos; see docs/soc2/10-secure-sdlc.md).
+name: Dependency Review
+
+on:
+  pull_request:
+    branches: [main]
+
+permissions:
+  contents: read
+
+jobs:
+  dependency-review:
+    name: Dependency review
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Dependency Review
+        uses: actions/dependency-review-action@v4
+        with:
+          fail-on-severity: high
+          comment-summary-in-pr: on-failure
