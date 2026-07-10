@@ -27,6 +27,13 @@ packages/nextjs/build
 covenant.db
 covenant.db-shm
 covenant.db-wal
+covenant.db.pre-restore-*
+
+# backup artifacts — NEVER commit these: they contain evidence (even encrypted)
+# and the access audit log. Store them out-of-band per docs/BACKUP_RECOVERY.md.
+backups/
+*.db.gz
+*.db.gz.sha256
 
 # misc
 .DS_Store

@@ -7,7 +7,10 @@
   "main": "src/index.js",
   "scripts": {
     "start": "node src/index.js",
-    "dev": "node --watch src/index.js"
+    "dev": "node --watch src/index.js",
+    "backup": "node scripts/backup.mjs",
+    "restore": "node scripts/restore.mjs",
+    "restore:verify": "node scripts/restore.mjs --verify-only"
   },
   "dependencies": {
     "better-sqlite3": "^11.3.0",

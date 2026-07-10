@@ -89,7 +89,7 @@ code; it does **not** mean independently audited.
 | Deploy-key format validation | ✅ In place | `hardhat.config.ts` rejects a malformed `DEPLOYER_PRIVATE_KEY` instead of deploying with the wrong signer |
 | MFA on admin systems | ❌ Missing | Human control — AWS/GitHub/DNS/RPC/WalletConnect; track in a checklist |
 | Least-privilege + access reviews | ❌ Missing | Named production access, documented approvals, quarterly review |
-| Backups + restore test | ❌ Missing | Automated `covenant.db` backup with a scheduled restore drill (Phase 2) |
+| Backups + restore test | 🟡 Partial | `yarn backup` (online snapshot + checksum + manifest) and `yarn restore:verify` restore-test exist; enforced schedule + offsite copy + monitoring still operational. See [BACKUP_RECOVERY.md](./BACKUP_RECOVERY.md) |
 | Uptime monitoring + alerting | ❌ Missing | Health-check monitor with paging (Phase 2) |
 | Full script/connect CSP | ❌ Missing | Only `frame-ancestors` is enforced today; a tested full CSP is Phase 2 |
 | Shared-store rate limiting | ❌ Missing | Current limiter is per-instance/in-memory; fine for one host, Phase 2 for many |
