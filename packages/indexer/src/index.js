@@ -1,10 +1,18 @@
 import "dotenv/config";
+import crypto from "node:crypto";
 import express from "express";
 import cors from "cors";
 import { createPublicClient, http, keccak256, toBytes } from "viem";
 import { base } from "viem/chains";
 import { COVENANT_EVENTS } from "./abi.js";
-import { openDb, getCursor, setCursor, insertEvent } from "./db.js";
+import {
+  openDb,
+  getCursor,
+  setCursor,
+  insertEvent,
+  logEvidenceAccess,
+  getEvidenceAccess,
+} from "./db.js";
 
 // ---- Config (from .env) ----------------------------------------------------
 const RPC_URL = process.env.BASE_RPC_URL;
@@ -15,10 +23,85 @@ const DB_PATH = process.env.DB_PATH || "./covenant.db";
 const CHUNK = BigInt(process.env.CHUNK_SIZE || 5000);
 const POLL_MS = Number(process.env.POLL_INTERVAL_MS || 12000);
 
+// ---- Security config (all optional; safe, permissive dev defaults) ---------
+// In production (NODE_ENV=production) the critical controls below are REQUIRED:
+// the server fails closed rather than running open (see the startup check).
+const IS_PROD = process.env.NODE_ENV === "production";
+// Comma-separated CORS allowlist. When unset we allow all origins (dev) and warn.
+const ALLOWED_ORIGINS = (process.env.ALLOWED_ORIGINS || "")
+  .split(",")
+  .map((s) => s.trim())
+  .filter(Boolean);
+// Bearer token required to WRITE evidence. When unset, writes stay open (dev).
+const EVIDENCE_WRITE_TOKEN = process.env.EVIDENCE_WRITE_TOKEN || "";
+// When "true", evidence READS also require the write token (confidential mode).
+const EVIDENCE_PROTECTED = process.env.EVIDENCE_PROTECTED === "true";
+// Bearer token for the admin-only audit endpoint. When unset, /audit is disabled.
+const ADMIN_TOKEN = process.env.ADMIN_TOKEN || "";
+// Salt for one-way hashing of IP/token fingerprints in the audit log so we never
+// store raw IPs or tokens. Falls back to the contract address if unset.
+const AUDIT_SALT = process.env.AUDIT_SALT || CONTRACT || "covenant";
+// Optional 32-byte key (hex or base64) for encrypting evidence AT REST. Defense
+// in depth: a stolen DB file or backup is useless without it. Unset = store as
+// received (dev). NOTE: this is independent of client-side encryption — clients
+// may already send ciphertext, in which case this double-wraps it harmlessly.
+const EVIDENCE_ENC_KEY = (() => {
+  const raw = process.env.EVIDENCE_ENC_KEY || "";
+  if (!raw) return null;
+  const key = /^[0-9a-fA-F]{64}$/.test(raw) ? Buffer.from(raw, "hex") : Buffer.from(raw, "base64");
+  if (key.length !== 32) {
+    console.error(
+      JSON.stringify({
+        level: "error",
+        msg: "EVIDENCE_ENC_KEY must be 32 bytes (64 hex chars or base64)",
+      }),
+    );
+    process.exit(1);
+  }
+  return key;
+})();
+// Rate limiting per client IP (fixed window). Generous defaults; the sensitive
+// limit throttles evidence writes and admin-audit calls to slow token guessing.
+const RL_WINDOW_MS = Number(process.env.RATE_LIMIT_WINDOW_MS || 60000);
+const RL_MAX = Number(process.env.RATE_LIMIT_MAX || 300);
+const RL_SENSITIVE_MAX = Number(process.env.RATE_LIMIT_SENSITIVE_MAX || 30);
+
+// ---- Structured logger -----------------------------------------------------
+// One JSON object per line: greppable and ingestible by any log pipeline
+// (CloudWatch, Loki, etc.) — the parseable, centralizable format SOC 2
+// monitoring expects. NEVER pass secrets in `fields`; only salted fingerprints
+// or non-sensitive values (the audit trail already lives in the DB).
+function slog(level, msg, fields = {}) {
+  const line = JSON.stringify({ ts: new Date().toISOString(), level, msg, ...fields });
+  if (level === "error") console.error(line);
+  else if (level === "warn") console.warn(line);
+  else console.log(line);
+}
+
 if (!RPC_URL || !CONTRACT) {
-  console.error("Missing BASE_RPC_URL or CONTRACT_ADDRESS in .env");
+  slog("error", "missing required config", {
+    missing: [!RPC_URL && "BASE_RPC_URL", !CONTRACT && "CONTRACT_ADDRESS"].filter(Boolean),
+  });
   process.exit(1);
 }
+
+// Safer default config: in production, refuse to boot if a critical security
+// control is unset (fail closed). In dev we only warn so local work stays easy.
+const insecure = [];
+if (ALLOWED_ORIGINS.length === 0) insecure.push("ALLOWED_ORIGINS");
+if (!EVIDENCE_WRITE_TOKEN) insecure.push("EVIDENCE_WRITE_TOKEN");
+if (!ADMIN_TOKEN) insecure.push("ADMIN_TOKEN");
+if (IS_PROD && insecure.length) {
+  slog("error", "refusing to start: required security env vars unset in production", {
+    missing: insecure,
+  });
+  process.exit(1);
+}
+for (const control of insecure) {
+  slog("warn", "security control unset — permissive dev behavior", { control });
+}
+if (!EVIDENCE_ENC_KEY)
+  slog("warn", "EVIDENCE_ENC_KEY unset — evidence stored unencrypted at rest (dev only)");
 
 // ---- Blockchain client -----------------------------------------------------
 // A "public client" only reads from the chain (no private key, can't spend).
@@ -69,14 +152,15 @@ async function backfill() {
   const latest = await client.getBlockNumber();
   let from = BigInt(getCursor(db, DEPLOY_BLOCK));
   let chunk = CHUNK;
-  console.log(`Backfilling from block ${from} to ${latest}...`);
+  slog("info", "backfill starting", { from: String(from), to: String(latest) });
 
   while (from <= latest) {
     const to = from + chunk - 1n > latest ? latest : from + chunk - 1n;
     try {
       const count = await indexRange(from, to);
       setCursor(db, Number(to));
-      if (count > 0) console.log(`  blocks ${from}-${to}: ${count} events`);
+      if (count > 0)
+        slog("info", "backfill range indexed", { from: String(from), to: String(to), count });
       from = to + 1n;
       await sleep(150); // be polite to the RPC; avoids rate-limit bans
     } catch (err) {
@@ -84,14 +168,18 @@ async function backfill() {
       // This keeps us alive across RPCs with different getLogs limits.
       if (chunk > 10n) {
         chunk = chunk / 2n;
-        console.warn(`  range rejected, shrinking chunk to ${chunk}`);
+        slog("warn", "range rejected, shrinking chunk", { chunk: String(chunk) });
       } else {
-        console.error(`  skipping blocks ${from}-${to}: ${err.shortMessage || err.message}`);
+        slog("error", "skipping block range", {
+          from: String(from),
+          to: String(to),
+          error: err.shortMessage || err.message,
+        });
         from = to + 1n;
       }
     }
   }
-  console.log("Backfill complete.");
+  slog("info", "backfill complete");
 }
 
 // ---- Live polling: keep up with new events ---------------------------------
@@ -105,20 +193,126 @@ async function pollForever() {
       if (from > latest) return;
       const count = await indexRange(from, latest);
       setCursor(db, Number(latest));
-      if (count > 0) console.log(`Live: +${count} events (to block ${latest})`);
+      if (count > 0) slog("info", "live events indexed", { count, toBlock: String(latest) });
     } catch (err) {
-      console.error("Poll error:", err.shortMessage || err.message);
+      slog("error", "poll error", { error: err.shortMessage || err.message });
     }
   }, POLL_MS);
 }
 
 // ---- HTTP API --------------------------------------------------------------
 // This is what your Next.js frontend calls instead of reading slowly on-chain.
+// ---- Security helpers ------------------------------------------------------
+// Extract a bearer token from the Authorization header, or "" if absent.
+function bearer(req) {
+  const m = /^Bearer\s+(.+)$/i.exec(req.headers.authorization || "");
+  return m ? m[1] : "";
+}
+
+// Constant-time string compare — avoids leaking token length/content via timing.
+function safeEqual(a, b) {
+  const ab = Buffer.from(String(a));
+  const bb = Buffer.from(String(b));
+  if (ab.length !== bb.length) return false;
+  return crypto.timingSafeEqual(ab, bb);
+}
+
+// One-way salted fingerprint so the audit log never stores raw IPs or tokens.
+const fingerprint = (value) =>
+  value ? keccak256(toBytes(`${AUDIT_SALT}:${value}`)) : null;
+
+// ---- Encryption at rest ----------------------------------------------------
+// AES-256-GCM. Stored form: "enc:v1:" + base64(iv[12] | tag[16] | ciphertext).
+// Rows without the prefix are treated as legacy plaintext (backward compatible),
+// so enabling the key does not break existing data — new writes get encrypted.
+const ENC_PREFIX = "enc:v1:";
+function encryptAtRest(plaintext) {
+  if (!EVIDENCE_ENC_KEY) return plaintext;
+  const iv = crypto.randomBytes(12);
+  const cipher = crypto.createCipheriv("aes-256-gcm", EVIDENCE_ENC_KEY, iv);
+  const ct = Buffer.concat([cipher.update(plaintext, "utf8"), cipher.final()]);
+  const tag = cipher.getAuthTag();
+  return ENC_PREFIX + Buffer.concat([iv, tag, ct]).toString("base64");
+}
+function decryptAtRest(stored) {
+  if (!stored || !stored.startsWith(ENC_PREFIX)) return stored; // legacy plaintext
+  if (!EVIDENCE_ENC_KEY) throw new Error("encrypted row but EVIDENCE_ENC_KEY unset");
+  const buf = Buffer.from(stored.slice(ENC_PREFIX.length), "base64");
+  const iv = buf.subarray(0, 12);
+  const tag = buf.subarray(12, 28);
+  const ct = buf.subarray(28);
+  const decipher = crypto.createDecipheriv("aes-256-gcm", EVIDENCE_ENC_KEY, iv);
+  decipher.setAuthTag(tag);
+  return Buffer.concat([decipher.update(ct), decipher.final()]).toString("utf8");
+}
+
+// Best-effort client IP behind Nginx (trust proxy is enabled below).
+const clientIp = (req) => req.ip || req.socket?.remoteAddress || "";
+
+// Lightweight in-memory fixed-window rate limiter, keyed by client IP. No
+// external dependency and sufficient for a single indexer instance behind
+// Nginx. Rejections are logged (with a salted IP fingerprint, never the raw IP)
+// so abuse and token-guessing attempts show up in the structured log.
+function makeRateLimiter({ windowMs, max, name }) {
+  const hits = new Map(); // ip -> { count, resetAt }
+  // Periodic sweep keeps the map bounded regardless of unique-IP volume.
+  const sweep = setInterval(() => {
+    const now = Date.now();
+    for (const [ip, e] of hits) if (now > e.resetAt) hits.delete(ip);
+  }, windowMs);
+  sweep.unref?.(); // don't keep the process alive just for cleanup
+  return (req, res, next) => {
+    const now = Date.now();
+    const ip = clientIp(req) || "unknown";
+    let e = hits.get(ip);
+    if (!e || now > e.resetAt) e = (hits.set(ip, { count: 0, resetAt: now + windowMs }), hits.get(ip));
+    e.count++;
+    res.set("RateLimit-Limit", String(max));
+    res.set("RateLimit-Remaining", String(Math.max(0, max - e.count)));
+    if (e.count > max) {
+      res.set("Retry-After", String(Math.ceil((e.resetAt - now) / 1000)));
+      slog("warn", "rate limit exceeded", {
+        limiter: name,
+        ip_fp: fingerprint(ip),
+        path: req.path,
+      });
+      return res.status(429).json({ error: "too many requests" });
+    }
+    next();
+  };
+}
+
 function startApi() {
   const app = express();
-  app.use(cors()); // let the browser frontend call us from another domain
+  // Behind Nginx: honor X-Forwarded-For so req.ip reflects the real client.
+  app.set("trust proxy", true);
+  app.disable("x-powered-by"); // don't advertise Express/version to attackers
+
+  // Baseline security response headers on every route (no extra dependency).
+  // HSTS only matters once served over HTTPS (Nginx terminates TLS in prod).
+  app.use((_req, res, next) => {
+    res.set("X-Content-Type-Options", "nosniff");
+    res.set("X-Frame-Options", "DENY");
+    res.set("Referrer-Policy", "no-referrer");
+    res.set("Cross-Origin-Resource-Policy", "same-site");
+    res.set("Content-Security-Policy", "default-src 'none'; frame-ancestors 'none'");
+    res.set("Strict-Transport-Security", "max-age=63072000; includeSubDomains");
+    next();
+  });
+
+  // CORS: restrict to an explicit allowlist in production; fall back to open in dev.
+  app.use(cors(ALLOWED_ORIGINS.length ? { origin: ALLOWED_ORIGINS } : {}));
   // Evidence manifests arrive as raw JSON bodies; cap the size defensively.
   app.use(express.text({ type: "application/json", limit: "256kb" }));
+
+  // General per-IP rate limit on all routes; a stricter one guards the
+  // security-sensitive write/admin routes (applied per-route below).
+  app.use(makeRateLimiter({ windowMs: RL_WINDOW_MS, max: RL_MAX, name: "general" }));
+  const sensitiveLimit = makeRateLimiter({
+    windowMs: RL_WINDOW_MS,
+    max: RL_SENSITIVE_MAX,
+    name: "sensitive",
+  });
 
   app.get("/health", (_req, res) => {
     const last = getCursor(db, DEPLOY_BLOCK);
@@ -141,7 +335,11 @@ function startApi() {
     let sql = "SELECT * FROM events";
     const where = [];
     const params = [];
-    if (type) (where.push("event_name = ?"), params.push(String(type)));
+    if (type !== undefined) {
+      const t = String(type);
+      if (t.length > 64) return res.status(400).json({ error: "invalid type" });
+      where.push("event_name = ?"), params.push(t);
+    }
     if (campaignId !== undefined) {
       const cid = asInt(campaignId);
       if (cid === null) return res.status(400).json({ error: "invalid campaignId" });
@@ -170,30 +368,91 @@ function startApi() {
   // Full proof-package manifests, addressed by the keccak256 hash Covenant
   // stores on-chain. The server re-hashes the body before storing, so the
   // registry can never serve content that doesn't match its address —
-  // reviewers get integrity for free. Access model is capability-by-hash
-  // ("unlisted"); see the TODO(privacy) note in db.js for the auth roadmap.
+  // reviewers get integrity for free. Writes require EVIDENCE_WRITE_TOKEN when
+  // set; reads additionally require it when EVIDENCE_PROTECTED=true. Every
+  // access attempt is audit-logged (below) for incident response.
   const isHash = (v) => /^0x[0-9a-fA-F]{64}$/.test(String(v));
 
-  app.put("/evidence/:hash", (req, res) => {
+  // Record one evidence-access attempt with salted, non-reversible fingerprints.
+  const audit = (req, outcome, hash) =>
+    logEvidenceAccess(db, {
+      method: req.method,
+      path: req.path,
+      hash: hash ?? null,
+      outcome,
+      ip_fp: fingerprint(clientIp(req)),
+      requester_fp: fingerprint(bearer(req)),
+      user_agent: (req.headers["user-agent"] || "").slice(0, 256),
+    });
+
+  app.put("/evidence/:hash", sensitiveLimit, (req, res) => {
     const hash = String(req.params.hash).toLowerCase();
-    if (!isHash(hash)) return res.status(400).json({ error: "invalid hash" });
+    // AuthN first, before we reveal whether the hash is valid or already stored.
+    if (EVIDENCE_WRITE_TOKEN && !safeEqual(bearer(req), EVIDENCE_WRITE_TOKEN)) {
+      audit(req, "unauthorized", isHash(hash) ? hash : null);
+      return res.status(401).json({ error: "unauthorized" });
+    }
+    if (!isHash(hash)) {
+      audit(req, "bad_request", null);
+      return res.status(400).json({ error: "invalid hash" });
+    }
     const body = typeof req.body === "string" ? req.body : "";
-    if (!body) return res.status(400).json({ error: "missing manifest body" });
+    if (!body) {
+      audit(req, "bad_request", hash);
+      return res.status(400).json({ error: "missing manifest body" });
+    }
     if (keccak256(toBytes(body)).toLowerCase() !== hash) {
+      audit(req, "bad_request", hash);
       return res.status(400).json({ error: "manifest does not hash to the given address" });
     }
+    // Integrity is verified against the plaintext body above; we persist an
+    // at-rest-encrypted copy so a stolen DB file can't reveal manifests.
     db.prepare(
       "INSERT OR IGNORE INTO evidence (hash, manifest) VALUES (?, ?)",
-    ).run(hash, body);
+    ).run(hash, encryptAtRest(body));
+    audit(req, "ok", hash);
     res.json({ ok: true });
   });
 
   app.get("/evidence/:hash", (req, res) => {
     const hash = String(req.params.hash).toLowerCase();
-    if (!isHash(hash)) return res.status(400).json({ error: "invalid hash" });
+    if (EVIDENCE_PROTECTED && !safeEqual(bearer(req), EVIDENCE_WRITE_TOKEN)) {
+      audit(req, "unauthorized", isHash(hash) ? hash : null);
+      return res.status(401).json({ error: "unauthorized" });
+    }
+    if (!isHash(hash)) {
+      audit(req, "bad_request", null);
+      return res.status(400).json({ error: "invalid hash" });
+    }
     const row = db.prepare("SELECT manifest FROM evidence WHERE hash = ?").get(hash);
-    if (!row) return res.status(404).json({ error: "not found" });
-    res.type("application/json").send(row.manifest);
+    if (!row) {
+      audit(req, "not_found", hash);
+      return res.status(404).json({ error: "not found" });
+    }
+    let manifest;
+    try {
+      manifest = decryptAtRest(row.manifest);
+    } catch (err) {
+      audit(req, "error", hash);
+      slog("error", "evidence decrypt failed", { error: err.message });
+      return res.status(500).json({ error: "evidence unavailable" });
+    }
+    audit(req, "ok", hash);
+    res.type("application/json").send(manifest);
+  });
+
+  // ---- Admin-only audit endpoint -------------------------------------------
+  // Disabled unless ADMIN_TOKEN is set. Returns recent evidence-access rows for
+  // incident response and audit sampling. Fingerprints are one-way hashes, so
+  // this cannot leak raw IPs or tokens even to an operator.
+  app.get("/audit", sensitiveLimit, (req, res) => {
+    if (!ADMIN_TOKEN) return res.status(404).json({ error: "not found" });
+    if (!safeEqual(bearer(req), ADMIN_TOKEN)) {
+      return res.status(401).json({ error: "unauthorized" });
+    }
+    const limit = req.query.limit === undefined ? 100 : asInt(req.query.limit, 1000);
+    if (limit === null) return res.status(400).json({ error: "invalid limit" });
+    res.json(getEvidenceAccess(db, limit));
   });
 
   // Quick counts for a dashboard.
@@ -205,7 +464,16 @@ function startApi() {
     res.json({ total, byType });
   });
 
-  app.listen(PORT, () => console.log(`API listening on http://localhost:${PORT}`));
+  app.listen(PORT, () =>
+    slog("info", "api listening", {
+      port: PORT,
+      corsAllowlist: ALLOWED_ORIGINS.length ? ALLOWED_ORIGINS : "all (dev)",
+      evidenceWriteAuth: Boolean(EVIDENCE_WRITE_TOKEN),
+      evidenceProtectedReads: EVIDENCE_PROTECTED,
+      evidenceEncryptedAtRest: Boolean(EVIDENCE_ENC_KEY),
+      auditEndpoint: Boolean(ADMIN_TOKEN),
+    }),
+  );
 }
 
 // ---- Boot ------------------------------------------------------------------
@@ -214,7 +482,9 @@ function startApi() {
   try {
     await backfill(); // catch up on history once
   } catch (err) {
-    console.error("Backfill failed (API still serving cached data):", err.shortMessage || err.message);
+    slog("error", "backfill failed (api still serving cached data)", {
+      error: err.shortMessage || err.message,
+    });
   }
   pollForever(); // then stay current forever
 })();

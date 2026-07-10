@@ -1,89 +1,162 @@
+import { keccak256, toBytes } from "viem";
 import type { ProofManifest } from "./proofManifest";
 import { canonicalManifestJson, verifyManifest } from "./proofManifest";
+import {
+  generateEvidenceKey,
+  encryptToBlob,
+  decryptFromBlob,
+  packCapability,
+  parseCapability,
+} from "./evidenceCrypto";
 
 /**
  * Off-chain evidence registry — where full proof packages live when the
  * creator does NOT publish them on-chain.
  *
- * Storage tiers, in order:
- *  1. The Covenant indexer (packages/indexer) exposes PUT/GET /evidence/:hash.
- *     Manifests are addressed by their keccak256 hash — an unguessable
- *     32-byte capability derived from the content, so only people who were
- *     given the hash (it IS on-chain, so: anyone who can read the chain) can
- *     fetch the package. This is "unlisted", not access-controlled.
- *  2. localStorage, so same-browser demos work with no indexer running.
+ * Two access models, chosen by the creator per submission:
  *
- * TODO(privacy): production-grade private evidence needs authenticated
- * storage with role-based access (reviewer allowlists read from the campaign
- * config, expiring signed URLs, access audit log). This adapter is the seam:
- * swap the fetch calls for the authed storage client without touching any UI.
- * Until then, creators handling genuinely confidential documents should keep
- * the package private (download JSON, share directly with reviewers) — the
- * on-chain hash still lets reviewers verify what they were sent.
+ *  A. PUBLIC-ish (storeManifest/fetchManifest): the manifest is stored in the
+ *     clear, addressed by its keccak256 hash. Because that hash is ALSO on-chain,
+ *     this is "unlisted", not access-controlled — anyone reading the chain can
+ *     fetch it. Correct only for evidence the creator is fine making public.
+ *
+ *  B. ENCRYPTED (storeEncryptedManifest/fetchEncryptedManifest): the manifest is
+ *     encrypted in the browser; only ciphertext reaches the registry, addressed
+ *     by keccak256(ciphertext) — a locator that is NOT on-chain. The decryption
+ *     key travels only inside the returned capability, which the creator shares
+ *     out-of-band with reviewers. The server and chain observers see opaque
+ *     bytes; reviewers still verify the decrypted manifest against the on-chain
+ *     plaintext hash. This is the path for confidential proof.
+ *
+ * Storage tiers for both models, in order: the Covenant indexer (PUT/GET
+ * /evidence/:hash), then localStorage for same-browser demos with no indexer.
+ *
+ * Remaining gap (documented in docs/EVIDENCE_SECURITY_MODEL.md): capability
+ * distribution to reviewers is manual — there is no in-app secure channel or
+ * per-reviewer revocation yet.
  */
 
 const INDEXER_URL = (process.env.NEXT_PUBLIC_INDEXER_URL || "").replace(/\/$/, "");
 
 const localKey = (hash: string) => `covenant-evidence-${hash.toLowerCase()}`;
 
-export type RegistryTier = "indexer" | "local" | "none";
-
-/** Store a manifest under its hash. Best-effort on every tier; never throws. */
-export async function storeManifest(
-  hash: `0x${string}`,
-  manifest: ProofManifest,
-): Promise<RegistryTier> {
+/** Best-effort PUT of an already-addressed body to the registry tiers. */
+async function putToRegistry(locator: string, body: string): Promise<RegistryTier> {
   let tier: RegistryTier = "none";
-
   try {
-    localStorage.setItem(localKey(hash), canonicalManifestJson(manifest));
+    localStorage.setItem(localKey(locator), body);
     tier = "local";
   } catch {
     /* storage full / SSR — the indexer tier may still succeed */
   }
-
   if (INDEXER_URL) {
     try {
-      const res = await fetch(`${INDEXER_URL}/evidence/${hash}`, {
+      const res = await fetch(`${INDEXER_URL}/evidence/${locator}`, {
         method: "PUT",
         headers: { "Content-Type": "application/json" },
-        body: canonicalManifestJson(manifest),
+        body,
       });
       if (res.ok) tier = "indexer";
     } catch {
       /* indexer down — local tier (if any) still stands */
     }
   }
-
   return tier;
 }
 
-/**
- * Fetch a manifest by its on-chain hash and verify it byte-for-byte before
- * returning it. Returns null when nothing (valid) is found.
- */
-export async function fetchManifest(hash: string): Promise<ProofManifest | null> {
+/** Best-effort GET of a raw body by locator from the registry tiers. */
+async function getFromRegistry(locator: string): Promise<string | null> {
   if (INDEXER_URL) {
     try {
-      const res = await fetch(`${INDEXER_URL}/evidence/${hash}`);
-      if (res.ok) {
-        const manifest = (await res.json()) as ProofManifest;
-        if (verifyManifest(manifest, hash)) return manifest;
-      }
+      const res = await fetch(`${INDEXER_URL}/evidence/${locator}`);
+      if (res.ok) return await res.text();
     } catch {
       /* fall through to local */
     }
   }
-
   try {
-    const raw = localStorage.getItem(localKey(hash));
-    if (raw) {
-      const manifest = JSON.parse(raw) as ProofManifest;
-      if (verifyManifest(manifest, hash)) return manifest;
-    }
+    return localStorage.getItem(localKey(locator));
   } catch {
-    /* ignore */
+    return null;
   }
+}
 
+export type RegistryTier = "indexer" | "local" | "none";
+
+/**
+ * PUBLIC path. Store a manifest IN THE CLEAR under its on-chain hash. Use only
+ * for evidence the creator has chosen to make public — the hash is on-chain, so
+ * anyone can fetch it. Best-effort on every tier; never throws.
+ */
+export async function storeManifest(
+  hash: `0x${string}`,
+  manifest: ProofManifest,
+): Promise<RegistryTier> {
+  return putToRegistry(hash, canonicalManifestJson(manifest));
+}
+
+/**
+ * Fetch a PUBLIC manifest by its on-chain hash and verify it byte-for-byte
+ * before returning it. Returns null when nothing (valid) is found. Encrypted
+ * submissions are not stored under the on-chain hash, so this returns null for
+ * them — callers should then fall back to {@link fetchEncryptedManifest}.
+ */
+export async function fetchManifest(hash: string): Promise<ProofManifest | null> {
+  const raw = await getFromRegistry(hash);
+  if (!raw) return null;
+  try {
+    const manifest = JSON.parse(raw) as ProofManifest;
+    if (verifyManifest(manifest, hash)) return manifest;
+  } catch {
+    /* not a public manifest (may be ciphertext for a different locator) */
+  }
   return null;
+}
+
+/** What a creator receives after storing encrypted evidence. */
+export interface EncryptedEvidenceResult {
+  /** Registry address of the ciphertext (keccak256 of the ciphertext). */
+  locator: `0x${string}`;
+  /** Opaque capability string to share with reviewers (contains the key). */
+  capability: string;
+  tier: RegistryTier;
+}
+
+/**
+ * ENCRYPTED path. Encrypt the manifest in the browser and store only the
+ * ciphertext, addressed by keccak256(ciphertext). Returns a capability the
+ * creator shares out-of-band with reviewers. The on-chain plaintext hash
+ * (computed by the caller for `submitProof`) is unaffected and still verifies.
+ */
+export async function storeEncryptedManifest(
+  manifest: ProofManifest,
+): Promise<EncryptedEvidenceResult> {
+  const key = await generateEvidenceKey();
+  const blob = await encryptToBlob(canonicalManifestJson(manifest), key);
+  const locator = keccak256(toBytes(blob));
+  const tier = await putToRegistry(locator, blob);
+  return { locator, capability: packCapability(locator, key), tier };
+}
+
+/**
+ * Fetch and decrypt an encrypted manifest from a capability. If `expectedHash`
+ * (the on-chain plaintext hash) is given, the decrypted manifest is verified
+ * against it and rejected on mismatch. Returns null on any failure.
+ */
+export async function fetchEncryptedManifest(
+  capability: string,
+  expectedHash?: string,
+): Promise<ProofManifest | null> {
+  const parsed = parseCapability(capability);
+  if (!parsed) return null;
+  const blob = await getFromRegistry(parsed.locator);
+  if (!blob) return null;
+  try {
+    const json = await decryptFromBlob(blob, parsed.key);
+    const manifest = JSON.parse(json) as ProofManifest;
+    if (expectedHash && !verifyManifest(manifest, expectedHash)) return null;
+    return manifest;
+  } catch {
+    return null;
+  }
 }

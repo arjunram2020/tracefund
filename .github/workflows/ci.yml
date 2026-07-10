@@ -1,0 +1,41 @@
+# CI gate + dependency-audit reporting. Typecheck is a hard gate (change
+# management: broken code can't merge). The audit job is informational for now
+# (continue-on-error) so a noisy transitive advisory can't block shipping —
+# Dependabot handles the actual remediation. Tighten to a hard gate once the
+# advisory backlog is clean.
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+jobs:
+  typecheck:
+    name: Typecheck (nextjs)
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+          cache: "yarn"
+      - name: Install
+        run: yarn install --frozen-lockfile
+      - name: Typecheck
+        run: yarn workspace @covenant/nextjs typecheck
+
+  audit:
+    name: Dependency audit (high+)
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    continue-on-error: true
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+      - name: Yarn audit (production deps, high severity and above)
+        run: yarn audit --groups dependencies --level high

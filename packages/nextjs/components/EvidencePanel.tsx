@@ -18,7 +18,7 @@ import {
   canonicalManifestJson,
   type ProofManifest,
 } from "../lib/proofManifest";
-import { storeManifest } from "../lib/evidenceRegistry";
+import { storeManifest, storeEncryptedManifest } from "../lib/evidenceRegistry";
 
 type SocialPlatform = "linkedin" | "farcaster";
 
@@ -87,6 +87,10 @@ export function EvidencePanel({
   ]);
   const [publicEvidence, setPublicEvidence] = useState(true);
   const [lastManifest, setLastManifest] = useState<ProofManifest | null>(null);
+  // Capability link for the most recent PRIVATE (encrypted) submission — the
+  // creator must share this with reviewers; it carries the decryption key.
+  const [capability, setCapability] = useState<string | null>(null);
+  const [capabilityCopied, setCapabilityCopied] = useState(false);
 
   // Social sharing (kept deliberately separate — the post is NOT the proof record)
   const [activeTab, setActiveTab] = useState<SocialPlatform>("linkedin");
@@ -140,15 +144,32 @@ export function EvidencePanel({
     const manifestHash = hashManifest(manifest);
     const manifestURI = publicEvidence ? manifestToDataUri(manifest) : "";
     setLastManifest(manifest);
-    // Best-effort off-chain registry copy (indexer + local) so reviewers can
-    // load the package by its on-chain hash even when it isn't published.
-    void storeManifest(manifestHash, manifest);
+    setCapability(null);
+    setCapabilityCopied(false);
+    if (publicEvidence) {
+      // Public: store the manifest in the clear, addressable by its on-chain hash.
+      void storeManifest(manifestHash, manifest);
+    } else {
+      // Private: encrypt in-browser and store only ciphertext. The capability
+      // (which carries the key) is shown below for the creator to share with
+      // reviewers — it is never put on-chain or sent to the server in the clear.
+      try {
+        const { capability: cap } = await storeEncryptedManifest(manifest);
+        setCapability(cap);
+      } catch {
+        /* encryption/store failed — creator can still download & share the JSON */
+      }
+    }
     try {
       await execute("submitProof", [campaign.id, summary.trim(), manifestHash, manifestURI]);
     } catch {
       /* surfaced via TxFeedback */
     }
   };
+
+  const shareableCapabilityLink = capability
+    ? `${origin}/campaigns/${campaign.id.toString()}?ev=${encodeURIComponent(capability)}`
+    : "";
 
   const downloadManifest = (manifest: ProofManifest) => {
     const blob = new Blob([canonicalManifestJson(manifest)], { type: "application/json" });
@@ -259,6 +280,37 @@ export function EvidencePanel({
           ⬇ Download this proof package (JSON) — share it with your reviewers if you kept it
           private
         </button>
+      )}
+
+      {isCreator && capability && (
+        <div className="mt-3 rounded-xl border border-amber-500/40 bg-amber-500/5 p-3 text-sm">
+          <p className="font-medium text-[var(--text-primary)]">
+            🔒 Private evidence — share this access link with your reviewers only
+          </p>
+          <p className="mt-1 text-xs text-[var(--text-secondary)]">
+            Your proof was encrypted in your browser; the server only holds ciphertext. This link
+            carries the decryption key — anyone with it can read the package, so send it only to
+            your reviewers (not on-chain, not in public). Reviewers paste it into the review panel.
+          </p>
+          <div className="mt-2 flex items-center gap-2">
+            <input
+              readOnly
+              className="input flex-1 text-xs"
+              value={shareableCapabilityLink}
+              onFocus={(e) => e.currentTarget.select()}
+            />
+            <button
+              type="button"
+              className="btn-secondary shrink-0 text-xs"
+              onClick={() => {
+                navigator.clipboard?.writeText(shareableCapabilityLink).catch(() => {});
+                setCapabilityCopied(true);
+              }}
+            >
+              {capabilityCopied ? "Copied ✓" : "Copy"}
+            </button>
+          </div>
+        </div>
       )}
 
       {showForm && (

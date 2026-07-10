@@ -1,0 +1,50 @@
+# Dependabot keeps dependencies patched — a free, automated piece of the
+# vulnerability-management control SOC 2 expects. Grouped, weekly PRs keep the
+# noise low for a small team. One entry per manifest directory (Dependabot does
+# not auto-discover Yarn workspaces).
+version: 2
+updates:
+  - package-ecosystem: "npm"
+    directory: "/"
+    schedule:
+      interval: "weekly"
+    open-pull-requests-limit: 5
+    groups:
+      root-dependencies:
+        patterns: ["*"]
+
+  - package-ecosystem: "npm"
+    directory: "/packages/nextjs"
+    schedule:
+      interval: "weekly"
+    open-pull-requests-limit: 5
+    groups:
+      nextjs-dependencies:
+        patterns: ["*"]
+
+  - package-ecosystem: "npm"
+    directory: "/packages/indexer"
+    schedule:
+      interval: "weekly"
+    open-pull-requests-limit: 5
+    groups:
+      indexer-dependencies:
+        patterns: ["*"]
+
+  - package-ecosystem: "npm"
+    directory: "/packages/hardhat"
+    schedule:
+      interval: "weekly"
+    open-pull-requests-limit: 5
+    groups:
+      hardhat-dependencies:
+        patterns: ["*"]
+
+  # Keep the CI actions themselves patched and pinned.
+  - package-ecosystem: "github-actions"
+    directory: "/"
+    schedule:
+      interval: "weekly"
+    groups:
+      github-actions:
+        patterns: ["*"]

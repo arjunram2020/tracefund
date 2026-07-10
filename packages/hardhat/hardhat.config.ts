@@ -5,8 +5,23 @@ import * as dotenv from "dotenv";
 dotenv.config();
 
 // Optional deployer key for public networks. Local dev does not need it.
-const deployerPrivateKey = process.env.DEPLOYER_PRIVATE_KEY;
-const accounts = deployerPrivateKey ? [deployerPrivateKey] : [];
+// Validate and normalize it so a paste mistake (missing 0x, a truncated key, or
+// a seed phrase pasted into the key field) fails loudly here instead of
+// producing a deploy from the wrong/no signer.
+function loadDeployerAccounts(): string[] {
+  const raw = process.env.DEPLOYER_PRIVATE_KEY?.trim();
+  if (!raw) return [];
+  const key = raw.startsWith("0x") ? raw : `0x${raw}`;
+  if (!/^0x[0-9a-fA-F]{64}$/.test(key)) {
+    console.warn(
+      "[hardhat] DEPLOYER_PRIVATE_KEY is set but is not a valid 32-byte hex key " +
+        "(expected 0x + 64 hex chars). Ignoring it — public-network deploys will have no signer.",
+    );
+    return [];
+  }
+  return [key];
+}
+const accounts = loadDeployerAccounts();
 
 const config: HardhatUserConfig = {
   solidity: {

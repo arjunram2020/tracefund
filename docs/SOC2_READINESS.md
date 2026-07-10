@@ -31,15 +31,71 @@ not remove Covenant's own shared-responsibility obligations for hosted systems.
 
 Recent repo changes add a real compliance seam instead of vague marketing:
 
-- the indexer can run with restricted CORS origins;
-- the off-chain evidence registry can require a bearer token;
-- evidence reads and writes are audit-logged with outcome, hashed requester
-  fingerprint, hashed IP fingerprint, user agent, and path;
-- an admin-only audit endpoint can be enabled for incident review and audit
-  sampling;
-- the frontend and indexer send baseline security headers;
+- the indexer restricts CORS to an explicit origin allowlist (`ALLOWED_ORIGINS`);
+- the off-chain evidence registry requires a bearer token to write
+  (`EVIDENCE_WRITE_TOKEN`) and can require one to read (`EVIDENCE_PROTECTED`);
+- evidence reads and writes are audit-logged with outcome, a salted requester
+  fingerprint, a salted IP fingerprint, user agent, method, and path — raw IPs
+  and tokens are never stored (`evidence_access` table in the indexer);
+- an admin-only audit endpoint (`GET /audit`, gated by `ADMIN_TOKEN`) can be
+  enabled for incident review and audit sampling;
+- the frontend and indexer send baseline security headers (nosniff, frame
+  denial, HSTS, referrer policy, and `frame-ancestors` clickjacking protection);
+- the indexer fails closed in production: with `NODE_ENV=production` it refuses
+  to start if `ALLOWED_ORIGINS`, `EVIDENCE_WRITE_TOKEN`, or `ADMIN_TOKEN` are
+  unset, so a misconfigured deploy can't silently run open;
+- per-IP rate limiting protects all API routes, with a stricter limit on
+  evidence writes and `/audit` to slow token guessing and scraping;
+- request bodies are size-capped (256 KB on evidence, 16 KB on the frontend
+  drafting endpoint) and query/path inputs are validated and bounded;
+- the indexer emits structured (JSON-line) logs suitable for centralized
+  ingestion, and never logs secrets — only salted fingerprints and safe fields;
+- automated supply-chain controls run in CI: Dependabot (weekly, grouped),
+  CodeQL static analysis, and a dependency-audit job (see `.github/`);
 - the product exposes a public Trust page that describes current controls and
   remaining gaps without falsely claiming certification.
+
+Operator note: every indexer security control above is configured through
+environment variables documented in `packages/indexer/.env.example`. They
+default to permissive, dev-friendly values, and the indexer emits a structured
+`security control unset` warning at startup for any control left unset — so an
+insecure deployment is obvious in the logs. In production (`NODE_ENV=production`)
+the critical controls are enforced by a fail-closed startup check.
+**These must be set in production.**
+
+## Phase 1 controls: in place vs. still missing
+
+Everything below is free and lives in this repo. "In place" means implemented in
+code; it does **not** mean independently audited.
+
+| Control | Status | Where / how to verify locally |
+|---|---|---|
+| Security response headers | ✅ In place | `curl -si localhost:4000/health \| grep -i x-frame`; Next.js: `curl -si localhost:3000 \| grep -i content-security` |
+| CORS origin allowlist | ✅ In place | Set `ALLOWED_ORIGINS`; a disallowed `Origin` is rejected by the browser |
+| Evidence write auth (bearer) | ✅ In place | `PUT /evidence/:hash` without/with wrong token → `401`; correct token → `200` |
+| Protected evidence reads (opt-in) | ✅ In place | Set `EVIDENCE_PROTECTED=true`; `GET /evidence/:hash` without token → `401` |
+| Evidence access audit log | ✅ In place | After any evidence call: `GET /audit` with `ADMIN_TOKEN` shows the row |
+| Client-side E2E encryption for private evidence | ✅ In place | Private submit → server stores ciphertext only; reviewer unlocks with a capability. See [EVIDENCE_SECURITY_MODEL.md](./EVIDENCE_SECURITY_MODEL.md) |
+| Evidence encryption at rest | ✅ In place | Set `EVIDENCE_ENC_KEY`; raw DB rows are `enc:v1:` ciphertext, GET decrypts transparently |
+| Admin-only audit endpoint | ✅ In place | `GET /audit` without token → `401`; with `ADMIN_TOKEN` → rows; unset → `404` |
+| Fail-closed production config | ✅ In place | `NODE_ENV=production` with tokens unset → process exits with an error log |
+| Per-IP rate limiting | ✅ In place | Exceed `RATE_LIMIT_MAX` rapid requests → `429` + `RateLimit-*` headers |
+| Request-size limits | ✅ In place | `PUT` a >256 KB body → `413`; oversized drafting body → `413` |
+| Input validation / bounds | ✅ In place | Bad `?limit=`, `?campaignId=`, or hash → `400` (no 500s) |
+| Structured logging | ✅ In place | Indexer stdout is one JSON object per line (`ts`, `level`, `msg`, fields) |
+| Supply-chain scanning (CI) | ✅ In place | `.github/` — Dependabot, CodeQL, and audit workflow run on push/PR |
+| Secrets kept out of git | ✅ In place | `.gitignore` ignores every `.env*` except `*.example`; secrets are env-only, never in code. See [SECURE_CONFIGURATION.md](./SECURE_CONFIGURATION.md) |
+| Public vs server-only config separation | ✅ In place | `NEXT_PUBLIC_*` documented as browser-public; secrets confined to server packages. See [SECURE_CONFIGURATION.md](./SECURE_CONFIGURATION.md) |
+| Deploy-key format validation | ✅ In place | `hardhat.config.ts` rejects a malformed `DEPLOYER_PRIVATE_KEY` instead of deploying with the wrong signer |
+| MFA on admin systems | ❌ Missing | Human control — AWS/GitHub/DNS/RPC/WalletConnect; track in a checklist |
+| Least-privilege + access reviews | ❌ Missing | Named production access, documented approvals, quarterly review |
+| Backups + restore test | ❌ Missing | Automated `covenant.db` backup with a scheduled restore drill (Phase 2) |
+| Uptime monitoring + alerting | ❌ Missing | Health-check monitor with paging (Phase 2) |
+| Full script/connect CSP | ❌ Missing | Only `frame-ancestors` is enforced today; a tested full CSP is Phase 2 |
+| Shared-store rate limiting | ❌ Missing | Current limiter is per-instance/in-memory; fine for one host, Phase 2 for many |
+| Written security policies | ❌ Missing | Access control, incident response, change mgmt, retention, vendor |
+| Per-reviewer evidence access + revocation | ❌ Missing | Capability-based today (no identity binding / revoke); metadata not hidden. See [EVIDENCE_SECURITY_MODEL.md](./EVIDENCE_SECURITY_MODEL.md) |
+| Evidence retention / deletion workflow | ❌ Missing | No lifecycle policy for stored manifests/ciphertext yet |
 
 ## Control mapping
 

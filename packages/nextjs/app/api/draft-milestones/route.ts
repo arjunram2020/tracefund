@@ -31,16 +31,70 @@ import { CampaignKind } from "../../../lib/types";
 
 const CLAMP = (n: number, lo: number, hi: number) => Math.max(lo, Math.min(hi, n));
 
+// Request-size guard: milestone drafts are tiny, so reject anything large before
+// parsing it. Defends the single server endpoint against oversized-payload abuse.
+const MAX_BODY_BYTES = 16 * 1024;
+// Per-field length caps stop a caller from pushing megabytes of text through the
+// two free-form fields (which pass into the heuristic and back out in the response).
+const MAX_FIELD_LEN = 4000;
+
+// In-memory fixed-window rate limiter (per process instance). No dependency; good
+// enough for a single deployment. Behind a CDN/multi-instance host this becomes
+// best-effort — a shared store is the Phase 2 upgrade.
+const RL_WINDOW_MS = 60_000;
+const RL_MAX = 30;
+const rlHits = new Map<string, { count: number; resetAt: number }>();
+
+function rateLimited(req: Request): boolean {
+  const ip =
+    req.headers.get("x-forwarded-for")?.split(",")[0]?.trim() ||
+    req.headers.get("x-real-ip") ||
+    "unknown";
+  const now = Date.now();
+  let e = rlHits.get(ip);
+  if (!e || now > e.resetAt) {
+    e = { count: 0, resetAt: now + RL_WINDOW_MS };
+    rlHits.set(ip, e);
+  }
+  e.count += 1;
+  // Opportunistic cleanup so the map stays bounded.
+  if (rlHits.size > 5000) {
+    for (const [k, v] of rlHits) if (now > v.resetAt) rlHits.delete(k);
+  }
+  return e.count > RL_MAX;
+}
+
 export async function POST(req: Request) {
+  if (rateLimited(req)) {
+    return NextResponse.json({ error: "Too many requests" }, { status: 429 });
+  }
+
+  // Reject oversized bodies up front (Content-Length is a cheap first gate).
+  const declaredLen = Number(req.headers.get("content-length") ?? 0);
+  if (declaredLen > MAX_BODY_BYTES) {
+    return NextResponse.json({ error: "Request body too large" }, { status: 413 });
+  }
+
+  const raw = await req.text();
+  if (raw.length > MAX_BODY_BYTES) {
+    return NextResponse.json({ error: "Request body too large" }, { status: 413 });
+  }
+
   let body: DraftRequest;
   try {
-    body = (await req.json()) as DraftRequest;
+    body = JSON.parse(raw) as DraftRequest;
   } catch {
     return NextResponse.json({ error: "Invalid JSON body" }, { status: 400 });
   }
   if (!body?.title?.trim() || !body?.description?.trim()) {
     return NextResponse.json(
       { error: "title and description are required to draft milestones" },
+      { status: 400 },
+    );
+  }
+  if (body.title.length > MAX_FIELD_LEN || body.description.length > MAX_FIELD_LEN) {
+    return NextResponse.json(
+      { error: "title and description are too long" },
       { status: 400 },
     );
   }

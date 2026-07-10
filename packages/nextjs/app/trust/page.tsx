@@ -11,8 +11,8 @@ const CRITERIA = [
   },
   {
     title: "Confidentiality",
-    now: "Sensitive proof can stay off-chain; the hosted evidence registry now supports protected access mode and access audit logging.",
-    next: "Turn on evidence auth in production, restrict storage access by role, and define retention/deletion policy.",
+    now: "Private proof is end-to-end encrypted in the browser — the registry stores only ciphertext, keys never touch the chain or server — with encryption at rest and access audit logging as added layers.",
+    next: "Add per-reviewer access and revocation, hide metadata, and define a retention/deletion policy.",
   },
   {
     title: "Processing Integrity",

@@ -15,11 +15,13 @@ packages/nextjs/.next
 packages/nextjs/out
 packages/nextjs/build
 
-# env
+# env — ignore EVERY env file (any name, any package) except the committed
+# *.example templates. This covers .env, .env.local, .env.production,
+# .env.development, .env.staging, etc. so real secrets can never be committed.
 .env
-.env*.local
-packages/hardhat/.env
-packages/nextjs/.env.local
+.env.*
+!.env.example
+!*.env.example
 
 # indexer sqlite artifacts (wherever the indexer was launched from)
 covenant.db

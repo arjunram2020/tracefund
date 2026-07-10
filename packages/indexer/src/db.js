@@ -34,19 +34,62 @@ export function openDb(path) {
     );
 
     -- Off-chain evidence registry: full proof-package manifests, addressed by
-    -- the keccak256 hash that Covenant stores on-chain. Access model is
-    -- capability-by-hash (the hash is on-chain, so effectively "unlisted").
-    -- TODO(privacy): production needs authenticated access (reviewer
-    -- allowlists from the campaign's approval config, expiring links, and an
-    -- access audit log) before genuinely confidential documents belong here.
+    -- the keccak256 hash that Covenant stores on-chain. Writes can require a
+    -- bearer token (EVIDENCE_WRITE_TOKEN) and reads can be gated too
+    -- (EVIDENCE_PROTECTED); when unset the registry falls back to the
+    -- capability-by-hash model (the hash is on-chain, so effectively "unlisted").
     CREATE TABLE IF NOT EXISTS evidence (
       hash        TEXT PRIMARY KEY,          -- 0x-prefixed keccak256, lowercase
       manifest    TEXT NOT NULL,             -- canonical manifest JSON
       created_at  TEXT DEFAULT (datetime('now'))
     );
+
+    -- Evidence access audit log. One row per evidence read/write attempt so
+    -- incident response and audit sampling can reconstruct who touched what and
+    -- whether it succeeded. We store only SALTED HASHES of the caller's IP and
+    -- bearer token — never the raw values — so the log itself minimizes
+    -- sensitive data (a SOC 2 confidentiality/privacy consideration).
+    CREATE TABLE IF NOT EXISTS evidence_access (
+      id            INTEGER PRIMARY KEY AUTOINCREMENT,
+      ts            TEXT DEFAULT (datetime('now')),
+      method        TEXT NOT NULL,           -- GET | PUT
+      path          TEXT NOT NULL,           -- request path
+      hash          TEXT,                    -- evidence hash if valid, else null
+      outcome       TEXT NOT NULL,           -- ok | unauthorized | not_found | bad_request | conflict
+      ip_fp         TEXT,                    -- keccak256(ip + AUDIT_SALT)
+      requester_fp  TEXT,                    -- keccak256(bearer + AUDIT_SALT) or null
+      user_agent    TEXT
+    );
+
+    CREATE INDEX IF NOT EXISTS idx_evidence_access_ts ON evidence_access (ts);
   `);
 
   return db;
+}
+
+// Append one evidence-access audit row. Kept here so all DB shape lives in one
+// file; the API layer supplies already-hashed fingerprints (never raw IP/token).
+export function logEvidenceAccess(db, e) {
+  db.prepare(
+    `INSERT INTO evidence_access
+       (method, path, hash, outcome, ip_fp, requester_fp, user_agent)
+     VALUES (@method, @path, @hash, @outcome, @ip_fp, @requester_fp, @user_agent)`,
+  ).run({
+    method: e.method,
+    path: e.path,
+    hash: e.hash ?? null,
+    outcome: e.outcome,
+    ip_fp: e.ip_fp ?? null,
+    requester_fp: e.requester_fp ?? null,
+    user_agent: e.user_agent ?? null,
+  });
+}
+
+// Read the most recent audit rows (admin endpoint), newest first.
+export function getEvidenceAccess(db, limit) {
+  return db
+    .prepare("SELECT * FROM evidence_access ORDER BY id DESC LIMIT ?")
+    .all(limit);
 }
 
 export function getCursor(db, fallbackBlock) {
