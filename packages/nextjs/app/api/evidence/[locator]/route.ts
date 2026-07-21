@@ -40,10 +40,45 @@ const isLocator = (v: string) => /^0x[0-9a-fA-F]{64}$/.test(v);
 // so allow generous headroom while still bounding the forwarded payload.
 const MAX_BODY_BYTES = 2 * 1024 * 1024;
 
+// This route attaches a privileged bearer token to anonymous callers' writes,
+// so it must not be a free write-amplification lever against the indexer.
+// Same in-memory fixed-window limiter as draft-milestones: per-instance and
+// best-effort behind a CDN, but it bounds single-source spam. Stricter than
+// draft-milestones because each hit forwards a privileged upstream write.
+const RL_WINDOW_MS = 60_000;
+const RL_MAX = 10;
+const rlHits = new Map<string, { count: number; resetAt: number }>();
+
+function rateLimited(req: Request): boolean {
+  const ip =
+    req.headers.get("x-forwarded-for")?.split(",")[0]?.trim() ||
+    req.headers.get("x-real-ip") ||
+    "unknown";
+  const now = Date.now();
+  let e = rlHits.get(ip);
+  if (!e || now > e.resetAt) {
+    e = { count: 0, resetAt: now + RL_WINDOW_MS };
+    rlHits.set(ip, e);
+  }
+  e.count += 1;
+  if (rlHits.size > 5000) {
+    for (const [k, v] of rlHits) if (now > v.resetAt) rlHits.delete(k);
+  }
+  return e.count > RL_MAX;
+}
+
+// Scoping metadata forwarded to the indexer feeds per-reviewer read
+// authorization there — validate shape here instead of passing raw strings.
+const isBoundedInt = (v: string, max: number) => /^\d{1,15}$/.test(v) && Number(v) <= max;
+
 export async function PUT(
   req: Request,
   { params }: { params: { locator: string } },
 ) {
+  if (rateLimited(req)) {
+    return NextResponse.json({ error: "too many requests" }, { status: 429 });
+  }
+
   const locator = params.locator;
   if (!isLocator(locator)) {
     return NextResponse.json({ error: "invalid locator" }, { status: 400 });
@@ -68,12 +103,17 @@ export async function PUT(
   }
 
   // Forward optional per-reviewer scoping metadata (campaignId / milestoneIndex)
-  // untouched so protected-read authorization can target the right campaign.
+  // so protected-read authorization can target the right campaign. Values must
+  // be plain bounded integers — anything else is dropped, not forwarded.
   const incoming = new URL(req.url).searchParams;
   const forward = new URLSearchParams();
-  for (const key of ["campaignId", "milestoneIndex"]) {
-    const val = incoming.get(key);
-    if (val !== null) forward.set(key, val);
+  const campaignId = incoming.get("campaignId");
+  if (campaignId !== null && isBoundedInt(campaignId, Number.MAX_SAFE_INTEGER)) {
+    forward.set("campaignId", campaignId);
+  }
+  const milestoneIndex = incoming.get("milestoneIndex");
+  if (milestoneIndex !== null && isBoundedInt(milestoneIndex, 10_000)) {
+    forward.set("milestoneIndex", milestoneIndex);
   }
   const qs = forward.toString();
   const target = `${INDEXER_URL}/evidence/${locator}${qs ? `?${qs}` : ""}`;

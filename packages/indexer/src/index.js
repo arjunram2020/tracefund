@@ -362,7 +362,11 @@ async function checkPerReviewerAuth(req, campaignId) {
 function startApi() {
   const app = express();
   // Behind Nginx: honor X-Forwarded-For so req.ip reflects the real client.
-  app.set("trust proxy", true);
+  // Trust only a fixed number of proxy hops (default 1 — the Nginx in front of
+  // us), never `true`: trusting every hop lets any client spoof its own
+  // X-Forwarded-For, rotating IPs to bypass the rate limiters and forge the
+  // ip_fp written to the audit log. TRUST_PROXY_HOPS=0 for direct exposure.
+  app.set("trust proxy", Number.parseInt(process.env.TRUST_PROXY_HOPS ?? "1", 10) || 0);
   app.disable("x-powered-by"); // don't advertise Express/version to attackers
 
   // Baseline security response headers on every route (no extra dependency).
@@ -439,11 +443,17 @@ function startApi() {
   app.get("/campaigns/:id", (req, res) => {
     const id = asInt(req.params.id);
     if (id === null) return res.status(400).json({ error: "invalid campaign id" });
+    // Bounded like /events: an unbounded per-campaign dump is a bandwidth/memory
+    // DoS lever once a campaign accumulates history. ?offset= pages through.
+    const limit = req.query.limit === undefined ? 1000 : asInt(req.query.limit, 1000);
+    if (limit === null) return res.status(400).json({ error: "invalid limit" });
+    const offset = req.query.offset === undefined ? 0 : asInt(req.query.offset);
+    if (offset === null) return res.status(400).json({ error: "invalid offset" });
     const rows = db
       .prepare(
-        "SELECT * FROM events WHERE campaign_id = ? ORDER BY block_number ASC, log_index ASC",
+        "SELECT * FROM events WHERE campaign_id = ? ORDER BY block_number ASC, log_index ASC LIMIT ? OFFSET ?",
       )
-      .all(id);
+      .all(id, limit, offset);
     res.json(rows.map((r) => ({ ...r, args: JSON.parse(r.args) })));
   });
 
@@ -465,7 +475,10 @@ function startApi() {
       outcome,
       ip_fp: fingerprint(clientIp(req)),
       requester_fp: fingerprint(bearer(req)),
-      user_agent: (req.headers["user-agent"] || "").slice(0, 256),
+      // Strip control chars so a hostile User-Agent can't inject into logs or
+      // any admin UI that later renders /audit rows.
+      // eslint-disable-next-line no-control-regex
+      user_agent: (req.headers["user-agent"] || "").replace(/[\x00-\x1f\x7f]/g, "").slice(0, 256),
     });
 
   app.put("/evidence/:hash", sensitiveLimit, (req, res) => {
@@ -500,7 +513,11 @@ function startApi() {
     res.json({ ok: true });
   });
 
-  app.get("/evidence/:hash", async (req, res) => {
+  // sensitiveLimit here too: in token mode this route accepts (and therefore
+  // can be used to brute-force) EVIDENCE_WRITE_TOKEN, and in per-reviewer mode
+  // each attempt costs a signature check plus up to two RPC reads — both want
+  // the strict 30/min budget, not the general 300/min one.
+  app.get("/evidence/:hash", sensitiveLimit, async (req, res) => {
     const hash = String(req.params.hash).toLowerCase();
     if (!isHash(hash)) {
       audit(req, "bad_request", null);
