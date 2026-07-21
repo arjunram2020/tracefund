@@ -89,7 +89,10 @@ both zero/low-cost:
 
 `.github/workflows/uptime.yml` pings the indexer `/health` endpoint every 15
 minutes on GitHub Actions (set the `HEALTH_URL` repo variable). A failed check
-turns the run red and GitHub emails the owner — a zero-cost uptime alert.
+turns the run red and GitHub emails the owner, and now also opens (or comments
+on) a single tracking issue labeled `uptime` — closed automatically on the next
+healthy run — so a failure stays visible somewhere durable, not just a one-off
+email. Zero cost, no vendor.
 
 ## Verification method
 

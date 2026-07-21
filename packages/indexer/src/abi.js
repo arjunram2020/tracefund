@@ -88,3 +88,48 @@ export const COVENANT_EVENTS = [
     ],
   },
 ];
+
+// Read-only function fragments the indexer calls (never writes) to check
+// per-reviewer evidence authorization against live on-chain state — see
+// EVIDENCE_ACCESS_MODE=per-reviewer in index.js. Kept separate from
+// COVENANT_EVENTS because these are functions, not events.
+export const COVENANT_READS = [
+  {
+    type: "function",
+    name: "isReviewer",
+    stateMutability: "view",
+    inputs: [
+      { name: "campaignId", type: "uint256" },
+      { name: "account", type: "address" },
+    ],
+    outputs: [{ type: "bool" }],
+  },
+  {
+    type: "function",
+    name: "getCampaign",
+    stateMutability: "view",
+    inputs: [{ name: "campaignId", type: "uint256" }],
+    outputs: [
+      {
+        type: "tuple",
+        components: [
+          { name: "id", type: "uint256" },
+          { name: "creator", type: "address" },
+          { name: "title", type: "string" },
+          { name: "description", type: "string" },
+          { name: "kind", type: "uint8" },
+          { name: "goalAmount", type: "uint256" },
+          { name: "totalRaised", type: "uint256" },
+          { name: "totalReleased", type: "uint256" },
+          { name: "active", type: "bool" },
+          { name: "completed", type: "bool" },
+          { name: "cancelledAt", type: "uint64" },
+          { name: "currentMilestone", type: "uint256" },
+          { name: "createdAt", type: "uint256" },
+          { name: "donorCount", type: "uint256" },
+          { name: "milestoneCount", type: "uint256" },
+        ],
+      },
+    ],
+  },
+];

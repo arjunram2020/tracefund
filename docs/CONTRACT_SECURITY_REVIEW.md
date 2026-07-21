@@ -5,7 +5,7 @@ integration surface. This is **not** a substitute for an independent audit —
 it is the groundwork that makes a future audit faster and cheaper, and it
 raises real confidence now.
 
-Scope: `packages/hardhat/contracts/Covenant.sol` (796 lines), its deployment
+Scope: `packages/hardhat/contracts/Covenant.sol` (877 lines), its deployment
 script, and the off-chain integration that reads/writes it.
 
 ## Overall assessment
@@ -15,8 +15,10 @@ The contract is well-constructed. It uses OpenZeppelin `ReentrancyGuard` +
 strong **escrow-isolation invariant** (a milestone can only release from its own
 campaign's donations — `totalReleased + amount <= totalRaised`). Money-custody
 logic is conservative and minimal-trust: the owner cannot move, freeze, or seize
-escrow. The main residual risks are **economic/design** (weighted-approval
-concentration) and **operational** (owner key custody, no pause), not classic
+escrow. Weighted-approval concentration (H1) and the mid-vote denominator (M4)
+are now hardened in source, pending redeploy. The main residual risks are
+**economic/design** (multi-wallet Sybil still raises the bar rather than
+closing it entirely) and **operational** (owner key custody), not classic
 implementation bugs.
 
 ## Clear separation: contract controls vs. app controls
@@ -34,23 +36,42 @@ security signal (see H1).
 
 ## Prioritized risk list
 
-### HIGH
+### HIGH (hardened — see below; residual risk is MEDIUM)
 
-**H1 — WeightedApproval concentration / Sybil self-approval.**
+**H1 — WeightedApproval concentration / Sybil self-approval.** *(Hardened in
+source, not yet redeployed — same status as M1/Pausable below.)*
 In `WeightedApproval`, any address that has donated can vote, weighted by its
-donation, and a wallet holding ≥ the threshold percentage can release funds
-alone. Because a creator is only blocked from donating with *their own* address,
-a creator can fund their campaign from a **second wallet**, then approve their
-own milestone — releasing escrow (including other donors' money if the sockpuppet
-outweighs them) and inflating `trustScore` with no independent review.
-*Impact:* real donors' funds released without genuine review; gamed reputation.
-*This is inherent to money-weighted voting; the contract cannot fully prevent it.*
-- **Mitigations (low-cost, mostly app/process):** steer high-value or enterprise
-  campaigns to `DesignatedReviewers`; vet creators via `approvedCreators`; surface
-  a warning in the UI when one wallet holds majority weight; treat `trustScore`
-  as informational only, never as Sybil-resistant identity.
-- **Test:** `CovenantSecurity.ts` → "a single donor holding >= threshold weight
-  can release funders' escrow alone" (asserts the behavior so it stays visible).
+donation. Previously a wallet holding ≥ the threshold percentage could release
+funds alone; because a creator is only blocked from donating with *their own*
+address, a creator could fund a campaign from a **second wallet**, then approve
+their own milestone.
+
+**Fix applied:** two on-chain guards, both required for a WeightedApproval
+release:
+1. **Per-voter weight cap** (`MAX_VOTER_WEIGHT_BPS = 5000`, i.e. 50%) — no
+   single voter's counted weight can exceed half of the submission's weight
+   snapshot, however much they've actually donated.
+2. **Minimum distinct approvers** (`MIN_WEIGHTED_APPROVERS = 2`) — at least two
+   distinct donor addresses must vote yes before a release fires, regardless
+   of combined weight.
+
+Together these mean one wallet can never single-handedly release escrow under
+WeightedApproval. *This does not make money-weighted voting Sybil-proof* — a
+creator controlling two (or more) sufficiently-funded wallets can still combine
+them to clear both the weight and approver-count bars. It raises the attack
+from "one wallet, any amount" to "several well-funded wallets," which is a real
+increase in cost and on-chain visibility (multiple distinct addresses donating
+and voting is a detectable pattern), not a complete close.
+- **Residual mitigations (still recommended, app/process):** steer high-value
+  or enterprise campaigns to `DesignatedReviewers`; vet creators via
+  `approvedCreators`; the campaign-creation UI now warns when choosing
+  WeightedApproval (`packages/nextjs/app/create/page.tsx`) that a creator
+  controlling majority weight across multiple wallets can still self-approve;
+  treat `trustScore` as informational only, never as Sybil-resistant identity.
+- **Tests:** `CovenantSecurity.ts` → "Weighted approval concentration (H1
+  hardening)": a single sockpuppet holding 66% weight can no longer release
+  alone; a 90%-weight whale is capped at 50% and needs a second approver to
+  cross the threshold.
 
 ### MEDIUM
 
@@ -79,16 +100,32 @@ deployment (redeploy + Basescan re-verify + frontend ABI re-export).
 truncates, so after a partial release a small residue (< number of donors) is
 permanently locked, and a donor whose share rounds to zero cannot claim.
 *Not a theft risk* — the contract never over-pays (proven by test). Low priority.
-- **Optional hardening:** assign the remainder to the last claimant, or add an
-  owner sweep of provably-orphaned dust after all donors have claimed.
+- **Optional hardening — considered, deliberately NOT implemented (2026-07-17):**
+  the natural-seeming fix ("give the last claimant the remainder") is genuinely
+  easy to get wrong: whoever calls `claimRefund` *last in time* should get the
+  remainder, but that's the donor who happens to claim last, not identifiable
+  from on-chain donation order — an implementation keyed on donation order
+  instead of claim order can pay one donor the ENTIRE unreleased pool if they
+  happen to claim first (a real fund-drain bug, drafted and rejected during
+  this review rather than shipped). Correctly tracking "last to claim" needs
+  per-donor claimed-state and careful handling of donors whose share already
+  rounds to zero (they'd never trigger the "everyone's claimed" condition).
+  Given this is explicitly *not a theft risk* and the dust is bounded at
+  `< donor count` base units, it stays unfixed rather than risk a subtly wrong
+  change to a live-money contract for a cosmetic amount. Revisit with a
+  dedicated design + test pass if it matters at your evidence/donor scale.
 - **Test:** `CovenantSecurity.ts` → "pro-rata refunds never exceed unreleased
   escrow; residue is < donor count".
 
-**M4 — Weighted denominator uses current `totalRaised`.** Donations landing
-mid-vote shift the approval bar (acknowledged in-code). Bounded because
-`totalRaised <= goalAmount`, but a late whale donation can move the threshold.
-- **Mitigation:** documented; a hard per-submission weight snapshot is a future
-  design (needs its own tests).
+**M4 — Weighted denominator uses current `totalRaised`.** *(Fixed in source, not
+yet redeployed.)* Donations landing mid-vote used to shift the approval bar.
+**Fix applied:** `Milestone.weightSnapshot` now records `totalRaised` at the
+moment `submitProof` creates the submission; `reviewProof`'s WeightedApproval
+branch divides by that snapshot instead of the live `c.totalRaised`. A donation
+arriving after submission no longer moves the bar for that submission (a new
+submission after a rejection takes a fresh snapshot).
+- **Test:** `CovenantSecurity.ts` → "weight snapshot is fixed at submission
+  time (M4 fix) — a mid-review donation can't shift the bar".
 
 ### LOW
 
@@ -98,12 +135,24 @@ mid-vote shift the approval bar (acknowledged in-code). Bounded because
   (bytecode, 6 decimals, symbol). *Assumption: the token is canonical USDC.*
 - **L2 — USDC issuer centralization.** Circle can freeze/blacklist addresses or
   upgrade USDC; escrow or a payout could be frozen. Inherent to using USDC.
-- **L3 — `getAllCampaigns()` unbounded.** A view that grows with campaign count;
-  can time out RPC at scale. Off-chain only (the indexer uses events); not a fund
-  risk. Prefer paginated reads client-side as volume grows.
-- **L4 — DesignatedReviewers are fixed at creation.** No rotation/removal; a lost
-  reviewer key can deadlock a campaign until it times out to refunds. Acceptable
-  (no admin override of user campaigns), but a liveness consideration.
+- **L3 — `getAllCampaigns()` unbounded.** *(Fixed in source, not yet
+  redeployed.)* Added `getCampaignsPage(offset, limit)` returning a slice plus
+  the total count, so a client can page instead of pulling every campaign in
+  one call. `getAllCampaigns()` is left in place unchanged for backward
+  compatibility — this is purely additive. The frontend still calls
+  `getAllCampaigns()` (campaign volume today doesn't need pagination); wiring
+  the UI to page is a follow-up once volume actually grows.
+  - **Test:** `Covenant.ts` → "getCampaignsPage" → "pages through campaigns
+    in creation order and reports the total".
+- **L4 — DesignatedReviewers are fixed at creation.** *(Considered, not
+  implemented.)* No rotation/removal; a lost reviewer key can deadlock a
+  campaign until it times out to refunds. A rotation feature needs its own
+  careful design — who can rotate (creator alone? needs a timelock to stop a
+  creator swapping in a colluding reviewer mid-review?) is a real
+  economic/security tradeoff, not a mechanical fix, so it's deliberately left
+  for an explicit design discussion rather than shipped speculatively.
+  Acceptable today (no admin override of user campaigns exists either), but a
+  liveness consideration worth revisiting if reviewer churn becomes common.
 
 ## Tests that should exist — now added
 
@@ -114,7 +163,11 @@ New suite: `packages/hardhat/test/CovenantSecurity.ts` (+ `contracts/test/Reentr
 - ✅ **Escrow isolation invariant** — releasing/refunding one campaign never
   touches another's escrow; `balance == Σ(raised − released)` before refunds.
 - ✅ **Refund rounding** — never over-pays; locked dust is bounded (< donor count).
-- ✅ **Weighted concentration (H1)** — documents the self-approval behavior.
+- ✅ **Weighted concentration (H1)** — asserts the hardened behavior: a lone
+  sockpuppet can no longer release alone; a 90%-weight whale is capped at 50%
+  and needs a second distinct approver.
+- ✅ **Weighted denominator snapshot (M4)** — a donation landing mid-review
+  doesn't move the approval bar for the in-flight submission.
 - ✅ **Double-vote prevented** — a committee reviewer can't reach threshold alone.
 - ✅ **Double-refund prevented.**
 
@@ -128,15 +181,34 @@ Still worth adding later (needs Foundry or more scaffolding):
 
 These are **not** applied to the live contract (it is immutable and holds real
 USDC — any change requires a new deployment, Basescan re-verification, frontend
-ABI re-export, and ideally an external audit first). Proposed, in priority order:
+ABI re-export, and ideally an external audit first). Status:
 
 1. **Multisig owner** (M2) — deploy owned by a Gnosis Safe. *Config change, no
-   code.* Highest value, zero cost.
+   contract code change.* Highest value, zero cost. **Still outstanding** (a
+   decision only you can make — which Safe, which signers), but there's now a
+   safety-checked tool for it: `packages/hardhat/scripts/transferOwnership.ts`
+   (`NEW_OWNER=0xSafe... CONFIRM=yes yarn hardhat run scripts/transferOwnership.ts --network base`)
+   — refuses to run without explicit confirmation, refuses to renounce to the
+   zero address, verifies the signer is the current owner, and warns (without
+   blocking) if `NEW_OWNER` looks like a plain EOA rather than a contract.
 2. **Guarded `Pausable`** (M1) — pause new inflows/reviews but never refunds.
-3. **UI + config guardrails for H1** — default enterprise/high-value campaigns to
-   DesignatedReviewers; warn on majority-weight concentration. *App-side, no
-   redeploy.*
-4. **Dust handling** (M3) — optional, low priority.
+   **Done in source**, pending redeploy.
+3. **Per-voter weight cap + minimum distinct approvers for H1** and **weight
+   snapshot for M4** — **done in source** (`MAX_VOTER_WEIGHT_BPS`,
+   `MIN_WEIGHTED_APPROVERS`, `Milestone.weightSnapshot`), pending redeploy. UI
+   guardrails (warn on WeightedApproval self-approval risk) shipped
+   independently and don't require a redeploy.
+4. **Paginated reads for L3** (`getCampaignsPage`) — **done in source**,
+   pending redeploy. Purely additive (`getAllCampaigns()` unchanged).
+5. **Dust handling** (M3) — considered and deliberately not implemented; see
+   the M3 entry above for why. **Reviewer rotation** (L4) similarly considered
+   and deliberately not implemented — a real design tradeoff, not a
+   mechanical fix.
+
+**All four source-level changes above (Pausable, H1 cap/min-approvers, M4
+snapshot, L3 pagination) are batched for the same next deployment** — one
+redeploy, one Basescan re-verify, one frontend ABI re-export, rather than
+separate migrations.
 
 ## Operational controls around deployment & config
 

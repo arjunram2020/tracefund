@@ -43,8 +43,12 @@ export interface Milestone {
   state: MilestoneStateValue;
   submissionCount: number;
   approvalCount: number;
-  /** Sum of donations from approving voters on the latest submission (WeightedApproval). */
+  /** Sum of (per-voter capped) donations from approving voters on the latest submission (WeightedApproval). */
   approvedWeight: bigint;
+  /** totalRaised snapshotted when the latest submission was made — the WeightedApproval denominator. */
+  weightSnapshot: bigint;
+  /** Distinct donor addresses who voted yes on the latest submission (WeightedApproval). */
+  weightedApproverCount: number;
   /** Set when a reviewer rejects: the creator must resubmit by this time. */
   revisionDeadline: bigint;
   released: boolean;

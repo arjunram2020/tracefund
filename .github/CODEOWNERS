@@ -5,8 +5,11 @@
 # once branch protection has "Require review from Code Owners" enabled (see
 # docs/soc2/10-secure-sdlc.md).
 #
-# Replace @arjunram2020 with the correct GitHub username/team for your repo.
-# An unmatched username silently assigns no one, so verify it resolves.
+# Owner @arjunram2020 is the repository admin. NOTE (change-management gap): a
+# single owner is the only required reviewer for every path here, so there is no
+# separation of duties — a second maintainer/team should be added as co-owner
+# before an enterprise change-management review. Add them alongside @arjunram2020
+# on each line below (space-separated) once a handle exists.
 
 # Default owner for everything.
 *                                   @arjunram2020
@@ -31,3 +34,4 @@
 /docs/EVIDENCE_SECURITY_MODEL.md    @arjunram2020
 /docs/CONTRACT_SECURITY_REVIEW.md   @arjunram2020
 /docs/BACKUP_RECOVERY.md            @arjunram2020
+/SECURITY.md                        @arjunram2020

@@ -217,13 +217,16 @@ describe("Covenant — security properties", function () {
   });
 
   // ---------------------------------------------------------------------------
-  // Weighted approval concentration / Sybil (KNOWN LIMITATION — documented)
+  // Weighted approval concentration / Sybil (H1 hardening: per-voter weight cap
+  // + minimum distinct approvers). This raises the cost of self-approval from
+  // "one wallet" to "several well-funded wallets" — it does not make
+  // money-weighted voting Sybil-proof (see docs/CONTRACT_SECURITY_REVIEW.md).
   // ---------------------------------------------------------------------------
-  describe("Weighted approval concentration (documented limitation)", function () {
-    it("a single donor holding >= threshold weight can release funders' escrow alone", async function () {
-      // This asserts CURRENT behavior to make the risk explicit and regression-visible:
-      // in WeightedApproval, one wallet with enough donated weight (e.g. a creator's
-      // second wallet) can approve a release that includes OTHER donors' money.
+  describe("Weighted approval concentration (H1 hardening)", function () {
+    it("a single donor holding >= threshold weight can NO LONGER release escrow alone", async function () {
+      // Same setup as the pre-hardening exploit: a creator's sockpuppet holds
+      // 2/3 of the weight. It must no longer be able to release alone, even
+      // though its weight alone clears the 51% threshold.
       const [creator, sock, realDonor] = await ethers.getSigners();
       const usdc = (await (await ethers.getContractFactory("MockUSDC")).deploy()) as MockUSDC;
       const Factory = await ethers.getContractFactory("Covenant");
@@ -233,7 +236,6 @@ describe("Covenant — security properties", function () {
         await usdc.mint(d.address, usdc6("1"));
         await usdc.connect(d).approve(addr, usdc6("1"));
       }
-      // WeightedApproval, threshold 51%. Single milestone 0.03.
       await covenant.connect(creator).createCampaign("C", "D", CampaignKind.Startup, {
         model: ApprovalModel.WeightedApproval,
         reviewers: [],
@@ -241,18 +243,91 @@ describe("Covenant — security properties", function () {
       }, milestones([usdc6("0.03")]));
       const id = (await covenant.campaignCount()) - 1n;
 
-      await covenant.connect(sock).donate(id, usdc6("0.02")); // creator's sockpuppet: 2/3 weight
-      await covenant.connect(realDonor).donate(id, usdc6("0.01")); // real money at risk
+      await covenant.connect(sock).donate(id, usdc6("0.02")); // sockpuppet: 2/3 weight
+      await covenant.connect(realDonor).donate(id, usdc6("0.01"));
 
       await covenant.connect(creator).submitProof(id, "done", HASH, "");
-      const creatorBefore = await usdc.balanceOf(creator.address);
-      // Sock alone approves; 0.02/0.03 = 66% >= 51% → releases immediately.
+      // Sock alone approves; weight alone would clear 51%, but MIN_WEIGHTED_APPROVERS
+      // (2) blocks release on a single yes-vote.
       await covenant.connect(sock).reviewProof(id, true, "");
+      const m = await covenant.getMilestone(id, 0);
+      expect(m.released).to.equal(false);
+      expect(m.state).to.equal(1); // Submitted — still awaiting a second approver
+    });
 
-      // The creator received the full tranche — including the real donor's 0.01.
-      expect((await usdc.balanceOf(creator.address)) - creatorBefore).to.equal(usdc6("0.03"));
-      // And it inflated the creator's trust score with no independent review.
-      expect(await covenant.trustScore(creator.address)).to.be.gt(0n);
+    it("per-voter weight is capped at MAX_VOTER_WEIGHT_BPS, so one whale can't dominate even with a second voter", async function () {
+      const [creator, whale, tiny] = await ethers.getSigners();
+      const usdc = (await (await ethers.getContractFactory("MockUSDC")).deploy()) as MockUSDC;
+      const Factory = await ethers.getContractFactory("Covenant");
+      const covenant = (await Factory.deploy(await usdc.getAddress())) as Covenant;
+      const addr = await covenant.getAddress();
+      for (const d of [whale, tiny]) {
+        await usdc.mint(d.address, usdc6("1"));
+        await usdc.connect(d).approve(addr, usdc6("1"));
+      }
+      // Threshold 51%. Whale holds 90% of the weight, tiny holds 10%.
+      await covenant.connect(creator).createCampaign("C", "D", CampaignKind.Startup, {
+        model: ApprovalModel.WeightedApproval,
+        reviewers: [],
+        threshold: 51,
+      }, milestones([usdc6("0.10")]));
+      const id = (await covenant.campaignCount()) - 1n;
+      await covenant.connect(whale).donate(id, usdc6("0.09"));
+      await covenant.connect(tiny).donate(id, usdc6("0.01"));
+
+      await covenant.connect(creator).submitProof(id, "done", HASH, "");
+      await covenant.connect(whale).reviewProof(id, true, "");
+      // Whale's raw weight (0.09/0.10 = 90%) is capped at 50% of the snapshot
+      // (0.05), so this single vote is NOT enough to hit 51% alone even before
+      // the min-approver rule kicks in.
+      let m = await covenant.getMilestone(id, 0);
+      expect(m.approvedWeight).to.equal(usdc6("0.05"));
+      expect(m.released).to.equal(false);
+
+      // A second distinct approver pushes it over: 0.05 (capped whale) + 0.01 (tiny)
+      // = 0.06 / 0.10 = 60% >= 51%, and weightedApproverCount reaches 2.
+      await covenant.connect(tiny).reviewProof(id, true, "");
+      m = await covenant.getMilestone(id, 0);
+      expect(m.released).to.equal(true);
+    });
+
+    it("weight snapshot is fixed at submission time (M4 fix) — a mid-review donation can't shift the bar", async function () {
+      const [creator, donorA, donorB, lateWhale] = await ethers.getSigners();
+      const usdc = (await (await ethers.getContractFactory("MockUSDC")).deploy()) as MockUSDC;
+      const Factory = await ethers.getContractFactory("Covenant");
+      const covenant = (await Factory.deploy(await usdc.getAddress())) as Covenant;
+      const addr = await covenant.getAddress();
+      for (const d of [donorA, donorB, lateWhale]) {
+        await usdc.mint(d.address, usdc6("10"));
+        await usdc.connect(d).approve(addr, usdc6("10"));
+      }
+      // Goal is large enough that a late donation after submission doesn't
+      // trip the over-goal guard.
+      await covenant.connect(creator).createCampaign("C", "D", CampaignKind.Startup, {
+        model: ApprovalModel.WeightedApproval,
+        reviewers: [],
+        threshold: 51,
+      }, milestones([usdc6("0.10"), usdc6("0.10")])); // goal 0.20: M1 funded at 0.10, headroom for the late donation
+      const id = (await covenant.campaignCount()) - 1n;
+      await covenant.connect(donorA).donate(id, usdc6("0.05"));
+      await covenant.connect(donorB).donate(id, usdc6("0.05"));
+      // totalRaised = 0.10 at submission time → snapshot = 0.10; M1 (0.10) is exactly funded.
+      await covenant.connect(creator).submitProof(id, "done", HASH, "");
+
+      // A late donor arrives mid-review. Under the OLD (live-denominator) logic
+      // this would have diluted the approval bar; with the snapshot it must not.
+      await covenant.connect(lateWhale).donate(id, usdc6("0.05"));
+
+      const mBefore = await covenant.getMilestone(id, 0);
+      expect(mBefore.weightSnapshot).to.equal(usdc6("0.10"));
+
+      // donorA (capped at 50% of 0.10 = 0.05, no-op here since raw weight is
+      // already 0.05) + donorB (same) = 0.10/0.10 = 100% >= 51%, two distinct
+      // approvers → releases, using the snapshot, not the post-donation 0.15 total.
+      await covenant.connect(donorA).reviewProof(id, true, "");
+      await covenant.connect(donorB).reviewProof(id, true, "");
+      const m = await covenant.getMilestone(id, 0);
+      expect(m.released).to.equal(true);
     });
   });
 

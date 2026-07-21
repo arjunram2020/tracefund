@@ -2,9 +2,9 @@ import "dotenv/config";
 import crypto from "node:crypto";
 import express from "express";
 import cors from "cors";
-import { createPublicClient, http, keccak256, toBytes } from "viem";
+import { createPublicClient, http, keccak256, toBytes, verifyMessage, isAddress } from "viem";
 import { base } from "viem/chains";
-import { COVENANT_EVENTS } from "./abi.js";
+import { COVENANT_EVENTS, COVENANT_READS } from "./abi.js";
 import {
   openDb,
   getCursor,
@@ -12,6 +12,13 @@ import {
   insertEvent,
   logEvidenceAccess,
   getEvidenceAccess,
+  putEvidence,
+  getEvidence,
+  deleteEvidence,
+  sweepExpiredEvidence,
+  sweepExpiredAuditLogs,
+  hitRateLimit,
+  sweepExpiredRateLimits,
 } from "./db.js";
 
 // ---- Config (from .env) ----------------------------------------------------
@@ -39,8 +46,13 @@ const EVIDENCE_PROTECTED = process.env.EVIDENCE_PROTECTED === "true";
 // Bearer token for the admin-only audit endpoint. When unset, /audit is disabled.
 const ADMIN_TOKEN = process.env.ADMIN_TOKEN || "";
 // Salt for one-way hashing of IP/token fingerprints in the audit log so we never
-// store raw IPs or tokens. Falls back to the contract address if unset.
-const AUDIT_SALT = process.env.AUDIT_SALT || CONTRACT || "covenant";
+// store raw IPs or tokens. MUST be a secret: a public/guessable salt lets anyone
+// brute-force the small IPv4 space and reverse the "de-identified" fingerprints.
+// Required in production (fail-closed check below); in dev we fall back to a
+// random per-boot salt so fingerprints stay non-reversible (they just won't
+// correlate across restarts, which is fine for local work).
+const AUDIT_SALT_SET = Boolean(process.env.AUDIT_SALT);
+const AUDIT_SALT = process.env.AUDIT_SALT || crypto.randomBytes(32).toString("hex");
 // Optional 32-byte key (hex or base64) for encrypting evidence AT REST. Defense
 // in depth: a stolen DB file or backup is useless without it. Unset = store as
 // received (dev). NOTE: this is independent of client-side encryption — clients
@@ -65,6 +77,20 @@ const EVIDENCE_ENC_KEY = (() => {
 const RL_WINDOW_MS = Number(process.env.RATE_LIMIT_WINDOW_MS || 60000);
 const RL_MAX = Number(process.env.RATE_LIMIT_MAX || 300);
 const RL_SENSITIVE_MAX = Number(process.env.RATE_LIMIT_SENSITIVE_MAX || 30);
+// "token" (default): EVIDENCE_PROTECTED reads require the shared write token —
+// anyone holding it can read any campaign's evidence. "per-reviewer": reads
+// require a wallet signature, checked live against on-chain isReviewer()/the
+// campaign creator for the hash's recorded campaign — no shared secret, and
+// "revocation" tracks whatever the chain currently considers authorized.
+// Falls back to the shared token for rows written before this existed (no
+// campaign_id recorded) so older data doesn't become unreadable.
+const EVIDENCE_ACCESS_MODE = process.env.EVIDENCE_ACCESS_MODE === "per-reviewer" ? "per-reviewer" : "token";
+// How long a signed access message stays valid, to bound replay of a captured signature+URL.
+const EVIDENCE_SIG_MAX_AGE_MS = Number(process.env.EVIDENCE_SIG_MAX_AGE_MS || 5 * 60 * 1000);
+// Retention (days). Unset/0 = keep indefinitely (current behavior, unchanged).
+const EVIDENCE_RETENTION_DAYS = Number(process.env.EVIDENCE_RETENTION_DAYS || 0);
+const AUDIT_RETENTION_DAYS = Number(process.env.AUDIT_RETENTION_DAYS || 0);
+const RETENTION_SWEEP_MS = Number(process.env.RETENTION_SWEEP_INTERVAL_MS || 6 * 60 * 60 * 1000);
 
 // ---- Structured logger -----------------------------------------------------
 // One JSON object per line: greppable and ingestible by any log pipeline
@@ -91,6 +117,8 @@ const insecure = [];
 if (ALLOWED_ORIGINS.length === 0) insecure.push("ALLOWED_ORIGINS");
 if (!EVIDENCE_WRITE_TOKEN) insecure.push("EVIDENCE_WRITE_TOKEN");
 if (!ADMIN_TOKEN) insecure.push("ADMIN_TOKEN");
+if (!AUDIT_SALT_SET) insecure.push("AUDIT_SALT");
+if (!EVIDENCE_ENC_KEY) insecure.push("EVIDENCE_ENC_KEY");
 if (IS_PROD && insecure.length) {
   slog("error", "refusing to start: required security env vars unset in production", {
     missing: insecure,
@@ -100,13 +128,44 @@ if (IS_PROD && insecure.length) {
 for (const control of insecure) {
   slog("warn", "security control unset — permissive dev behavior", { control });
 }
-if (!EVIDENCE_ENC_KEY)
-  slog("warn", "EVIDENCE_ENC_KEY unset — evidence stored unencrypted at rest (dev only)");
+// Misconfiguration that would FAIL OPEN in any environment: "confidential mode"
+// with no token means safeEqual("", "") matches and protected reads are public.
+// Refuse to run rather than silently serve protected evidence unauthenticated.
+if (EVIDENCE_PROTECTED && !EVIDENCE_WRITE_TOKEN) {
+  slog("error", "refusing to start: EVIDENCE_PROTECTED=true requires EVIDENCE_WRITE_TOKEN");
+  process.exit(1);
+}
 
 // ---- Blockchain client -----------------------------------------------------
 // A "public client" only reads from the chain (no private key, can't spend).
 // This is the indexer's connection to Base Mainnet.
 const client = createPublicClient({ chain: base, transport: http(RPC_URL) });
+
+// Live on-chain authorization check for EVIDENCE_ACCESS_MODE=per-reviewer:
+// true if `address` currently holds review authority for the campaign (any
+// approval model) or is the campaign's creator. This reads the CURRENT chain
+// state on every request — there is no separate grant/revoke list to keep in
+// sync, and it naturally reflects e.g. an owner change for PlatformOperator
+// campaigns. It does NOT retroactively support removing one individual
+// DesignatedReviewers address (that list is fixed on-chain at creation — a
+// contract-level limitation, see docs/CONTRACT_SECURITY_REVIEW.md L4).
+async function isAuthorizedForCampaign(campaignId, address) {
+  const [isReviewer, campaign] = await Promise.all([
+    client.readContract({
+      address: CONTRACT,
+      abi: COVENANT_READS,
+      functionName: "isReviewer",
+      args: [BigInt(campaignId), address],
+    }),
+    client.readContract({
+      address: CONTRACT,
+      abi: COVENANT_READS,
+      functionName: "getCampaign",
+      args: [BigInt(campaignId)],
+    }),
+  ]);
+  return isReviewer || campaign.creator.toLowerCase() === address.toLowerCase();
+}
 
 const db = openDb(DB_PATH);
 
@@ -249,28 +308,24 @@ function decryptAtRest(stored) {
 // Best-effort client IP behind Nginx (trust proxy is enabled below).
 const clientIp = (req) => req.ip || req.socket?.remoteAddress || "";
 
-// Lightweight in-memory fixed-window rate limiter, keyed by client IP. No
-// external dependency and sufficient for a single indexer instance behind
-// Nginx. Rejections are logged (with a salted IP fingerprint, never the raw IP)
-// so abuse and token-guessing attempts show up in the structured log.
+// Fixed-window rate limiter, keyed by client IP and backed by the SQLite
+// rate_limits table (see db.js) rather than an in-process Map — so the limit
+// is shared across every process pointed at the same DB_PATH, not reset by a
+// restart or bypassed by round-robin across multiple instances on one host.
+// Rejections are logged (with a salted IP fingerprint, never the raw IP) so
+// abuse and token-guessing attempts show up in the structured log.
 function makeRateLimiter({ windowMs, max, name }) {
-  const hits = new Map(); // ip -> { count, resetAt }
-  // Periodic sweep keeps the map bounded regardless of unique-IP volume.
-  const sweep = setInterval(() => {
-    const now = Date.now();
-    for (const [ip, e] of hits) if (now > e.resetAt) hits.delete(ip);
-  }, windowMs);
+  // Periodic sweep keeps the table bounded regardless of unique-IP volume.
+  const sweep = setInterval(() => sweepExpiredRateLimits(db, Date.now()), windowMs);
   sweep.unref?.(); // don't keep the process alive just for cleanup
   return (req, res, next) => {
     const now = Date.now();
     const ip = clientIp(req) || "unknown";
-    let e = hits.get(ip);
-    if (!e || now > e.resetAt) e = (hits.set(ip, { count: 0, resetAt: now + windowMs }), hits.get(ip));
-    e.count++;
+    const { count, resetAt } = hitRateLimit(db, `${name}:${ip}`, windowMs, now);
     res.set("RateLimit-Limit", String(max));
-    res.set("RateLimit-Remaining", String(Math.max(0, max - e.count)));
-    if (e.count > max) {
-      res.set("Retry-After", String(Math.ceil((e.resetAt - now) / 1000)));
+    res.set("RateLimit-Remaining", String(Math.max(0, max - count)));
+    if (count > max) {
+      res.set("Retry-After", String(Math.ceil((resetAt - now) / 1000)));
       slog("warn", "rate limit exceeded", {
         limiter: name,
         ip_fp: fingerprint(ip),
@@ -280,6 +335,28 @@ function makeRateLimiter({ windowMs, max, name }) {
     }
     next();
   };
+}
+
+// Canonical message a reviewer/creator signs to prove wallet ownership for a
+// per-reviewer evidence read. Keeping it a plain, human-readable string (not a
+// hash) lets a wallet show the user exactly what they're signing.
+function evidenceAccessMessage(hash, campaignId, timestamp) {
+  return `Covenant evidence access\nhash: ${hash}\ncampaignId: ${campaignId}\ntimestamp: ${timestamp}`;
+}
+
+// Verify the request carries a fresh, valid signature from `address` proving
+// they currently hold review/creator authority over `campaignId`. Expects
+// ?address=0x..&signature=0x..&timestamp=<ms> on the GET request.
+async function checkPerReviewerAuth(req, campaignId) {
+  const { address, signature, timestamp } = req.query;
+  if (!address || !signature || !timestamp || !isAddress(String(address))) return false;
+  const ts = Number(timestamp);
+  if (!Number.isFinite(ts) || Math.abs(Date.now() - ts) > EVIDENCE_SIG_MAX_AGE_MS) return false;
+  const hash = String(req.params.hash).toLowerCase();
+  const message = evidenceAccessMessage(hash, campaignId, timestamp);
+  const validSig = await verifyMessage({ address: String(address), message, signature: String(signature) });
+  if (!validSig) return false;
+  return isAuthorizedForCampaign(campaignId, String(address));
 }
 
 function startApi() {
@@ -295,7 +372,13 @@ function startApi() {
     res.set("X-Frame-Options", "DENY");
     res.set("Referrer-Policy", "no-referrer");
     res.set("Cross-Origin-Resource-Policy", "same-site");
-    res.set("Content-Security-Policy", "default-src 'none'; frame-ancestors 'none'");
+    // This API only ever serves JSON, never HTML — deny every content type a
+    // browser could execute or render, not just framing.
+    res.set(
+      "Content-Security-Policy",
+      "default-src 'none'; frame-ancestors 'none'; script-src 'none'; style-src 'none'; " +
+        "img-src 'none'; connect-src 'none'; object-src 'none'; base-uri 'none'; form-action 'none'",
+    );
     res.set("Strict-Transport-Security", "max-age=63072000; includeSubDomains");
     next();
   });
@@ -405,29 +488,49 @@ function startApi() {
       audit(req, "bad_request", hash);
       return res.status(400).json({ error: "manifest does not hash to the given address" });
     }
+    // Optional scoping metadata, supplied by the writer (not integrity-checked
+    // — the hash already guarantees the manifest body). Used only to target
+    // per-reviewer read authorization at the right campaign.
+    const campaignId = asInt(req.query.campaignId);
+    const milestoneIndex = asInt(req.query.milestoneIndex);
     // Integrity is verified against the plaintext body above; we persist an
     // at-rest-encrypted copy so a stolen DB file can't reveal manifests.
-    db.prepare(
-      "INSERT OR IGNORE INTO evidence (hash, manifest) VALUES (?, ?)",
-    ).run(hash, encryptAtRest(body));
+    putEvidence(db, { hash, manifest: encryptAtRest(body), campaignId, milestoneIndex });
     audit(req, "ok", hash);
     res.json({ ok: true });
   });
 
-  app.get("/evidence/:hash", (req, res) => {
+  app.get("/evidence/:hash", async (req, res) => {
     const hash = String(req.params.hash).toLowerCase();
-    if (EVIDENCE_PROTECTED && !safeEqual(bearer(req), EVIDENCE_WRITE_TOKEN)) {
-      audit(req, "unauthorized", isHash(hash) ? hash : null);
-      return res.status(401).json({ error: "unauthorized" });
-    }
     if (!isHash(hash)) {
       audit(req, "bad_request", null);
       return res.status(400).json({ error: "invalid hash" });
     }
-    const row = db.prepare("SELECT manifest FROM evidence WHERE hash = ?").get(hash);
+    const row = getEvidence(db, hash);
     if (!row) {
       audit(req, "not_found", hash);
       return res.status(404).json({ error: "not found" });
+    }
+    if (row.deleted_at) {
+      audit(req, "not_found", hash); // don't distinguish "deleted" from "never existed" for outsiders
+      return res.status(410).json({ error: "evidence deleted" });
+    }
+    if (EVIDENCE_PROTECTED) {
+      if (EVIDENCE_ACCESS_MODE === "per-reviewer" && row.campaign_id !== null) {
+        const authorized = await checkPerReviewerAuth(req, row.campaign_id).catch((err) => {
+          slog("warn", "per-reviewer auth check failed", { error: err.message });
+          return false;
+        });
+        if (!authorized) {
+          audit(req, "unauthorized", hash);
+          return res.status(403).json({ error: "not an authorized reviewer for this campaign" });
+        }
+      } else if (!safeEqual(bearer(req), EVIDENCE_WRITE_TOKEN)) {
+        // Shared-token fallback: per-reviewer mode with no recorded campaign
+        // (legacy rows), or per-reviewer mode not enabled.
+        audit(req, "unauthorized", hash);
+        return res.status(401).json({ error: "unauthorized" });
+      }
     }
     let manifest;
     try {
@@ -439,6 +542,23 @@ function startApi() {
     }
     audit(req, "ok", hash);
     res.type("application/json").send(manifest);
+  });
+
+  // Data-subject / retention-driven manual deletion. Admin-only: this removes
+  // the manifest content (tombstoned, not row-deleted — see deleteEvidence)
+  // ahead of any automatic EVIDENCE_RETENTION_DAYS sweep.
+  app.delete("/evidence/:hash", sensitiveLimit, (req, res) => {
+    if (!ADMIN_TOKEN) return res.status(404).json({ error: "not found" });
+    if (!safeEqual(bearer(req), ADMIN_TOKEN)) {
+      return res.status(401).json({ error: "unauthorized" });
+    }
+    const hash = String(req.params.hash).toLowerCase();
+    if (!isHash(hash)) return res.status(400).json({ error: "invalid hash" });
+    const reason = typeof req.query.reason === "string" ? req.query.reason.slice(0, 200) : "manual";
+    const deleted = deleteEvidence(db, hash, reason);
+    audit(req, deleted ? "ok" : "not_found", hash);
+    if (!deleted) return res.status(404).json({ error: "not found or already deleted" });
+    res.json({ ok: true });
   });
 
   // ---- Admin-only audit endpoint -------------------------------------------
@@ -470,15 +590,43 @@ function startApi() {
       corsAllowlist: ALLOWED_ORIGINS.length ? ALLOWED_ORIGINS : "all (dev)",
       evidenceWriteAuth: Boolean(EVIDENCE_WRITE_TOKEN),
       evidenceProtectedReads: EVIDENCE_PROTECTED,
+      evidenceAccessMode: EVIDENCE_ACCESS_MODE,
       evidenceEncryptedAtRest: Boolean(EVIDENCE_ENC_KEY),
+      evidenceRetentionDays: EVIDENCE_RETENTION_DAYS || "unset (keep indefinitely)",
+      auditRetentionDays: AUDIT_RETENTION_DAYS || "unset (keep indefinitely)",
       auditEndpoint: Boolean(ADMIN_TOKEN),
     }),
   );
 }
 
+// ---- Retention sweeps -------------------------------------------------------
+// Runs on an interval rather than only at startup, so a long-lived process
+// doesn't need a restart to enforce a retention policy set after boot.
+function startRetentionSweeps() {
+  if (!EVIDENCE_RETENTION_DAYS && !AUDIT_RETENTION_DAYS) return;
+  const sweep = () => {
+    try {
+      if (EVIDENCE_RETENTION_DAYS) {
+        const n = sweepExpiredEvidence(db, EVIDENCE_RETENTION_DAYS);
+        if (n > 0) slog("info", "evidence retention sweep", { tombstoned: n, retentionDays: EVIDENCE_RETENTION_DAYS });
+      }
+      if (AUDIT_RETENTION_DAYS) {
+        const n = sweepExpiredAuditLogs(db, AUDIT_RETENTION_DAYS);
+        if (n > 0) slog("info", "audit log retention sweep", { deleted: n, retentionDays: AUDIT_RETENTION_DAYS });
+      }
+    } catch (err) {
+      slog("error", "retention sweep failed", { error: err.message });
+    }
+  };
+  sweep(); // apply immediately at boot, then on the interval
+  const interval = setInterval(sweep, RETENTION_SWEEP_MS);
+  interval.unref?.();
+}
+
 // ---- Boot ------------------------------------------------------------------
 (async () => {
   startApi(); // serve immediately (even mid-backfill)
+  startRetentionSweeps();
   try {
     await backfill(); // catch up on history once
   } catch (err) {

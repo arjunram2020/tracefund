@@ -111,24 +111,77 @@ startup check.
 - **Key loss = unrecoverable evidence.** No key escrow (by design — escrow would
   reintroduce a party who can read everything). Creators keep the downloaded
   package as backup.
-- **Per-instance rate limiting / in-memory limiter.** Fine for the current
-  single-indexer deployment; a shared store is needed for multi-instance.
+- **SQLite-backed rate limiting.** Shared across every process pointed at the
+  same `DB_PATH` (fine for the current single-EC2 topology, including
+  multiple PM2 instances on that host); a true multi-host deployment with
+  independent local disks would still need a network-shared store (Redis).
 - **`EVIDENCE_WRITE_TOKEN` doesn't secure browser-origin writes** — a browser
   can't hold a server secret. It suits trusted-uploader/proxy deployments;
   browser writes rely on content-addressing + rate limiting, and confidentiality
   comes from client-side encryption, not the write token.
 
+## Per-reviewer access control (identity-based, opt-in)
+
+`EVIDENCE_ACCESS_MODE=per-reviewer` (alongside `EVIDENCE_PROTECTED=true`)
+replaces the shared-token read check with **live on-chain authorization**:
+
+```
+Reviewer's browser:
+  sign "Covenant evidence access\nhash: <h>\ncampaignId: <id>\ntimestamp: <t>"
+  GET /evidence/<h>?campaignId=<id>&address=<addr>&signature=<sig>&timestamp=<t>
+Server:
+  verify the EOA signature recovers to <addr> (no RPC needed — pure ECDSA)
+  read isReviewer(campaignId, addr) and getCampaign(campaignId).creator on-chain
+  authorized = isReviewer || addr == creator
+```
+
+This is identity-based, not capability-based: holding a link is no longer
+sufficient, and the check reflects the **current** on-chain state, not a
+snapshot taken when access was granted — so, for example, a `PlatformOperator`
+campaign's authority follows an owner change automatically. It does **not**
+add revocation for one specific `DesignatedReviewers` address: that list is
+fixed on-chain at campaign creation (a contract-level limitation — see L4 in
+[CONTRACT_SECURITY_REVIEW.md](./CONTRACT_SECURITY_REVIEW.md)), so removing a
+single named reviewer's access still isn't possible without a contract change.
+`WeightedApproval` "reviewers" are just donors, so this mode grants any current
+donor read access to that campaign's evidence — the model already treats donor
+weight as public information.
+
+Evidence rows written without a `campaignId` (or written before this mode
+existed) transparently fall back to the shared-token check, so enabling this
+mode doesn't break access to older data.
+
+## Retention and deletion
+
+`DELETE /evidence/:hash` (admin-only, `ADMIN_TOKEN`) tombstones a manifest
+immediately — the row's hash and timestamps stay (so the audit trail and
+"this locator existed" fact survive), but the manifest content is nulled and a
+subsequent `GET` returns `410 Gone`. Use this for data-subject deletion
+requests.
+
+`EVIDENCE_RETENTION_DAYS` (unset by default = keep indefinitely) runs the same
+tombstoning automatically on a periodic sweep (`RETENTION_SWEEP_INTERVAL_MS`,
+default 6h) for any evidence older than the configured age.
+`AUDIT_RETENTION_DAYS` does the same for old `evidence_access` log rows (a
+hard delete, not a tombstone — access-log rows are operational exhaust, not
+evidence content). Neither policy is a lifecycle *requirement* by default —
+you must opt in by setting the retention window for your deployment.
+
 ## Remaining gaps (not yet built)
 
-- **No per-reviewer access control or revocation.** A capability grants read to
-  anyone who holds it; you cannot revoke one reviewer without re-encrypting and
-  re-sharing.
+- **No revocation of one specific named reviewer.** `DesignatedReviewers` is
+  fixed at campaign creation on-chain; per-reviewer mode authorizes against
+  *current* on-chain state, but can't remove a single named reviewer without a
+  contract change (L4).
 - **Metadata is not confidential.** The on-chain summary, `manifestHash`,
   timing, and the ciphertext's size/access pattern are observable. Only the
   manifest *contents* are protected.
-- **No reviewer-allowlist enforcement tied to the campaign's approval config.**
-  Access is capability-based, not identity-based.
-- **No retention/deletion workflow** for evidence yet.
+- **Per-reviewer mode isn't the default** — `EVIDENCE_ACCESS_MODE` defaults to
+  `token` (shared secret) for backward compatibility; deployments that want
+  identity-based access must opt in explicitly.
+- **No written data-classification or vendor policy** yet (tracked in
+  [SOC2_READINESS.md](./SOC2_READINESS.md) and
+  [SECURITY_POLICIES.md](./SECURITY_POLICIES.md)).
 
 These are the natural next steps toward a full Confidentiality control set and
 are tracked in [SOC2_READINESS.md](./SOC2_READINESS.md).
@@ -138,6 +191,10 @@ are tracked in [SOC2_READINESS.md](./SOC2_READINESS.md).
 - ✅ "Private evidence is end-to-end encrypted in the browser; Covenant's servers
   store only ciphertext."
 - ✅ "Evidence access is audit-logged and integrity is verifiable on-chain."
+- ✅ "Per-reviewer, identity-based evidence access (checked live against
+  on-chain reviewer/creator status) and a retention/deletion workflow are
+  available, opt-in controls."
 - ❌ Do **not** say "fully confidential" or "SOC 2 Confidentiality compliant" —
-  capability distribution is manual, there is no per-reviewer revocation, and
-  metadata is not hidden.
+  metadata isn't hidden, per-reviewer mode isn't the default, and a single
+  named `DesignatedReviewers` address still can't be individually revoked
+  without a contract change.

@@ -1,6 +1,15 @@
 # Covenant Proof / Review / Refund Architecture
 
-_Last updated: July 4, 2026 — this replaces the auto-release evidence model._
+_Last updated: July 20, 2026 — this replaces the auto-release evidence model._
+
+> **Deployment note.** This document describes the current contract **source**
+> and indexer, which include the H1 weighted-approval hardening, the M4 weight
+> snapshot, and OpenZeppelin `Pausable`. Those contract changes are **batched
+> for the next redeploy** — the live Base deployment predates them, so treat
+> pause and the snapshot denominator as active only after that redeploy. The
+> evidence-storage authorization, RBAC, and audit logging described below are
+> already implemented in the indexer today (environment-gated); see
+> `EVIDENCE_SECURITY_MODEL.md` and `SECURITY_POLICIES.md`.
 
 ## Flow
 
@@ -49,10 +58,14 @@ identical logic to every `CampaignKind`.
   - `DesignatedReviewers` / `PlatformOperator`: `approvalCount` increments;
     at `threshold` approvals the milestone releases.
   - `WeightedApproval`: `approvedWeight` accumulates the voter's own
-    cumulative donation; once `approvedWeight / totalRaised >= threshold%`
-    the milestone releases. Uses the *live* `totalRaised` as the denominator
-    (no snapshot), so donations landing mid-vote can shift the bar — a hard
-    snapshot would need its own design.
+    cumulative donation; once `approvedWeight / weightSnapshot >= threshold%`
+    the milestone releases. The denominator is `weightSnapshot` — `totalRaised`
+    captured at `submitProof` time (M4 fix) — so donations landing mid-vote can
+    no longer shift the bar. Two anti-concentration guards also apply (H1
+    hardening): per-voter weight is capped at `MAX_VOTER_WEIGHT_BPS` (50%) and
+    at least `MIN_WEIGHTED_APPROVERS` (2) distinct donors must approve, so no
+    single donor can release escrow alone. (Multi-wallet Sybil is raised in cost
+    but not fully closed — see `CONTRACT_SECURITY_REVIEW.md`.)
   - Either way: `MilestoneReleased`, the campaign advances, and — on the
     last milestone — completes.
 
@@ -90,14 +103,29 @@ field for typed artifacts / uploads / content hashes).
 | **Off-chain** | The full manifest. Stored in the evidence registry (indexer `PUT/GET /evidence/:hash`, which re-hashes bodies so it can never serve mismatched content) with a localStorage fallback, and downloadable as JSON for direct sharing with reviewers. |
 | **Verified** | Reviewers (UI: `ReviewPanel`) recompute the hash of whatever package they load and compare to the on-chain `manifestHash` — integrity badge on match, fingerprint instructions on miss. |
 
-**Access model today:** capability-by-hash ("unlisted") — the hash is public
-on-chain, so registry contents are readable by anyone who reads the chain.
-**TODO(privacy), deliberately not faked:** authenticated storage with
-role-based access (reviewer allowlists derived from the campaign's approval
-config), expiring links, and an access audit log. `lib/evidenceRegistry.ts`
-is the single seam to swap in that backend. Until then, keep genuinely
-confidential documents in "private" mode and share the package file with
-reviewers directly — the on-chain hash still proves what they were sent.
+**Access model.** Two layers, both implemented:
+
+- *Confidentiality by encryption (default for private proof).* The encrypted
+  path (`storeEncryptedManifest`) stores only ciphertext, addressed by
+  `keccak256(ciphertext)` — a locator that is **not** on-chain. The decryption
+  key travels only in the capability the creator shares out-of-band, so the
+  registry and chain observers see opaque bytes. Public-mode manifests are
+  still capability-by-hash ("unlisted") and readable by anyone reading the
+  chain — use that mode only for evidence meant to be public.
+- *Authenticated storage on the registry itself (indexer).* Writes require
+  `EVIDENCE_WRITE_TOKEN` (attached server-side by the `/api/evidence/[locator]`
+  proxy — the browser never holds it). Reads are optionally gated by
+  `EVIDENCE_PROTECTED`, with `EVIDENCE_ACCESS_MODE=per-reviewer` deriving a
+  reviewer allowlist live from the campaign's on-chain approval config
+  (wallet-signature auth, no shared secret). Every access attempt is written to
+  a salted, non-reversible audit log. At-rest manifests are AES-256-GCM
+  encrypted. Details: `EVIDENCE_SECURITY_MODEL.md`, `SECURITY_POLICIES.md`.
+
+`lib/evidenceRegistry.ts` remains the single client seam. Remaining gap:
+capability distribution to reviewers is still manual (no in-app secure channel
+or per-address revocation) — for genuinely confidential proof, share the
+package file or capability with reviewers directly; the on-chain hash still
+proves what they were sent.
 
 ## AI-assisted drafting
 
@@ -124,9 +152,9 @@ configured USDC token has bytecode (`ContractNotice`).
 
 ## Deferred (intentionally)
 
-- Snapshotted weighted voting — `WeightedApproval` currently divides by the *live* `totalRaised`, so donations landing mid-vote shift the bar. A hard snapshot (denominator fixed at submission time) would need its own design.
 - Program-level approval config (per-campaign only for now; the `ApprovalConfig` struct is the unit a program registry would reference).
-- Authenticated evidence storage / RBAC / access audit (seam: `evidenceRegistry.ts` + indexer `TODO(privacy)`).
+- Full multi-wallet Sybil resistance on `WeightedApproval` — the H1 weight cap + distinct-approver minimum raise the cost but don't eliminate it; a KYC/attestation layer would.
+- In-app capability distribution and per-address revocation for confidential evidence (today capability sharing is manual).
 - Typed artifacts and file uploads in proof packages (manifest `links[].kind` reserves the space).
 - Real LLM drafting (seam: `app/api/draft-milestones/route.ts`).
 - Research-list issues 10 and 12.

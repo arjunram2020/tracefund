@@ -49,17 +49,21 @@ async function putToRegistry(locator: string, body: string): Promise<RegistryTie
   } catch {
     /* storage full / SSR — the indexer tier may still succeed */
   }
-  if (INDEXER_URL) {
-    try {
-      const res = await fetch(`${INDEXER_URL}/evidence/${locator}`, {
-        method: "PUT",
-        headers: { "Content-Type": "application/json" },
-        body,
-      });
-      if (res.ok) tier = "indexer";
-    } catch {
-      /* indexer down — local tier (if any) still stands */
-    }
+  // Writes go through the same-origin API proxy (/api/evidence/:locator), which
+  // attaches the indexer's EVIDENCE_WRITE_TOKEN server-side. A direct browser
+  // PUT would 401 against any production indexer (the token can't live in the
+  // bundle), so the proxy is what makes the shared "indexer" tier actually
+  // reachable. Only a genuine 2xx promotes the tier — a 204 (no indexer
+  // configured) or any error leaves us on the local tier.
+  try {
+    const res = await fetch(`/api/evidence/${locator}`, {
+      method: "PUT",
+      headers: { "Content-Type": "application/json" },
+      body,
+    });
+    if (res.ok && res.status !== 204) tier = "indexer";
+  } catch {
+    /* proxy/indexer down — local tier (if any) still stands */
   }
   return tier;
 }

@@ -74,15 +74,24 @@ export function ReviewPanel({
 
   const threshold = config?.threshold ?? 1;
   const isWeighted = config?.model === ApprovalModel.WeightedApproval;
-  // Approved-weight as a percent of total raised (WeightedApproval only).
+  // Must mirror Covenant.sol's WeightedApproval hardening (H1/M4) so the projected
+  // percentage/approver count shown here matches what the contract will actually do.
+  const MIN_WEIGHTED_APPROVERS = 2;
+  const MAX_VOTER_WEIGHT_BPS = 5000n; // 50%
+  // The denominator is the snapshot taken at submission time, not live totalRaised.
+  const snapshot = milestone?.weightSnapshot ?? 0n;
+  const cappedMyDonation = snapshot > 0n && myDonation * 10000n > snapshot * MAX_VOTER_WEIGHT_BPS
+    ? (snapshot * MAX_VOTER_WEIGHT_BPS) / 10000n
+    : myDonation;
   const approvedPct =
-    milestone && campaign.totalRaised > 0n
-      ? Number((milestone.approvedWeight * 10000n) / campaign.totalRaised) / 100
-      : 0;
+    milestone && snapshot > 0n ? Number((milestone.approvedWeight * 10000n) / snapshot) / 100 : 0;
   const projectedPct =
-    milestone && campaign.totalRaised > 0n
-      ? Number(((milestone.approvedWeight + myDonation) * 10000n) / campaign.totalRaised) / 100
+    milestone && snapshot > 0n
+      ? Number(((milestone.approvedWeight + cappedMyDonation) * 10000n) / snapshot) / 100
       : 0;
+  const projectedApproverCount = (milestone?.weightedApproverCount ?? 0) + 1;
+  const weightedReleasesNow =
+    projectedPct >= threshold && projectedApproverCount >= MIN_WEIGHTED_APPROVERS;
 
   const review = async (approve: boolean) => {
     try {
@@ -136,7 +145,7 @@ export function ReviewPanel({
               </p>
               <span className="pill bg-violet-600/10 text-violet-700">
                 {isWeighted
-                  ? `${approvedPct}% / ${threshold}% approved`
+                  ? `${approvedPct}% / ${threshold}% · ${milestone.weightedApproverCount}/${MIN_WEIGHTED_APPROVERS} donors`
                   : `${milestone.approvalCount}/${threshold} approvals`}
               </span>
             </div>
@@ -220,14 +229,21 @@ export function ReviewPanel({
                       ? "Submitting review…"
                       : decision === "approve"
                         ? isWeighted
-                          ? projectedPct >= threshold
+                          ? weightedReleasesNow
                             ? "Approve — releases this milestone's funds"
-                            : `Approve (adds your weight — ${projectedPct}%/${threshold}%)`
+                            : `Approve (adds your weight — ${projectedPct}%/${threshold}%, ${projectedApproverCount}/${MIN_WEIGHTED_APPROVERS} donors)`
                           : milestone.approvalCount + 1 >= threshold
                             ? "Approve — releases this milestone's funds"
                             : `Approve (${milestone.approvalCount + 1}/${threshold})`
                         : "Reject & send back for revision"}
                   </button>
+                  {isWeighted && decision === "approve" && (
+                    <p className="mt-1 text-xs text-[var(--text-tertiary)]">
+                      Your vote is capped at 50% of the raised-funds snapshot, and at least{" "}
+                      {MIN_WEIGHTED_APPROVERS} distinct donors must approve before this milestone
+                      can release — one donor can never release it alone.
+                    </p>
+                  )}
                 </div>
               )}
               <div className="mt-2 min-h-[1.25rem]">

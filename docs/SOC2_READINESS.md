@@ -42,8 +42,10 @@ Recent repo changes add a real compliance seam instead of vague marketing:
 - the frontend and indexer send baseline security headers (nosniff, frame
   denial, HSTS, referrer policy, and `frame-ancestors` clickjacking protection);
 - the indexer fails closed in production: with `NODE_ENV=production` it refuses
-  to start if `ALLOWED_ORIGINS`, `EVIDENCE_WRITE_TOKEN`, or `ADMIN_TOKEN` are
-  unset, so a misconfigured deploy can't silently run open;
+  to start if `ALLOWED_ORIGINS`, `EVIDENCE_WRITE_TOKEN`, `ADMIN_TOKEN`,
+  `AUDIT_SALT`, or `EVIDENCE_ENC_KEY` are unset, so a misconfigured deploy
+  can't silently run open (and, in any environment, `EVIDENCE_PROTECTED=true`
+  without a write token refuses to start rather than failing open);
 - per-IP rate limiting protects all API routes, with a stricter limit on
   evidence writes and `/audit` to slow token guessing and scraping;
 - request bodies are size-capped (256 KB on evidence, 16 KB on the frontend
@@ -87,19 +89,20 @@ code; it does **not** mean independently audited.
 | Secrets kept out of git | ✅ In place | `.gitignore` ignores every `.env*` except `*.example`; secrets are env-only, never in code. See [SECURE_CONFIGURATION.md](./SECURE_CONFIGURATION.md) |
 | Public vs server-only config separation | ✅ In place | `NEXT_PUBLIC_*` documented as browser-public; secrets confined to server packages. See [SECURE_CONFIGURATION.md](./SECURE_CONFIGURATION.md) |
 | Deploy-key format validation | ✅ In place | `hardhat.config.ts` rejects a malformed `DEPLOYER_PRIVATE_KEY` instead of deploying with the wrong signer |
-| MFA on admin systems | ❌ Missing | Human control — AWS/GitHub/DNS/RPC/WalletConnect; track in a checklist |
-| Least-privilege + access reviews | ❌ Missing | Named production access, documented approvals, quarterly review |
+| MFA on admin systems | ❌ Missing | Human control, not code — AWS/GitHub/DNS/RPC/WalletConnect. Checklist: [OPERATIONAL_ACCESS_CHECKLIST.md](./OPERATIONAL_ACCESS_CHECKLIST.md) |
+| Least-privilege + access reviews | ❌ Missing | Named production access, documented approvals, quarterly review. Checklist: [OPERATIONAL_ACCESS_CHECKLIST.md](./OPERATIONAL_ACCESS_CHECKLIST.md) |
 | Backups + restore test | 🟡 Partial | `yarn backup` (online snapshot + checksum + manifest + optional mirror), `yarn restore:verify`, and `offsite-copy.sh` exist; enabling the cron schedule + offsite destination is operational. See [BACKUP_RECOVERY.md](./BACKUP_RECOVERY.md) |
 | Uptime monitoring | 🟡 Partial | Free GitHub Actions `/health` cron (`.github/workflows/uptime.yml`); set the `HEALTH_URL` repo variable to activate |
 | Security disclosure policy | ✅ In place | `SECURITY.md` — private reporting, scope, safe harbor |
 | Emergency contract pause | 🟡 Partial | OZ `Pausable` circuit breaker implemented + tested in source (halts inflows/releases, never refunds); takes effect on next deploy. See [CONTRACT_SECURITY_REVIEW.md](./CONTRACT_SECURITY_REVIEW.md) |
-| Smart-contract test coverage | ✅ In place | 51 tests incl. reentrancy, escrow isolation, refund-dust, Sybil, pause. CI runs them on every PR |
-| Uptime monitoring + alerting | ❌ Missing | Health-check monitor with paging (Phase 2) |
-| Full script/connect CSP | ❌ Missing | Only `frame-ancestors` is enforced today; a tested full CSP is Phase 2 |
-| Shared-store rate limiting | ❌ Missing | Current limiter is per-instance/in-memory; fine for one host, Phase 2 for many |
-| Written security policies | ❌ Missing | Access control, incident response, change mgmt, retention, vendor |
-| Per-reviewer evidence access + revocation | ❌ Missing | Capability-based today (no identity binding / revoke); metadata not hidden. See [EVIDENCE_SECURITY_MODEL.md](./EVIDENCE_SECURITY_MODEL.md) |
-| Evidence retention / deletion workflow | ❌ Missing | No lifecycle policy for stored manifests/ciphertext yet |
+| WeightedApproval Sybil hardening (H1) + denominator snapshot (M4) | 🟡 Partial | Per-voter weight cap + minimum distinct approvers + submission-time snapshot implemented + tested in source; batched with the Pausable redeploy above. See [CONTRACT_SECURITY_REVIEW.md](./CONTRACT_SECURITY_REVIEW.md) |
+| Smart-contract test coverage | ✅ In place | 54 tests incl. reentrancy, escrow isolation, refund-dust, weighted-approval hardening, pause. CI runs them on every PR |
+| Uptime monitoring + alerting | 🟡 Partial | `.github/workflows/uptime.yml` now opens/updates a single tracking GitHub issue on failure (auto-closes on recovery) in addition to the red-run email — durable, zero-cost, no vendor. Real paging/on-call integration (PagerDuty, Opsgenie, etc.) is still a vendor setup step, not a code gap |
+| Full script/connect CSP | ✅ In place | `next.config.js` now sets `default-src 'self'`, blocks `object-src`/foreign `form-action`/`base-uri`, and scopes `connect-src`/`frame-src` to what wallet connections need. `script-src`/`style-src` still use `'unsafe-inline'` (no nonce middleware yet) and `connect-src` stays broad (`https:`/`wss:`) because the RPC/WalletConnect relay hosts are env-configured — narrow both once a nonce pass is done and hosts are pinned. **Verify the live wallet-connect flow (MetaMask + WalletConnect) after this change, before relying on it.** |
+| Shared-store rate limiting | ✅ In place | Rate-limit counters now live in the indexer's SQLite DB (`rate_limits` table) instead of an in-process `Map`, so the limit is shared across every process pointed at the same `DB_PATH` (e.g. multiple PM2 instances on one host). A deployment that scales to independent-disk multi-host still needs a network-shared store (Redis) for a true cross-host limit — that's a further step, not needed for the current single-EC2 topology |
+| Written security policies | 🟡 Partial | [SECURITY_POLICIES.md](./SECURITY_POLICIES.md) now documents access control, change management, incident response, retention, and vendor management as they actually operate today; it is a working document, not board/legal-reviewed policy |
+| Per-reviewer evidence access + revocation | 🟡 Partial | `EVIDENCE_ACCESS_MODE=per-reviewer` (opt-in) authorizes evidence reads via a wallet signature checked live against on-chain `isReviewer()`/campaign creator — identity-based, not capability-based. Still can't revoke one specific named `DesignatedReviewers` address (fixed on-chain at creation — contract-level limitation). See [EVIDENCE_SECURITY_MODEL.md](./EVIDENCE_SECURITY_MODEL.md) |
+| Evidence retention / deletion workflow | ✅ In place | `DELETE /evidence/:hash` (admin-only) tombstones a manifest immediately; `EVIDENCE_RETENTION_DAYS`/`AUDIT_RETENTION_DAYS` run the same automatically on a sweep. Off by default — must be opted into per deployment. See [EVIDENCE_SECURITY_MODEL.md](./EVIDENCE_SECURITY_MODEL.md) |
 
 ## Control mapping
 
@@ -144,11 +147,20 @@ In product now:
 - protected evidence API mode is available;
 - evidence access is auditable.
 
+In product now (added):
+
+- identity-based, per-reviewer evidence access checked live against on-chain
+  reviewer/creator status (`EVIDENCE_ACCESS_MODE=per-reviewer`, opt-in — see
+  [EVIDENCE_SECURITY_MODEL.md](./EVIDENCE_SECURITY_MODEL.md)).
+
 Still required:
 
-- enforce protected mode in production;
-- role-based access rules for creators / reviewers / operators;
-- vendor and data-classification policy;
+- enforce protected mode (and per-reviewer mode) in production by default,
+  not opt-in;
+- revocation for one specific named `DesignatedReviewers` address (fixed
+  on-chain at creation today);
+- vendor and data-classification policy (see
+  [SECURITY_POLICIES.md](./SECURITY_POLICIES.md) for a first pass);
 - secrets management and rotation.
 
 ### Processing Integrity
@@ -170,22 +182,35 @@ In product now:
 
 - the design minimizes on-chain sensitive data.
 
+In product now (added):
+
+- evidence retention/deletion tooling: `DELETE /evidence/:hash` for
+  data-subject requests, `EVIDENCE_RETENTION_DAYS`/`AUDIT_RETENTION_DAYS` for
+  automatic age-based sweeps (opt-in, off by default). See
+  [EVIDENCE_SECURITY_MODEL.md](./EVIDENCE_SECURITY_MODEL.md).
+
 Still required:
 
 - privacy notice;
-- retention/deletion schedule;
-- data subject request workflow if personal data is collected;
+- a retention *schedule* — the tooling exists but no default retention window
+  is set, and no one has decided what it should be;
+- a documented data-subject request *process* (the technical means exists —
+  who triggers it and how is not yet written down);
 - vendor list and cross-border data review if applicable.
 
 ## What you should do next
 
 1. Define the audit scope and system boundary.
 2. Enable MFA and least-privilege access across AWS, GitHub, DNS, RPC vendors,
-   WalletConnect, and any admin tooling.
-3. Turn on the protected evidence API and admin audit token in production.
-4. Add centralized logging, alerting, and backup/restore tests.
-5. Write short policies: access control, change management, incident response,
-   retention, vendor management.
+   WalletConnect, and any admin tooling — checklist:
+   [OPERATIONAL_ACCESS_CHECKLIST.md](./OPERATIONAL_ACCESS_CHECKLIST.md).
+3. Turn on the protected evidence API and admin audit token in production;
+   consider `EVIDENCE_ACCESS_MODE=per-reviewer` for identity-based access.
+4. Add centralized logging, alerting (paging), and backup/restore tests.
+5. ~~Write short policies~~ — a first pass now exists:
+   [SECURITY_POLICIES.md](./SECURITY_POLICIES.md) (access control, change
+   management, incident response, retention, vendor management). Review and
+   adapt it as the team/infra grows.
 6. Run a readiness assessment with an auditor or compliance advisor.
 7. Collect operating evidence long enough for a Type II audit.
 

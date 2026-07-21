@@ -1,7 +1,33 @@
-// Baseline security response headers for every route. These are low-risk and
-// don't interfere with wallet connections (WalletConnect/MetaMask): we scope
-// the Content-Security-Policy to `frame-ancestors` (anti-clickjacking) only,
-// leaving a full script/connect CSP for a later, tested pass.
+// Baseline security response headers for every route. Content-Security-Policy
+// covers script/style/connect/frame sources (not just frame-ancestors): it
+// restricts everything to same-origin by default, blocks <object>/plugins and
+// foreign form targets, and only opens up what wallet connections actually
+// need. Two directives stay intentionally broad rather than pinned to one
+// vendor, because the RPC endpoint and WalletConnect relay are runtime/env
+// configured (NEXT_PUBLIC_*, not compile-time constants):
+//   - connect-src allows https:/wss: broadly (the RPC provider — Alchemy,
+//     public Base RPC, etc. — and the WalletConnect relay both vary by env).
+//   - script/style keep 'unsafe-inline' because Next.js's App Router hydration
+//     bootstrap and Tailwind's inline styles need it without a nonce-based
+//     middleware pass (a stricter, nonce-based CSP is a further hardening
+//     step, not yet done).
+// Narrow connect-src to the deployment's actual RPC + relay hosts once they're
+// pinned, and verify the wallet-connect flow (MetaMask + WalletConnect QR)
+// after any CSP change — a misconfigured connect-src silently breaks RPC calls.
+const CSP = [
+  "default-src 'self'",
+  "script-src 'self' 'unsafe-inline'",
+  "style-src 'self' 'unsafe-inline'",
+  "img-src 'self' data: https:",
+  "font-src 'self' data:",
+  "connect-src 'self' https: wss:",
+  "frame-src 'self' https://verify.walletconnect.com https://verify.walletconnect.org",
+  "frame-ancestors 'none'",
+  "base-uri 'self'",
+  "form-action 'self'",
+  "object-src 'none'",
+].join("; ");
+
 const securityHeaders = [
   { key: "X-Content-Type-Options", value: "nosniff" },
   { key: "X-Frame-Options", value: "DENY" },
@@ -15,7 +41,7 @@ const securityHeaders = [
     key: "Strict-Transport-Security",
     value: "max-age=63072000; includeSubDomains; preload",
   },
-  { key: "Content-Security-Policy", value: "frame-ancestors 'none'" },
+  { key: "Content-Security-Policy", value: CSP },
 ];
 
 /** @type {import('next').NextConfig} */

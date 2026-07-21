@@ -1007,4 +1007,37 @@ describe("Covenant", function () {
       expect(await covenant.trustScore(outsider.address)).to.equal(0n);
     });
   });
+
+  // ---------------------------------------------------------------------------
+  // Paginated reads (L3 hardening — getAllCampaigns() is unbounded)
+  // ---------------------------------------------------------------------------
+  describe("getCampaignsPage", function () {
+    it("pages through campaigns in creation order and reports the total", async function () {
+      const { covenant, creator, outsider, reviewer1 } = await loadFixture(deployFixture);
+      await covenant.connect(creator).setCreatorApproval(outsider.address, true);
+      const ids: bigint[] = [];
+      for (let i = 0; i < 5; i++) {
+        ids.push(await createDemoCampaign(covenant, outsider, [reviewer1.address]));
+      }
+
+      const all = await covenant.getAllCampaigns();
+      expect(all.length).to.equal(5);
+
+      const [page1, total1] = await covenant.getCampaignsPage(0, 2);
+      expect(total1).to.equal(5n);
+      expect(page1.map((c) => c.id)).to.deep.equal([ids[0], ids[1]]);
+
+      const [page2, total2] = await covenant.getCampaignsPage(2, 2);
+      expect(total2).to.equal(5n);
+      expect(page2.map((c) => c.id)).to.deep.equal([ids[2], ids[3]]);
+
+      // Last page is short (only one item left).
+      const [page3] = await covenant.getCampaignsPage(4, 2);
+      expect(page3.map((c) => c.id)).to.deep.equal([ids[4]]);
+
+      // Offset past the end returns an empty page, not a revert.
+      const [page4] = await covenant.getCampaignsPage(5, 2);
+      expect(page4.length).to.equal(0);
+    });
+  });
 });

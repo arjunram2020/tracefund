@@ -1514,6 +1514,16 @@
           "type": "constructor"
         },
         {
+          "inputs": [],
+          "name": "EnforcedPause",
+          "type": "error"
+        },
+        {
+          "inputs": [],
+          "name": "ExpectedPause",
+          "type": "error"
+        },
+        {
           "inputs": [
             {
               "internalType": "address",
@@ -1730,6 +1740,19 @@
           "anonymous": false,
           "inputs": [
             {
+              "indexed": false,
+              "internalType": "address",
+              "name": "account",
+              "type": "address"
+            }
+          ],
+          "name": "Paused",
+          "type": "event"
+        },
+        {
+          "anonymous": false,
+          "inputs": [
+            {
               "indexed": true,
               "internalType": "uint256",
               "name": "campaignId",
@@ -1832,6 +1855,19 @@
           "type": "event"
         },
         {
+          "anonymous": false,
+          "inputs": [
+            {
+              "indexed": false,
+              "internalType": "address",
+              "name": "account",
+              "type": "address"
+            }
+          ],
+          "name": "Unpaused",
+          "type": "event"
+        },
+        {
           "inputs": [],
           "name": "CREATION_COOLDOWN",
           "outputs": [
@@ -1873,6 +1909,32 @@
         {
           "inputs": [],
           "name": "MAX_REVIEWERS",
+          "outputs": [
+            {
+              "internalType": "uint256",
+              "name": "",
+              "type": "uint256"
+            }
+          ],
+          "stateMutability": "view",
+          "type": "function"
+        },
+        {
+          "inputs": [],
+          "name": "MAX_VOTER_WEIGHT_BPS",
+          "outputs": [
+            {
+              "internalType": "uint256",
+              "name": "",
+              "type": "uint256"
+            }
+          ],
+          "stateMutability": "view",
+          "type": "function"
+        },
+        {
+          "inputs": [],
+          "name": "MIN_WEIGHTED_APPROVERS",
           "outputs": [
             {
               "internalType": "uint256",
@@ -2347,6 +2409,112 @@
         {
           "inputs": [
             {
+              "internalType": "uint256",
+              "name": "offset",
+              "type": "uint256"
+            },
+            {
+              "internalType": "uint256",
+              "name": "limit",
+              "type": "uint256"
+            }
+          ],
+          "name": "getCampaignsPage",
+          "outputs": [
+            {
+              "components": [
+                {
+                  "internalType": "uint256",
+                  "name": "id",
+                  "type": "uint256"
+                },
+                {
+                  "internalType": "address",
+                  "name": "creator",
+                  "type": "address"
+                },
+                {
+                  "internalType": "string",
+                  "name": "title",
+                  "type": "string"
+                },
+                {
+                  "internalType": "string",
+                  "name": "description",
+                  "type": "string"
+                },
+                {
+                  "internalType": "enum Covenant.CampaignKind",
+                  "name": "kind",
+                  "type": "uint8"
+                },
+                {
+                  "internalType": "uint256",
+                  "name": "goalAmount",
+                  "type": "uint256"
+                },
+                {
+                  "internalType": "uint256",
+                  "name": "totalRaised",
+                  "type": "uint256"
+                },
+                {
+                  "internalType": "uint256",
+                  "name": "totalReleased",
+                  "type": "uint256"
+                },
+                {
+                  "internalType": "bool",
+                  "name": "active",
+                  "type": "bool"
+                },
+                {
+                  "internalType": "bool",
+                  "name": "completed",
+                  "type": "bool"
+                },
+                {
+                  "internalType": "uint64",
+                  "name": "cancelledAt",
+                  "type": "uint64"
+                },
+                {
+                  "internalType": "uint256",
+                  "name": "currentMilestone",
+                  "type": "uint256"
+                },
+                {
+                  "internalType": "uint256",
+                  "name": "createdAt",
+                  "type": "uint256"
+                },
+                {
+                  "internalType": "uint256",
+                  "name": "donorCount",
+                  "type": "uint256"
+                },
+                {
+                  "internalType": "uint256",
+                  "name": "milestoneCount",
+                  "type": "uint256"
+                }
+              ],
+              "internalType": "struct Covenant.Campaign[]",
+              "name": "list",
+              "type": "tuple[]"
+            },
+            {
+              "internalType": "uint256",
+              "name": "total",
+              "type": "uint256"
+            }
+          ],
+          "stateMutability": "view",
+          "type": "function"
+        },
+        {
+          "inputs": [
+            {
               "internalType": "address",
               "name": "creator",
               "type": "address"
@@ -2518,6 +2686,16 @@
                   "type": "uint256"
                 },
                 {
+                  "internalType": "uint256",
+                  "name": "weightSnapshot",
+                  "type": "uint256"
+                },
+                {
+                  "internalType": "uint8",
+                  "name": "weightedApproverCount",
+                  "type": "uint8"
+                },
+                {
                   "internalType": "uint64",
                   "name": "revisionDeadline",
                   "type": "uint64"
@@ -2609,6 +2787,16 @@
                   "internalType": "uint256",
                   "name": "approvedWeight",
                   "type": "uint256"
+                },
+                {
+                  "internalType": "uint256",
+                  "name": "weightSnapshot",
+                  "type": "uint256"
+                },
+                {
+                  "internalType": "uint8",
+                  "name": "weightedApproverCount",
+                  "type": "uint8"
                 },
                 {
                   "internalType": "uint64",
@@ -2836,6 +3024,26 @@
           "type": "function"
         },
         {
+          "inputs": [],
+          "name": "pause",
+          "outputs": [],
+          "stateMutability": "nonpayable",
+          "type": "function"
+        },
+        {
+          "inputs": [],
+          "name": "paused",
+          "outputs": [
+            {
+              "internalType": "bool",
+              "name": "",
+              "type": "bool"
+            }
+          ],
+          "stateMutability": "view",
+          "type": "function"
+        },
+        {
           "inputs": [
             {
               "internalType": "uint256",
@@ -2965,6 +3173,13 @@
             }
           ],
           "stateMutability": "view",
+          "type": "function"
+        },
+        {
+          "inputs": [],
+          "name": "unpause",
+          "outputs": [],
+          "stateMutability": "nonpayable",
           "type": "function"
         },
         {

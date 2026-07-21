@@ -690,7 +690,15 @@ export default function CreateCampaignPage() {
                 Any donor can vote to approve or reject submitted proof. A milestone releases once
                 donors representing at least {weightedThreshold || 0}% of this campaign&apos;s
                 raised funds have approved it — a $100 donor&apos;s vote counts for more than a $10
-                donor&apos;s.
+                donor&apos;s. No single donor&apos;s vote counts for more than half the vote weight,
+                and at least two distinct donors must approve — but a large campaign with only a
+                handful of donors is still easier to concentrate than one with many.
+              </p>
+              <p className="text-xs text-amber-700">
+                A creator who controls a majority of donated weight across two or more wallets can
+                still approve their own milestone. For high-value or institutional campaigns,
+                consider Designated reviewers instead — an explicit, named committee is harder to
+                game than open donor weight.
               </p>
               {weightedError && <p className="text-xs text-amber-700">{weightedError}</p>}
             </div>

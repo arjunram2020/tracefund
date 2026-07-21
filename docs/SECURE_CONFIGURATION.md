@@ -25,6 +25,8 @@ or database URL behind a `NEXT_PUBLIC_` name.
 
 - `DEPLOYER_PRIVATE_KEY`, `DONOR_*_KEY` — hardhat, sign real transactions.
 - `EVIDENCE_WRITE_TOKEN`, `ADMIN_TOKEN`, `EVIDENCE_ENC_KEY`, `AUDIT_SALT` — indexer.
+  (`EVIDENCE_WRITE_TOKEN` is also set server-side in the frontend, where the
+  `/api/evidence` write proxy attaches it — same value, never `NEXT_PUBLIC_`.)
 - `BASESCAN_API_KEY` / `ETHERSCAN_API_KEY` — hardhat verification.
 - Any RPC URL that embeds a provider API key.
 
@@ -37,12 +39,18 @@ or database URL behind a `NEXT_PUBLIC_` name.
 
 ## Env files and templates
 
-Each package ships a committed `.env.example` documenting its variables; the
-real `.env` / `.env.local` are git-ignored and never committed.
+Each service package ships a committed `.env.example` documenting its variables;
+the real `.env` / `.env.local` are git-ignored and never committed.
 
-- `packages/nextjs/.env.example` — frontend (all PUBLIC).
+- `packages/nextjs/.env.example` — frontend (`NEXT_PUBLIC_*` are PUBLIC; the
+  server-only `INDEXER_URL` / `EVIDENCE_WRITE_TOKEN` for the evidence write
+  proxy are documented below the marked divider).
 - `packages/indexer/.env.example` — indexer + all security controls.
 - `packages/hardhat/.env.example` — deploy keys and RPCs.
+
+`packages/loadtest` has no `.env.example` — it uses the well-known public
+Hardhat test mnemonic against a local chain only and holds no configurable
+secrets (the `.env` row above is for optional local test overrides).
 
 `.gitignore` ignores **every** `.env*` file except `*.example`, so a
 `.env.production` or `.env.staging` with secrets cannot be committed by accident.
@@ -76,8 +84,9 @@ Frontend (Vercel or host):
 - [ ] Use a reliable RPC endpoint; if keyed, restrict the key by domain/referrer.
 
 Indexer (server / EC2):
-- [ ] Set `NODE_ENV=production` — the indexer then **fails to start** unless `ALLOWED_ORIGINS`, `EVIDENCE_WRITE_TOKEN`, and `ADMIN_TOKEN` are set (fail-closed).
+- [ ] Set `NODE_ENV=production` — the indexer then **fails to start** unless `ALLOWED_ORIGINS`, `EVIDENCE_WRITE_TOKEN`, `ADMIN_TOKEN`, `AUDIT_SALT`, and `EVIDENCE_ENC_KEY` are set (fail-closed).
 - [ ] Set `EVIDENCE_ENC_KEY` (encryption at rest) and back it up separately from the database — losing it makes encrypted rows unreadable.
+- [ ] Set `AUDIT_SALT` to a secret random value (`openssl rand -hex 32`) — a guessable salt would let audit-log IP fingerprints be brute-forced back to raw IPs.
 - [ ] Set `ALLOWED_ORIGINS` to your exact frontend origin(s).
 - [ ] Store `.env` with least-privilege file permissions (`chmod 600`); never world-readable.
 - [ ] Confirm ports 3000/4000 are not internet-exposed (only Nginx + SSH are).

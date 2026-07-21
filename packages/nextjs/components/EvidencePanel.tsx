@@ -205,10 +205,10 @@ export function EvidencePanel({
         Proof submitted — under review (
         {config?.model === ApprovalModel.WeightedApproval
           ? `${
-              campaign.totalRaised > 0n
-                ? Number((milestone.approvedWeight * 10000n) / campaign.totalRaised) / 100
+              milestone.weightSnapshot > 0n
+                ? Number((milestone.approvedWeight * 10000n) / milestone.weightSnapshot) / 100
                 : 0
-            }%/${threshold}% of donor weight`
+            }%/${threshold}% of donor weight · ${milestone.weightedApproverCount}/2 donors`
           : `${milestone.approvalCount}/${threshold} approvals`}
         )
       </p>
